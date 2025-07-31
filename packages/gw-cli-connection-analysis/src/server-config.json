@@ -1,0 +1,41 @@
+{
+  "name": "Management MCP server",
+  "description": "Check Point Management API MCP Server",
+  "options": [
+    {
+      "flag": "--s1c-url <s1c url>",
+      "description": "S1C URL",
+      "type": "string"
+    },
+    {
+      "flag": "--api-key <key>",
+      "description": "API key",
+      "type": "string"
+    },
+    {
+      "flag": "--username <username>",
+      "description": "Username for on-prem authentication",
+      "env": "USERNAME",
+      "type": "string"
+    },
+    {
+      "flag": "--password <password>",
+      "description": "Password for on-prem authentication",
+      "env": "PASSWORD",
+      "type": "string"
+    },
+    {
+      "flag": "--management-host <host>",
+      "description": "Management host (for on-prem)",
+      "env": "MANAGEMENT_HOST",
+      "type": "string"
+    },
+    {
+      "flag": "--management-port <port>",
+      "description": "Port for on-prem API",
+      "env": "MANAGEMENT_PORT",
+      "default": "443",
+      "type": "string"
+    }
+  ]
+}

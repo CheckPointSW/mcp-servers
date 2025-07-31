@@ -20,7 +20,11 @@
     { "path": "./packages/https-inspection" },
     { "path": "./packages/threat-prevention" },
     { "path": "./packages/harmony-infra" },
-    { "path": "./packages/harmony-sase" }
+    { "path": "./packages/harmony-sase" },
+    { "path": "./packages/reputation-service" },
+    { "path": "./packages/gw-cli-base" },
+    { "path": "./packages/gw-cli" },
+    { "path": "./packages/gw-cli-connection-analysis" }
   ],
   "files": []
 }

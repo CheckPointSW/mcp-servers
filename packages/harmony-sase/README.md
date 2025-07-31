@@ -26,7 +26,7 @@ MCP simplifies this by exposing your Harmony SASE data in a structured, modular,
 
 ## Demo
 
-[![Watch the demo](https://img.youtube.com/vi/WERAgbFOcYE/hqdefault.jpg)](https://www.youtube.com/watch?v=WERAgbFOcYE)
+[![Watch the demo](https://img.youtube.com/vi/0mLRYIwv-ME/hqdefault.jpg)](https://www.youtube.com/watch?v=0mLRYIwv-ME)
 
 ## Example Use Cases
 

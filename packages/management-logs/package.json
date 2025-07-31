@@ -18,7 +18,9 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "build": "tsc && chmod +x ./dist/index.js && cp src/server-config.json dist/",
+    "build:windows": "tsc && copy src\\server-config.json dist\\",
+    "build:unix": "tsc && chmod +x ./dist/index.js && cp src/server-config.json dist/",
+    "build": "node -e \"process.platform === 'win32' ? require('child_process').execSync('npm run build:windows', {stdio: 'inherit'}) : require('child_process').execSync('npm run build:unix', {stdio: 'inherit'})\"",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
     "build:all": "npm run clean && npm run build"
