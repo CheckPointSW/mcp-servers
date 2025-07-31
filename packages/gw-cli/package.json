@@ -1,16 +1,10 @@
 {
-  "name": "@chkp/threat-prevention-mcp",
-  "version": "0.4.0",
-  "description": "Threat Prevention MCP server for Check Point products",
+  "name": "@chkp/quantum-gw-cli-mcp",
+  "version": "0.0.1",
+  "description": "Model Context Protocol (MCP) server for Check Point gateway CLI commands and diagnostic tools.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "bin": {
-    "threat-prevention-mcp": "./dist/index.js"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  },
   "scripts": {
     "build:windows": "tsc && copy src\\server-config.json dist\\",
     "build:unix": "tsc && chmod +x ./dist/index.js && cp src/server-config.json dist/",
@@ -19,21 +13,35 @@
     "start": "node dist/index.js",
     "build:all": "npm run clean && npm run build"
   },
+  "author": "Check Point Software Technologies",
+  "license": "MIT",
   "dependencies": {
-    "@chkp/mcp-utils": "*",
-    "@modelcontextprotocol/sdk": "^1.11.1",
     "commander": "^11.0.0",
-    "zod": "^3.22.4",
-    "@chkp/quantum-infra": "*"
+    "@chkp/quantum-infra": "*",
+    "@chkp/quantum-gw-cli-base": "*",
+    "@chkp/mcp-utils": "*"
   },
   "devDependencies": {
-    "@types/node": "^18.15.11",
-    "typescript": "^5.0.4"
+    "typescript": "^5.0.0",
+    "ts-node": "^10.0.0",
+    "eslint": "^8.0.0",
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "@types/jest": "^29.0.0"
   },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/CheckPointSW/mcp-servers.git",
-    "directory": "packages/threat-prevention"
+    "directory": "packages/gw-cli"
   },
-  "license": "MIT"
+  "bin": {
+    "quantum-gw-cli-mcp": "dist/index.js"
+  }
 }

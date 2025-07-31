@@ -25,6 +25,10 @@ This monorepo is organized with each Check Point security domain as a separate M
   - **`/harmony-infra`** - Shared infrastructure components for Harmony products
   - **`/harmony-sase`** - Harmony SASE MCP Server for SASE policy management
   - **`/mcp-utils`** - Shared utilities for Check Point MCP servers
+  - **`/reputation-service`** - Reputation MCP Server 
+  - **`/gw-cli-base`** - Base Infra for running Gateways scripts
+  - **`/gw-cli`** - Gateway Script MCP Server for Information, Perfomance and Diagnostics
+  - **`/gw-cli-connection-analysis`** - Gateway Script MCP Server to Analyze Connection Issues
 
 ## Available MCP Servers
 
@@ -37,6 +41,9 @@ The following MCP servers are available in this repository:
 | [Threat-Prevention](./packages/threat-prevention/) | `@chkp/threat-prevention-mcp` | Query Threat Prevention policies, profiles and indicators, view IPS updates and IOC feeds |
 | [HTTPS-Inspection](./packages/https-inspection/) | `@chkp/https-inspection-mcp` | Query Https Inspection policies, rules and exceptions |
 | [Harmony sase](./packages/harmony-sase/) | `@chkp/harmony-sase-mcp` | Query and manage Harmony SASE Regions, Networks, Applications and configurations |
+| [Reputation service](./packages/reputation-service/) | `@chkp/reputation-service-mcp` | Query Url, IP and File Reputaions |
+| [GW CLI](./packages/gw-cli/) | `@chkp/quantum-gw-cli-mcp` | Provides comprehensive diagnostics and analysis across hardware, network configuration, high availability, performance, security, and real-time connection debugging |
+| [GW CLI connection analysis](./packages/gw-cli-connection-analysis/) | `@chkp/quantum-gw-connection-analysis-mcp` | Provides debug logs to help analyze connection issues |
 
 
 ## Example: Setting Up an MCP Server
