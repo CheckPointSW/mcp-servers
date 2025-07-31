@@ -1,5 +1,13 @@
 # @chkp/quantum-management-mcp
 
+## 0.3.1
+
+### Patch Changes
+
+- 1075683: Updated configuration, Modified 1 file(s) (synced from internal repository)
+- Updated dependencies [1075683]
+  - @chkp/quantum-infra@0.5.1
+
 ## 0.3.0
 
 ### Minor Changes
