@@ -21,8 +21,17 @@ jobs:
         with:
           node-version: '18'
           registry-url: 'https://registry.npmjs.org'
-          
-      - run: npm install
+
+      - run: npm install && git config user.name "GitHub Actions" && git config user.email "actions@github.com"
+      - name: Commit lockfile if changed
+        run: |
+          if git diff --exit-code package-lock.json; then
+            echo "No changes to package-lock.json"
+          else
+            git add package-lock.json
+            git commit -m "chore: update lockfile [skip ci]"
+            git push
+          fi
 
       - name: Build all packages
         run: npm run build:all
