@@ -22,21 +22,46 @@ jobs:
           node-version: '18'
           registry-url: 'https://registry.npmjs.org'
 
-      - run: npm install && git config user.name "GitHub Actions" && git config user.email "actions@github.com"
-      - name: Commit lockfile if changed
+      - run: npm install
+      
+      # Check if package-lock.json has changed
+      - name: Check for package-lock.json changes
+        id: check_lockfile
         run: |
-          if git diff --exit-code package-lock.json; then
-            echo "No changes to package-lock.json"
-          else
-            git add package-lock.json
-            git commit -m "chore: update lockfile [skip ci]"
-            git push
-          fi
-
+          git diff --exit-code package-lock.json || echo "lockfile_changed=true" >> $GITHUB_OUTPUT
+      
+      # Create PR for lockfile if changed
+      - name: Create PR for lockfile updates
+        if: steps.check_lockfile.outputs.lockfile_changed == 'true'
+        run: |
+          # Configure Git
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # Create a new branch
+          BRANCH_NAME="lockfile-update-$(date +%Y%m%d%H%M%S)"
+          git checkout -b $BRANCH_NAME
+          
+          # Commit changes
+          git add package-lock.json
+          git commit -m "chore: update package-lock.json"
+          
+          # Push the branch
+          git push --set-upstream origin $BRANCH_NAME
+          
+          # Create PR
+          gh pr create --title "Update package-lock.json" \
+                      --body "This PR updates the package-lock.json file to resolve dependency conflicts. Please merge this before publishing." \
+                      --label "dependencies"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
       - name: Build all packages
+        if: steps.check_lockfile.outputs.lockfile_changed != 'true'
         run: npm run build:all
       
       - name: Create Release Pull Request or Publish
+        if: steps.check_lockfile.outputs.lockfile_changed != 'true'
         uses: changesets/action@v1
         with:
           # This script runs ONLY when publishing (Phase 2)
