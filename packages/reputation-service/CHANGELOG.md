@@ -1,5 +1,11 @@
 # @chkp/reputation-service-mcp
 
+## 0.1.1
+
+### Patch Changes
+
+- 7c53ebb: Modified 1 file(s) (synced from internal repository)
+
 ## 0.1.0
 
 ### Minor Changes
