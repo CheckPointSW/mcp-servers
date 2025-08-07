@@ -56,7 +56,7 @@ It is expected to work with any MCP client that supports the Model Context Proto
   "mcpServers": {
     "reputation-service": {
       "command": "npx",
-      "args": ["@chkp/reputation_service_mcp"],
+      "args": ["@chkp/reputation-service-mcp"],
       "env": {
         "API_KEY": "YOUR_API_KEY"
       }
@@ -92,7 +92,7 @@ Add the server configuration:
   "mcpServers": {
     "reputation-service": {
       "command": "npx",
-      "args": ["@chkp/reputation_service_mcp"],
+      "args": ["@chkp/reputation-service-mcp"],
       "env": {
         // Add the configuration from the above instructions
       }
@@ -116,7 +116,7 @@ Add this configuration:
       "reputation-service": {
         "command": "npx",
         "args": [
-          "@chkp/reputation_service_mcp"
+          "@chkp/reputation-service-mcp"
         ],
         "env": {
           "API_KEY": "YOUR_API_KEY"
