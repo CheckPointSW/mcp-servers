@@ -1,0 +1,45 @@
+{
+    "name": "@chkp/threat-emulation-mcp",
+    "version": "0.0.4",
+    "bin": {
+        "threat-emulation-mcp": "dist/index.js"
+    },
+    "description": "Threat Emulation MCP server of Check Point",
+    "type": "module",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "clean": "rimraf dist",
+        "build": "npx tsc && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
+        "dev": "tsc --watch",
+        "start": "node dist/index.js"
+    },
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.11.1",
+        "@chkp/mcp-utils": "*",
+        "axios": "^1.9.0",
+        "body-parser": "^1.20.2",
+        "commander": "^13.1.0",
+        "express": "^4.21.2"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/CheckPointSW/mcp-servers.git",
+        "directory": "packages/threat-emulation"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "devDependencies": {
+        "@types/body-parser": "^1.19.2",
+        "@types/commander": "^2.12.0",
+        "@types/express": "^4.17.17",
+        "@types/node": "^18.15.11",
+        "ts-node": "^10.9.1",
+        "typescript": "^5.0.4",
+        "zod": "^3.24.4"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "MIT"
+}

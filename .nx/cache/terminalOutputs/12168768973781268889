@@ -1,4 +1,0 @@
-
-> @chkp/reputation-service-mcp@0.1.5 build
-> npx tsc && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/
-

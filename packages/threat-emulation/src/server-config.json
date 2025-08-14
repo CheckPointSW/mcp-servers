@@ -1,0 +1,11 @@
+{
+  "name": "threat-emulation",
+  "description": "Check Point Threat Emulation MCP server",
+  "options": [
+    {
+      "flag": "--api-key <key>",
+      "description": "API key for the Threat Emulation Service",
+      "env": "API_KEY"
+    }
+  ]
+}
