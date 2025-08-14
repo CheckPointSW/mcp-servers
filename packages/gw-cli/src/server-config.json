@@ -13,6 +13,11 @@
       "type": "string"
     },
     {
+      "flag": "--cloud-infra-token <key>",
+      "description": "Cloud Infra token",
+      "type": "string"
+    },
+    {
       "flag": "--username <username>",
       "description": "Username for on-prem authentication",
       "env": "USERNAME",

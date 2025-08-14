@@ -1,17 +1,15 @@
 {
   "name": "@chkp/quantum-gw-connection-analysis-mcp",
-  "version": "0.1.0",
+  "version": "0.2.2",
   "description": "Model Context Protocol (MCP) server for Running Connection Analysis on a Check Point gateway.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build:windows": "tsc && copy src\\server-config.json dist\\",
-    "build:unix": "tsc && chmod +x ./dist/index.js && cp src/server-config.json dist/",
-    "build": "node -e \"process.platform === 'win32' ? require('child_process').execSync('npm run build:windows', {stdio: 'inherit'}) : require('child_process').execSync('npm run build:unix', {stdio: 'inherit'})\"",
+    "clean": "rimraf dist",
+    "build": "npx tsc && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
     "dev": "tsc --watch",
-    "start": "node dist/index.js",
-    "build:all": "npm run clean && npm run build"
+    "start": "node dist/index.js"
   },
   "author": "Check Point Software Technologies",
   "license": "MIT",

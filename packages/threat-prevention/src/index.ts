@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { Settings, callManagementApi } from '@chkp/quantum-infra';
-import { launchMCPServer } from '@chkp/mcp-utils';
+import { Settings, APIManagerForAPIKey } from '@chkp/quantum-infra';
+import { 
+  launchMCPServer, 
+  createServerModule,
+  createApiRunner
+} from '@chkp/mcp-utils';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -13,16 +17,23 @@ const pkg = JSON.parse(
 
 process.env.CP_MCP_MAIN_PKG = `${pkg.name} v${pkg.version}`;
 
-
-async function runApi(method: string, uri: string, data: Record<string, any>): Promise<Record<string, any>> {
-  return await callManagementApi(method, uri, data);
-}
-
 const server = new McpServer({
   name: 'threat-prevention',
   version: '1.0.0',
   description: 'MCP server to interact with Threat Prevention objects on Check Point Gateways.'
 });
+
+// Create a multi-user server module
+const serverModule = createServerModule(
+  server,
+  Settings,
+  pkg,
+  APIManagerForAPIKey
+);
+
+// Create an API runner function
+const runApi = createApiRunner(serverModule);
+
 
 // Tool: show_threat_protections
 server.tool(
@@ -36,13 +47,13 @@ server.tool(
     details_level: z.string().optional(),
     domains_to_process: z.array(z.string()).optional(),
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process }) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process }, extra) => {
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-threat-protections', params);
+    const resp = await runApi('POST', 'show-threat-protections', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -56,12 +67,12 @@ server.tool(
     uid: z.string().optional(),
     details_level: z.string().optional(),
   },
-  async ({ name = '', uid = '', details_level }) => {
+  async ({ name = '', uid = '', details_level }, extra) => {
     const params: Record<string, any> = {};
     if (name) params.name = name;
     if (uid) params.uid = uid;
     if (details_level) params['details-level'] = details_level;
-    const resp = await runApi('POST', 'show-threat-layer', params);
+    const resp = await runApi('POST', 'show-threat-layer', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -75,12 +86,12 @@ server.tool(
     uid: z.string().optional(),
     details_level: z.string().optional(),
   },
-  async ({ name = '', uid = '', details_level }) => {
+  async ({ name = '', uid = '', details_level }, extra) => {
     const params: Record<string, any> = {};
     if (name) params.name = name;
     if (uid) params.uid = uid;
     if (details_level) params['details-level'] = details_level;
-    const resp = await runApi('POST', 'show-threat-indicator', params);
+    const resp = await runApi('POST', 'show-threat-indicator', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -91,8 +102,8 @@ server.tool(
   'Show the IPS (Intrusion Prevention System) status.',
   {
   },
-  async () => {
-    const resp = await runApi('POST', 'show-ips-status', {});
+  async (extra) => {
+    const resp = await runApi('POST', 'show-ips-status', {}, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -109,13 +120,13 @@ server.tool(
     details_level: z.string().optional(),
     domains_to_process: z.array(z.string()).optional(),
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process }) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process }, extra) => {
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-threat-ioc-feeds', params);
+    const resp = await runApi('POST', 'show-threat-ioc-feeds', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -131,7 +142,7 @@ server.tool(
     layer: z.string(),
     details_level: z.enum(['uid', 'standard', 'full']).optional(),
   },
-  async ({ uid, name, rule_number, layer, details_level }) => {
+  async ({ uid, name, rule_number, layer, details_level }, extra) => {
     const body: Record<string, any> = {};
     if (uid) body.uid = uid;
     if (name) body.name = name;
@@ -139,7 +150,7 @@ server.tool(
     if (layer) body.layer = layer;
     if (details_level) body['details-level'] = details_level;
     const params = { body };
-    const resp = await runApi('POST', 'show-threat-rule', params);
+    const resp = await runApi('POST', 'show-threat-rule', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -156,13 +167,13 @@ server.tool(
     details_level: z.string().optional(),
     domains_to_process: z.array(z.string()).optional(),
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process }) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process }, extra) => {
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-exception-groups', params);
+    const resp = await runApi('POST', 'show-exception-groups', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -173,8 +184,8 @@ server.tool(
   'Show the IPS update schedule.',
   {
   },
-  async () => {
-    const resp = await runApi('POST', 'show-ips-update-schedule', {});
+  async (extra) => {
+    const resp = await runApi('POST', 'show-ips-update-schedule', {}, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -191,13 +202,13 @@ server.tool(
     details_level: z.string().optional(),
     domains_to_process: z.array(z.string()).optional(),
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process }) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process }, extra) => {
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-threat-indicators', params);
+    const resp = await runApi('POST', 'show-threat-indicators', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -214,13 +225,13 @@ server.tool(
     details_level: z.string().optional(),
     domains_to_process: z.array(z.string()).optional(),
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process }) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process }, extra) => {
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-threat-profiles', params);
+    const resp = await runApi('POST', 'show-threat-profiles', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -234,12 +245,12 @@ server.tool(
     uid: z.string().optional(),
     details_level: z.string().optional(),
   },
-  async ({ name = '', uid = '', details_level }) => {
+  async ({ name = '', uid = '', details_level }, extra) => {
     const params: Record<string, any> = {};
     if (name) params.name = name;
     if (uid) params.uid = uid;
     if (details_level) params['details-level'] = details_level;
-    const resp = await runApi('POST', 'show-ips-protection-extended-attribute', params);
+    const resp = await runApi('POST', 'show-ips-protection-extended-attribute', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -256,13 +267,13 @@ server.tool(
     details_level: z.string().optional(),
     domains_to_process: z.array(z.string()).optional(),
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process }) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process }, extra) => {
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-ips-protection-extended-attributes', params);
+    const resp = await runApi('POST', 'show-ips-protection-extended-attributes', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -279,13 +290,13 @@ server.tool(
     details_level: z.string().optional(),
     domains_to_process: z.array(z.string()).optional(),
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process }) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process }, extra) => {
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-threat-layers', params);
+    const resp = await runApi('POST', 'show-threat-layers', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -317,7 +328,7 @@ server.tool(
     show_membership: z.boolean().optional(),
     details_level: z.enum(['uid', 'standard', 'full']).optional(),
   },
-  async ({ name, uid, filter, filter_settings, limit, offset, order, package: pkg, use_object_dictionary, dereference_group_members, show_membership, details_level }) => {
+  async ({ name, uid, filter, filter_settings, limit, offset, order, package: pkg, use_object_dictionary, dereference_group_members, show_membership, details_level }, extra) => {
     const body: Record<string, any> = {};
     if (name) body.name = name;
     if (uid) body.uid = uid;
@@ -344,7 +355,7 @@ server.tool(
     if (show_membership !== undefined) body['show-membership'] = show_membership;
     if (details_level) body['details-level'] = details_level;
     const params = { body };
-    const resp = await runApi('POST', 'show-threat-rulebase', params);
+    const resp = await runApi('POST', 'show-threat-rulebase', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -358,12 +369,12 @@ server.tool(
     uid: z.string().optional(),
     details_level: z.string().optional(),
   },
-  async ({ name = '', uid = '', details_level }) => {
+  async ({ name = '', uid = '', details_level }, extra) => {
     const params: Record<string, any> = {};
     if (name) params.name = name;
     if (uid) params.uid = uid;
     if (details_level) params['details-level'] = details_level;
-    const resp = await runApi('POST', 'show-exception-group', params);
+    const resp = await runApi('POST', 'show-exception-group', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -380,7 +391,7 @@ server.tool(
     show_profiles: z.boolean().optional(),
     details_level: z.enum(['uid', 'standard', 'full']).optional(),
   },
-  async ({ name, uid, show_capture_packets_and_track, show_ips_additional_properties, show_profiles, details_level }) => {
+  async ({ name, uid, show_capture_packets_and_track, show_ips_additional_properties, show_profiles, details_level }, extra) => {
     const body: Record<string, any> = {};
     if (name) body.name = name;
     if (uid) body.uid = uid;
@@ -389,7 +400,7 @@ server.tool(
     if (show_profiles !== undefined) body['show-profiles'] = show_profiles;
     if (details_level) body['details-level'] = details_level;
     const params = { body };
-    const resp = await runApi('POST', 'show-threat-protection', params);
+    const resp = await runApi('POST', 'show-threat-protection', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -424,7 +435,7 @@ server.tool(
     show_membership: z.boolean().optional(),
     details_level: z.enum(['uid', 'standard', 'full']).optional(),
   },
-  async ({ name, uid, rule_uid, rule_name, rule_number, filter, filter_settings, limit, offset, order, package: pkg, use_object_dictionary, dereference_group_members, show_membership, details_level }) => {
+  async ({ name, uid, rule_uid, rule_name, rule_number, filter, filter_settings, limit, offset, order, package: pkg, use_object_dictionary, dereference_group_members, show_membership, details_level }, extra) => {
     const body: Record<string, any> = {};
     if (name) body.name = name;
     if (uid) body.uid = uid;
@@ -454,7 +465,7 @@ server.tool(
     if (show_membership !== undefined) body['show-membership'] = show_membership;
     if (details_level) body['details-level'] = details_level;
     const params = { body };
-    const resp = await runApi('POST', 'show-threat-rule-exception-rulebase', params);
+    const resp = await runApi('POST', 'show-threat-rule-exception-rulebase', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -464,9 +475,9 @@ server.tool(
   'show_threat_advanced_settings',
   "Show Threat Prevention's Blades' advanced settings.",
   {},
-  async () => {
+  async (extra) => {
     const params = { body: {} };
-    const resp = await runApi('POST', 'show-threat-advanced-settings', params);
+    const resp = await runApi('POST', 'show-threat-advanced-settings', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -480,13 +491,13 @@ server.tool(
     uid: z.string().optional(),
     details_level: z.enum(['uid', 'standard', 'full']).optional(),
   },
-  async ({ name, uid, details_level }) => {
+  async ({ name, uid, details_level }, extra) => {
     const body: Record<string, any> = {};
     if (name) body.name = name;
     if (uid) body.uid = uid;
     if (details_level) body['details-level'] = details_level;
     const params = { body };
-    const resp = await runApi('POST', 'show-threat-profile', params);
+    const resp = await runApi('POST', 'show-threat-profile', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -500,12 +511,12 @@ server.tool(
     uid: z.string().optional(),
     details_level: z.string().optional(),
   },
-  async ({ name = '', uid = '', details_level }) => {
+  async ({ name = '', uid = '', details_level }, extra) => {
     const params: Record<string, any> = {};
     if (name) params.name = name;
     if (uid) params.uid = uid;
     if (details_level) params['details-level'] = details_level;
-    const resp = await runApi('POST', 'show-threat-ioc-feed', params);
+    const resp = await runApi('POST', 'show-threat-ioc-feed', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -533,7 +544,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-gateways-and-servers', params);
+    const resp = await runApi('POST', 'show-gateways-and-servers', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -567,7 +578,7 @@ server.tool(
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     if (type) params.type = type;
-    const resp = await callManagementApi('POST', 'show-objects', params);
+    const resp = await runApi('POST', 'show-objects', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -584,7 +595,7 @@ server.tool(
       const params: Record<string, any> = {};
       params.uid = uid;
       params.details_level = 'full';
-      const resp = await callManagementApi('POST', 'show-object', params);
+      const resp = await runApi('POST', 'show-object', params, extra);
       return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -597,11 +608,11 @@ server.tool(
     cve: z.string().describe('The CVE to check for protection'),
     gateway: z.string().optional().describe('The gateway to check for protection. Leave empty to check all gateways.'),
   },
-  async ({ cve, gateway }) => {
+  async ({ cve, gateway }, extra) => {
     // 1. Query protections for the CVE
-    const protectionsResp = await runApi('POST', 'show-threat-protections', { filter: cve, 'details-level': 'full' });
+    const protectionsResp = await runApi('POST', 'show-threat-protections', { filter: cve, 'details-level': 'full' }, extra);
     // 2. Query all gateways and servers
-    const gatewaysResp = await runApi('POST', 'show-gateways-and-servers', { 'details-level': 'full' });
+    const gatewaysResp = await runApi('POST', 'show-gateways-and-servers', { 'details-level': 'full' }, extra);
     const gateways: any[] = Array.isArray(gatewaysResp.objects) ? gatewaysResp.objects.filter((gw: any) => !gateway || gw.name === gateway) : [];
     // 3. For each gateway, check IPS and threat policy
     const rulebases = new Set<string>();
@@ -616,7 +627,7 @@ server.tool(
     // 4. For each rulebase, get rules and collect profile names
     const profileNames = new Set<string>();
     for (const rulebase of rulebases) {
-      const rulebaseResp = await runApi('POST', 'show-threat-rulebase', { name: rulebase, 'details-level': 'full' });
+      const rulebaseResp = await runApi('POST', 'show-threat-rulebase', { name: rulebase, 'details-level': 'full' }, extra);
       const rules = Array.isArray(rulebaseResp.rulebase) ? rulebaseResp.rulebase : [];
       for (const rule of rules) {
         if (rule.action) profileNames.add(rule.action);
@@ -625,7 +636,7 @@ server.tool(
     // 5. For each profile, get details
     const profiles = [];
     for (const profileName of profileNames) {
-      const profileResp = await runApi('POST', 'show-threat-profile', { name: profileName, 'details-level': 'full' });
+      const profileResp = await runApi('POST', 'show-threat-profile', { name: profileName, 'details-level': 'full' }, extra);
       profiles.push(profileResp);
     }
     return {
@@ -642,7 +653,7 @@ export { server };
 const main = async () => {
   await launchMCPServer(
     join(dirname(fileURLToPath(import.meta.url)), 'server-config.json'),
-    { server, Settings, pkg }
+    serverModule
   );
 };
 

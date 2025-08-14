@@ -2,12 +2,22 @@
 
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { callManagementApi } from '@chkp/quantum-infra';
-import { Settings } from '@chkp/quantum-infra';
-import { launchMCPServer } from '@chkp/mcp-utils';
+import { Settings, APIManagerForAPIKey } from '@chkp/quantum-infra';
+import { 
+  launchMCPServer, 
+  createServerModule,
+  SessionContext,
+  createApiRunner
+} from '@chkp/mcp-utils';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { 
+  parseRulebaseWithInlineLayers, 
+  formatAsTable, 
+  formatAsModelFriendly,
+  ZeroHitsUtil
+} from './rulebase-parser/index.js';
 
 const pkg = JSON.parse(
   readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../package.json'), 'utf-8')
@@ -20,6 +30,17 @@ const server = new McpServer({ name: 'Check Point Quantum Management' ,
         "MCP server to run commands on a Check Point Management. Use this to view policies and objects for Access, NAT and VPN.",
   version: '1.0.0'
 });
+
+// Create a multi-user server module
+const serverModule = createServerModule(
+  server,
+  Settings,
+  pkg,
+  APIManagerForAPIKey
+);
+
+// Create an API runner function
+const runApi = createApiRunner(serverModule);
 
 // --- PROMPT RESOURCES ---
 const SHOW_INSTALLED_POLICIES = `Please show me my installed policies per gateway. In order to see which policies are installed, you need to call show-gateways-and-servers with details-level set to 'full'.\nIf you already know the gateway name or uid, you can use the show-simple-gateway or show simple-cluster function with details-level set to 'full' to get the installed policy.\n`;
@@ -119,11 +140,15 @@ server.prompt(
 
 server.tool(
   'show_access_rulebase',
-  'Show the access rulebase for a given name or uid. Either name or uid is required, the other can be empty.',
+  'Show the access rulebase for a given name or uid. Either name or uid is required, the other can be empty. By default, returns a formatted table with parsing capabilities. Set show_raw=true to get the raw JSON response.',
   {
     name: z.string().optional(),
     uid: z.string().optional(),
     package: z.string().optional(),
+    show_raw: z.boolean().optional().default(false),
+    format: z.enum(['table', 'model-friendly']).optional().default('table'),
+    expand_groups: z.boolean().optional().default(false),
+    group_mode: z.enum(['in-rule', 'as-reference']).optional().default('as-reference'),
   },
   async (args: Record<string, unknown>, extra: any) => {
     const params: Record<string, any> = {};
@@ -140,8 +165,80 @@ server.tool(
       params.package = args.package;
     }
     
-    const resp = await callManagementApi('POST', 'show-access-rulebase', params);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    // Get API manager for this session
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    
+    // Call the API
+    const resp = await apiManager.callApi('POST', 'show-access-rulebase', params, extra);
+    
+    // Check if raw data is requested
+    const showRaw = typeof args.show_raw === 'boolean' ? args.show_raw : false;
+    if (showRaw) {
+      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    }
+    
+    // Otherwise, use the enhanced parser
+    try {
+      // Validate that either name or uid is provided
+      const name = typeof args.name === 'string' && args.name.trim() !== '' ? args.name : undefined;
+      const uid = typeof args.uid === 'string' && args.uid.trim() !== '' ? args.uid : undefined;
+      
+      if (!name && !uid) {
+        return { 
+          content: [{ 
+            type: 'text', 
+            text: 'Error: Either name or uid parameter is required to identify the rulebase.' 
+          }] 
+        };
+      }
+
+      const format = args.format as 'table' | 'model-friendly';
+      const expandGroups = typeof args.expand_groups === 'boolean' ? args.expand_groups : false;
+      const groupMode = (args.group_mode as 'in-rule' | 'as-reference') || 'as-reference';
+
+      // Parse the rulebase with all advanced features using the already fetched data
+      const parsedData = await parseRulebaseWithInlineLayers(
+        resp, 
+        apiManager, 
+        expandGroups, 
+        groupMode
+      );
+      
+      // Format the output based on requested format
+      let formattedOutput: string;
+      if (format === 'model-friendly') {
+        formattedOutput = formatAsModelFriendly(parsedData);
+      } else {
+        formattedOutput = formatAsTable(parsedData);
+      }
+      
+      // Add summary information
+      const summary = `
+Rulebase Summary:
+- Name: ${parsedData.name}
+- Sections: ${parsedData.sections.length}
+- Total Rules: ${parsedData.sections.reduce((total: number, section: any) => total + section.rules.length, 0)}
+- Inline Layers: ${expandGroups ? 'Supported' : 'Not expanded'}
+- Group Expansion: ${expandGroups ? `Enabled (${groupMode} mode)` : 'Disabled'}
+
+${formattedOutput}`;
+
+      return { 
+        content: [{ 
+          type: 'text', 
+          text: summary
+        }] 
+      };
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { 
+        content: [{ 
+          type: 'text', 
+          text: `Error parsing rulebase: ${errorMessage}` 
+        }] 
+      };
+    }
   }
 );
 
@@ -157,7 +254,11 @@ server.tool(
     const limit = typeof args.limit === 'number' ? args.limit : 50;
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : true;
-    const resp = await callManagementApi('POST', 'show-hosts', { limit, offset, show_membership });
+    // Get API manager for this session
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    
+    // Call the API
+    const resp = await apiManager.callApi('POST', 'show-hosts', { limit, offset, show_membership });
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -205,7 +306,7 @@ server.tool(
       params.show_hits = args.show_hits;
     }
     
-    const resp = await callManagementApi('POST', 'show-access-rule', params);
+    const resp = await runApi('POST', 'show-access-rule', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -229,7 +330,7 @@ server.tool(
     if (typeof args.details_level === 'string' && args.details_level.trim() !== '') {
       params.details_level = args.details_level;
     }
-    const resp = await callManagementApi('POST', 'show-access-layer', params);
+    const resp = await runApi('POST', 'show-access-layer', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -253,7 +354,7 @@ server.tool(
     if (Array.isArray(args.order) && args.order.length > 0) params.order = args.order;
     if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params.details_level = args.details_level;
     if (Array.isArray(args.domains_to_process) && args.domains_to_process.length > 0) params.domains_to_process = args.domains_to_process;
-    const resp = await callManagementApi('POST', 'show-access-layers', params);
+    const resp = await runApi('POST', 'show-access-layers', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -281,7 +382,7 @@ server.tool(
     if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params.details_level = args.details_level;
     if (typeof args.dereference_group_members === 'boolean') params.dereference_group_members = args.dereference_group_members;
     if (typeof args.show_membership === 'boolean') params.show_membership = args.show_membership;
-    const resp = await callManagementApi('POST', 'show-nat-rulebase', params);
+    const resp = await runApi('POST', 'show-nat-rulebase', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -301,7 +402,7 @@ server.tool(
     if (typeof args.uid === 'string' && args.uid.trim() !== '') params.uid = args.uid;
     if (typeof args.layer === 'string' && args.layer.trim() !== '') params.layer = args.layer;
     if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params.details_level = args.details_level;
-    const resp = await callManagementApi('POST', 'show-access-section', params);
+    const resp = await runApi('POST', 'show-access-section', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -323,7 +424,7 @@ server.tool(
     if (typeof args.layer === 'string' && args.layer.trim() !== '') params.layer = args.layer;
     if (typeof args.package === 'string' && args.package.trim() !== '') params.package = args.package;
     if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params.details_level = args.details_level;
-    const resp = await callManagementApi('POST', 'show-nat-section', params);
+    const resp = await runApi('POST', 'show-nat-section', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -343,7 +444,7 @@ server.tool(
     if (typeof args.name === 'string' && args.name.trim() !== '') params.name = args.name;
     if (typeof args.uid === 'string' && args.uid.trim() !== '') params.uid = args.uid;
     if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params.details_level = args.details_level;
-    const resp = await callManagementApi('POST', 'show-vpn-community-star', params);
+    const resp = await runApi('POST', 'show-vpn-community-star', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -366,14 +467,14 @@ server.tool(
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
     const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    const resp = await callManagementApi('POST', 'show-vpn-communities-star', {
+    const resp = await runApi('POST', 'show-vpn-communities-star', {
       filter,
       limit,
       offset,
       order,
       details_level,
       domains_to_process,
-    });
+    }, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -391,7 +492,7 @@ server.tool(
     if (typeof args.name === 'string' && args.name.trim() !== '') params.name = args.name;
     if (typeof args.uid === 'string' && args.uid.trim() !== '') params.uid = args.uid;
     if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params.details_level = args.details_level;
-    const resp = await callManagementApi('POST', 'show-vpn-community-meshed', params);
+    const resp = await runApi('POST', 'show-vpn-community-meshed', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -414,14 +515,14 @@ server.tool(
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
     const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    const resp = await callManagementApi('POST', 'show-vpn-communities-meshed', {
+    const resp = await runApi('POST', 'show-vpn-communities-meshed', {
       filter,
       limit,
       offset,
       order,
       details_level,
       domains_to_process,
-    });
+    }, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -439,7 +540,7 @@ server.tool(
     if (typeof args.uid === 'string' && args.uid.trim() !== '') params.uid = args.uid;
     if (typeof args.name === 'string' && args.name.trim() !== '') params.name = args.name;
     if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params.details_level = args.details_level;
-    const resp = await callManagementApi('POST', 'show-vpn-community-remote-access', params);
+    const resp = await runApi('POST', 'show-vpn-community-remote-access', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -462,14 +563,14 @@ server.tool(
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
     const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    const resp = await callManagementApi('POST', 'show-vpn-communities-remote-access', {
+    const resp = await runApi('POST', 'show-vpn-communities-remote-access', {
       filter,
       limit,
       offset,
       order,
       details_level,
       domains_to_process,
-    });
+    }, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -497,7 +598,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-gateways-and-servers', params);
+    const resp = await runApi('POST', 'show-gateways-and-servers', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -515,7 +616,7 @@ server.tool(
     if (typeof args.name === 'string' && args.name.trim() !== '') params.name = args.name;
     if (typeof args.uid === 'string' && args.uid.trim() !== '') params.uid = args.uid;
     if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params['details-level'] = args.details_level;
-    const resp = await callManagementApi('POST', 'show-simple-gateway', params);
+    const resp = await runApi('POST', 'show-simple-gateway', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -545,7 +646,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-simple-gateways', params);
+    const resp = await runApi('POST', 'show-simple-gateways', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -573,7 +674,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-lsm-clusters', params);
+    const resp = await runApi('POST', 'show-lsm-clusters', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -591,7 +692,7 @@ server.tool(
     const params: Record<string, any> = {};
     if (uid) params.uid = uid;
     if (details_level) params['details-level'] = details_level;
-    const resp = await callManagementApi('POST', 'show-cluster-member', params);
+    const resp = await runApi('POST', 'show-cluster-member', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -619,7 +720,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-cluster-members', params);
+    const resp = await runApi('POST', 'show-cluster-members', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -637,7 +738,7 @@ server.tool(
     if (typeof args.name === 'string' && args.name.trim() !== '') params.name = args.name;
     if (typeof args.uid === 'string' && args.uid.trim() !== '') params.uid = args.uid;
     if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params['details-level'] = args.details_level;
-    const resp = await callManagementApi('POST', 'show-lsm-gateway', params);
+    const resp = await runApi('POST', 'show-lsm-gateway', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -665,7 +766,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-simple-clusters', params);
+    const resp = await runApi('POST', 'show-simple-clusters', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -683,7 +784,7 @@ server.tool(
     if (typeof args.name === 'string' && args.name.trim() !== '') params.name = args.name;
     if (typeof args.uid === 'string' && args.uid.trim() !== '') params.uid = args.uid;
     if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params['details-level'] = args.details_level;
-    const resp = await callManagementApi('POST', 'show-simple-cluster', params);
+    const resp = await runApi('POST', 'show-simple-cluster', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -711,7 +812,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-lsm-gateways', params);
+    const resp = await runApi('POST', 'show-lsm-gateways', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -729,7 +830,7 @@ server.tool(
     if (typeof args.name === 'string' && args.name.trim() !== '') params.name = args.name;
     if (typeof args.uid === 'string' && args.uid.trim() !== '') params.uid = args.uid;
     if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params['details-level'] = args.details_level;
-    const resp = await callManagementApi('POST', 'show-lsm-cluster', params);
+    const resp = await runApi('POST', 'show-lsm-cluster', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -765,7 +866,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-groups', params);
+    const resp = await runApi('POST', 'show-groups', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -795,7 +896,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-services-tcp', params);
+    const resp = await runApi('POST', 'show-services-tcp', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -825,7 +926,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-application-sites', params);
+    const resp = await runApi('POST', 'show-application-sites', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -857,7 +958,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-application-site-groups', params);
+    const resp = await runApi('POST', 'show-application-site-groups', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -887,7 +988,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-services-udp', params);
+    const resp = await runApi('POST', 'show-services-udp', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -915,7 +1016,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-wildcards', params);
+    const resp = await runApi('POST', 'show-wildcards', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -944,7 +1045,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-security-zones', params);
+    const resp = await runApi('POST', 'show-security-zones', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -973,7 +1074,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-tags', params);
+    const resp = await runApi('POST', 'show-tags', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -1002,7 +1103,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-address-ranges', params);
+    const resp = await runApi('POST', 'show-address-ranges', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -1031,7 +1132,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-application-site-categories', params);
+    const resp = await runApi('POST', 'show-application-site-categories', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -1059,7 +1160,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-dynamic-objects', params);
+    const resp = await runApi('POST', 'show-dynamic-objects', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -1090,7 +1191,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-services-icmp6', params);
+    const resp = await runApi('POST', 'show-services-icmp6', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -1120,7 +1221,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-services-icmp', params);
+    const resp = await runApi('POST', 'show-services-icmp', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -1157,7 +1258,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-service-groups', params);
+    const resp = await runApi('POST', 'show-service-groups', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -1185,7 +1286,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-multicast-address-ranges', params);
+    const resp = await runApi('POST', 'show-multicast-address-ranges', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -1214,7 +1315,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-dns-domains', params);
+    const resp = await runApi('POST', 'show-dns-domains', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -1243,7 +1344,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-time-groups', params);
+    const resp = await runApi('POST', 'show-time-groups', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -1272,7 +1373,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-access-point-names', params);
+    const resp = await runApi('POST', 'show-access-point-names', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -1306,7 +1407,7 @@ server.tool(
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     if (type) params.type = type;
-    const resp = await callManagementApi('POST', 'show-objects', params);
+    const resp = await runApi('POST', 'show-objects', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -1323,8 +1424,114 @@ server.tool(
       const params: Record<string, any> = {}
       params.uid = uid
       params.details_level = 'full'
-      const resp = await callManagementApi('POST', 'show-object', params);
+      const resp = await runApi('POST', 'show-object', params, extra);
       return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+  }
+);
+
+// Tool: find_zero_hits_rules
+server.tool(
+  'find_zero_hits_rules',
+  'Find rules with zero hits (unused rules) in access rulebases. Can analyze specific rulebases, policy packages, or all installed policies. Useful for identifying unused security rules that may be candidates for removal.',
+  {
+    rulebase_name: z.string().optional(),
+    rulebase_uid: z.string().optional(),
+    policy_package: z.string().optional(),
+    gateway: z.string().optional(),
+    from_date: z.string().optional(),
+    to_date: z.string().optional(),
+    format: z.enum(['detailed', 'summary']).optional().default('detailed'),
+  },
+  async (args: Record<string, unknown>, extra: any) => {
+    try {
+      // Get API manager for this session
+      const apiManager = SessionContext.getAPIManager(serverModule, extra);
+      
+      // Create API call wrapper function
+      const apiCallWrapper = async (functionCall: { name: string; arguments: Record<string, any> }) => {
+        const response = await apiManager.callApi('POST', functionCall.name, functionCall.arguments, extra);
+        return [200, response] as [number, any];
+      };
+
+      // Extract parameters
+      const gateway = typeof args.gateway === 'string' ? args.gateway : undefined;
+      const fromDate = typeof args.from_date === 'string' ? args.from_date : undefined;
+      const toDate = typeof args.to_date === 'string' ? args.to_date : undefined;
+      const format = (args.format as 'detailed' | 'summary') || 'detailed';
+
+      // Create ZeroHitsUtil instance
+      const zeroHitsUtil = new ZeroHitsUtil(apiCallWrapper, gateway, fromDate, toDate);
+
+      let results: any;
+
+      // Determine what to analyze
+      if (args.rulebase_name || args.rulebase_uid) {
+        // Analyze specific rulebase
+        const rulebaseIdentifier = (args.rulebase_name as string) || (args.rulebase_uid as string);
+        results = await zeroHitsUtil.getZeroHitsRules(rulebaseIdentifier);
+      } else if (args.policy_package) {
+        // Analyze specific policy package
+        results = await zeroHitsUtil.getRulesFromPackages(args.policy_package as string);
+      } else {
+        // Analyze all policy packages
+        results = await zeroHitsUtil.getRulesFromPackages();
+      }
+
+      // Format the output
+      if (format === 'summary') {
+        // Provide a summary view
+        let totalZeroHitRules = 0;
+        let summary = '';
+
+        if (Array.isArray(results) && results.length > 0 && 'policy' in results[0]) {
+          // Policy-based results
+          summary = 'Zero Hits Rules Summary by Policy Package:\n\n';
+          for (const policyResult of results) {
+            summary += `Policy: ${policyResult.policy} (${policyResult.status})\n`;
+            if (policyResult.layers) {
+              for (const layer of policyResult.layers) {
+                summary += `  Layer: ${layer.name || 'Unknown'} - ${layer.rules.length} zero-hit rules\n`;
+                totalZeroHitRules += layer.rules.length;
+              }
+            }
+            summary += '\n';
+          }
+        } else {
+          // Rulebase-based results
+          summary = 'Zero Hits Rules Summary:\n\n';
+          for (const rulebase of results) {
+            summary += `Rulebase: ${rulebase.name || 'Unknown'} - ${rulebase.rules.length} zero-hit rules\n`;
+            totalZeroHitRules += rulebase.rules.length;
+          }
+        }
+
+        summary += `\nTotal zero-hit rules found: ${totalZeroHitRules}`;
+        
+        return { 
+          content: [{ 
+            type: 'text', 
+            text: summary
+          }] 
+        };
+      } else {
+        // Detailed view
+        return { 
+          content: [{ 
+            type: 'text', 
+            text: JSON.stringify(results, null, 2)
+          }] 
+        };
+      }
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { 
+        content: [{ 
+          type: 'text', 
+          text: `Error finding zero hits rules: ${errorMessage}` 
+        }] 
+      };
+    }
   }
 );
 
@@ -1335,7 +1542,7 @@ export { server };
 const main = async () => {
   await launchMCPServer(
     join(dirname(fileURLToPath(import.meta.url)), 'server-config.json'),
-    { server, Settings, pkg }
+    serverModule
   );
 };
 

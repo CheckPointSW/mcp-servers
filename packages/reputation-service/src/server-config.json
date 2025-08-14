@@ -5,7 +5,8 @@
     {
       "flag": "--api-key <key>",
       "description": "API key for the Reputation Service",
-      "env": "API_KEY"
+      "env": "API_KEY",
+      "type": "string"
     }
   ]
 }

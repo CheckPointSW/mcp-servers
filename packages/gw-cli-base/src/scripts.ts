@@ -2,7 +2,7 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { APIManagerBase } from '@chkp/quantum-infra/src/api-manager.js';
-import { getApiManager } from '@chkp/quantum-infra';
+import { SessionContext } from '@chkp/mcp-utils';
 
 const GET_FILE_SCRIPT = 
   "if [ -f {output_file} ]; then " +
@@ -288,7 +288,9 @@ export async function runScript<T extends GWCLIScript>(
   server: McpServer,
   scriptClass: new (mcp: McpServer, apiManager: any, targetGateway: string, params: Record<string, any>) => T,
   targetGateway: string,
-  params: Record<string, any> = {}): Promise<string> {
+  params: Record<string, any> = {},
+  serverModule?: any,
+  extra?: any): Promise<string> {
   try {
     // Validate mandatory keys
     const mandatoryKeys = (scriptClass as any).mandatoryKeys || [];
@@ -312,9 +314,16 @@ export async function runScript<T extends GWCLIScript>(
       return errorMsg;
     }
 
-    // Get the API manager and create the script instance
-    // The constructor will now handle targetGateway and params validation
-    const apiManager = await getApiManager();
+    // Get the API manager from the session context if serverModule is provided,
+    // otherwise fall back to the old method (for backward compatibility)
+    let apiManager;
+    if (serverModule) {
+      apiManager = SessionContext.getAPIManager(serverModule, extra);
+    } else {
+      // Fallback for old usage pattern
+      throw new Error('ServerModule is required for multi-user support');
+    }
+    
     const script = new scriptClass(server, apiManager, targetGateway, params);
 
     // Invoke the script

@@ -17,8 +17,8 @@ export async function getApiManager(): Promise<APIManagerBase> {
   }
 
   return APIManagerForHarmonySASE.create({
-    api_key: settings.apiKey,
-    management_host: settings.managementHost!,
+    apiKey: settings.apiKey,
+    managementHost: settings.managementHost!,
     origin: settings.origin!,
   });
 }

@@ -81,6 +81,52 @@ npm install
 npm run build
 ```
 
+## Nx Workspace Commands
+
+This project uses Nx for managing the monorepo. You can use Nx commands to run tasks for specific packages:
+
+### Running Development Mode
+```bash
+# Run @chkp/management in development mode  
+npx nx run @chkp/management:dev
+
+# Run https-inspection in development mode
+npx nx run @chkp/https-inspection:dev
+```
+
+### Building Specific Packages
+```bash
+# Build https-inspection server
+npx nx build @chkp/https-inspection
+
+# Build threat-prevention server
+npx nx build @chkp/threat-prevention
+```
+
+### Running Tests
+```bash
+# Run tests for a specific package
+npx nx run @chkp/infra:test
+
+# Run tests for all packages
+npx nx run-many --target=test
+```
+
+### Other Useful Nx Commands
+```bash
+# Show project graph
+npx nx graph
+
+# List all available projects
+npx nx show projects
+
+# Build all packages
+npx nx run-many --target=build
+
+# Lint all packages
+npx nx run-many --target=lint
+```
+
 ---
 
 ## ⚠️ Security Notice
