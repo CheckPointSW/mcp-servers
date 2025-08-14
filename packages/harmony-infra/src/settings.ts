@@ -1,5 +1,6 @@
 // Settings manager for MCP servers
 import * as z from 'zod';
+import { getHeaderValue } from '@chkp/mcp-utils';
 
 // Singleton instance for settings
 let globalSettings: Settings | null = null;
@@ -81,11 +82,10 @@ export class Settings {
    * Maps headers to environment variable format based on server config
    */
   static fromHeaders(headers: Record<string, string | string[]>): Settings {
-    // Using upper-cased header keys to match our environment var naming convention
     return new Settings({
-      managementHost: headers.MANAGEMENT_HOST as string | undefined,
-      origin: headers.ORIGIN as string | undefined,
-      apiKey: headers.API_KEY as string | undefined
+      managementHost: getHeaderValue(headers, 'MANAGEMENT_HOST'),
+      origin: getHeaderValue(headers, 'ORIGIN'),
+      apiKey: getHeaderValue(headers, 'API-KEY')
     });
   }
 }

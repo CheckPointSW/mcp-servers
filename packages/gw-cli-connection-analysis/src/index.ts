@@ -2,8 +2,12 @@
 
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { Settings } from '@chkp/quantum-infra';
-import { launchMCPServer } from '@chkp/mcp-utils';
+import { Settings, APIManagerForAPIKey } from '@chkp/quantum-infra';
+import { 
+  launchMCPServer, 
+  createServerModule,
+  createApiRunner
+} from '@chkp/mcp-utils';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -27,6 +31,17 @@ const server = new McpServer({
   version: '0.0.1'
 });
 
+// Create a multi-user server module
+const serverModule = createServerModule(
+  server,
+  Settings,
+  pkg,
+  APIManagerForAPIKey
+);
+
+// Create an API runner function
+const runApiScript = createApiRunner(serverModule);
+
 // Connection Analysis Tools
 server.tool(
   'start_connection_analysis',
@@ -36,11 +51,13 @@ server.tool(
     source_ip: z.string().describe('Source IP address for the connection'),
     destination_ip: z.string().describe('Destination IP address for the connection')
   },
-  async ({ target_gateway, source_ip, destination_ip }) => {
+  async ({ target_gateway, source_ip, destination_ip }, extra) => {
     const result = await runScript(server, 
       Scripts.StartConnectionDebugScript,
       target_gateway,
-      { source_ip, destination_ip }
+      { source_ip, destination_ip },
+      serverModule,
+      extra
     );
     
     return {
@@ -57,11 +74,13 @@ server.tool(
     source_ip: z.string().describe('Source IP address for the connection'),
     destination_ip: z.string().describe('Destination IP address for the connection')
   },
-  async ({ target_gateway, source_ip, destination_ip }) => {
+  async ({ target_gateway, source_ip, destination_ip }, extra) => {
     const result = await runScript(server, 
       Scripts.StopConnectionDebugScript,
       target_gateway,
-      { source_ip, destination_ip }
+      { source_ip, destination_ip },
+      serverModule,
+      extra
     );
     
     return {
@@ -75,7 +94,7 @@ export { server };
 const main = async () => {
   await launchMCPServer(
     join(dirname(fileURLToPath(import.meta.url)), 'server-config.json'),
-    { server, Settings, pkg }
+    serverModule
   );
 };
 

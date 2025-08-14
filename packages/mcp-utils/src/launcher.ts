@@ -3,7 +3,6 @@ import { Command } from 'commander';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import fs from 'fs';
-import path from 'path';
 import http from 'http';
 import { randomUUID } from 'crypto';
 
@@ -25,13 +24,15 @@ export interface ServerModule {
   server: any; // The MCP server instance
   Settings: {
     fromArgs(options: any): any;
-    setSettings(settings: any): void;
-    fromHeaders?(headers: Record<string, string | string[]>): any;
+    fromHeaders(headers: Record<string, string | string[]>): any;
   };
+  settingsManager: any; // SettingsManager instance for multi-user support
+  apiManagerFactory: any; // APIManagerFactory instance for multi-user support
+  sessionManager: any; // SessionManager instance for session lifecycle management
   pkg: { version: string };
 }
 
-export type TransportType = 'stdio' | 'sse';
+export type TransportType = 'stdio' | 'http';
 
 /**
  * Launch an MCP server with configuration-driven CLI options
@@ -67,22 +68,28 @@ export async function launchMCPServer(
   
   // Always add transport options regardless of server-config
   const transportTypeDefault = process.env.MCP_TRANSPORT_TYPE || 'stdio';
-  program.option('--transport <type>', 'Transport type (stdio or sse)', transportTypeDefault);
+  program.option('--transport <type>', 'Transport type (stdio or http)', transportTypeDefault);
   
   // Always add transport-port option regardless of server-config
   const transportPortDefault = process.env.MCP_TRANSPORT_PORT || '3000';
-  program.option('--transport-port <number>', 'Port for network transports (e.g., SSE)', transportPortDefault);
-  
+  program.option('--transport-port <number>', 'Port for network transports (e.g., HTTP)', transportPortDefault);
+
+  const debugDefault = process.env.DEBUG === 'true' || false;
+  program.option('--debug', 'Enable debug mode', debugDefault);
+
   // Parse arguments
   program.parse(process.argv);
   const options = program.opts();
   
   // Initialize settings from CLI args
-  const settings = serverModule.Settings.fromArgs(options);
-  serverModule.Settings.setSettings(settings);
+  if (!serverModule.settingsManager) {
+    throw new Error('ServerModule must have a settingsManager. Create it with createServerModule.');
+  }
+  
+  const settings = serverModule.settingsManager.createFromArgs(options);
   
   // Determine transport type from options or environment variable
-  const transportType = (options.transport || process.env.MCP_TRANSPORT_TYPE || 'stdio').toLowerCase() === 'sse' ? 'sse' : 'stdio';
+  const transportType = (options.transport || process.env.MCP_TRANSPORT_TYPE || 'stdio').toLowerCase() === 'http' ? 'http' : 'stdio';
   
   // Always try to read transport-port from CLI args or environment variable
   const transportPort = options.transportPort 
@@ -91,12 +98,30 @@ export async function launchMCPServer(
       ? parseInt(process.env.MCP_TRANSPORT_PORT, 10)
       : 3000;
   
-  if (transportType === 'sse') {
-    // Launch SSE server
-    await launchSSEServer(config, serverModule, transportPort);
+  if (transportType === 'http') {
+    // Launch Streamable server
+    await launchHTTPServer(config, serverModule, transportPort);
   } else {
     // Start stdio server
     const transport = new StdioServerTransport();
+    const defaultSessionId = 'default';
+    
+    // Initialize the default session
+    const sessionMetadata = {
+      type: 'stdio',
+      startedAt: new Date()
+    };
+    
+    serverModule.sessionManager.createSession(defaultSessionId, sessionMetadata);
+        
+    // Add default session context for stdio transport
+    (transport as any).extraContext = () => {
+      return {
+        sessionId: defaultSessionId,
+        transport
+      };
+    };
+    
     await serverModule.server.connect(transport);
     
     console.error(`${config.name} running on stdio transport. Version: ${serverModule.pkg.version}`);
@@ -105,12 +130,12 @@ export async function launchMCPServer(
 }
 
 /**
- * Launch an MCP server with SSE transport
+ * Launch an MCP server with Streamable HTTP transport
  * @param config Server configuration
  * @param serverModule The server module containing server, Settings, and pkg
  * @param port Port to listen on
  */
-async function launchSSEServer(
+async function launchHTTPServer(
   config: ServerConfig,
   serverModule: ServerModule,
   port: number
@@ -118,7 +143,7 @@ async function launchSSEServer(
   // Map to store transports by session ID
   const transports: Record<string, StreamableHTTPServerTransport> = {};
   
-  // Create HTTP server for SSE
+  // Create HTTP server
   const server = http.createServer(async (req, res) => {
     // Handle requests to the root URL
     if (req.url === '/' || req.url === '/mcp') {
@@ -154,11 +179,12 @@ async function launchSSEServer(
             // Reuse existing transport for the session
             transport = transports[sessionId];
             
-            // Initialize settings from headers if available and fromHeaders is implemented
-            if (serverModule.Settings.fromHeaders) {
-              const settings = serverModule.Settings.fromHeaders(headersToEnvVars(req.headers, config));
-              serverModule.Settings.setSettings(settings);
+            // Initialize settings from headers
+            if (!serverModule.settingsManager) {
+              throw new Error('ServerModule must have a settingsManager. Create it with createServerModule.');
             }
+            
+            serverModule.settingsManager.createFromHeaders(headersToEnvVars(req.headers, config), sessionId);
           } else if (!sessionId && body && body.method === 'initialize') {
             // New initialization request
             transport = new StreamableHTTPServerTransport({
@@ -166,6 +192,21 @@ async function launchSSEServer(
               onsessioninitialized: (sid: string) => {
                 // Store the transport by session ID
                 transports[sid] = transport;
+                
+                // Create session in the session manager
+                const headers = headersToEnvVars(req.headers, config);
+                const metadata = {
+                  userAgent: req.headers['user-agent'],
+                  origin: req.headers.origin || req.headers.referer,
+                  remoteAddress: req.socket.remoteAddress,
+                  initialPath: req.url
+                };
+                
+                serverModule.sessionManager.createSession(sid, metadata);
+                
+                // Set up the session-specific settings
+                serverModule.settingsManager.createFromHeaders(headers, sid);
+                
               }
             });
             
@@ -174,19 +215,37 @@ async function launchSSEServer(
               const sid = (transport as any).sessionId;
               if (sid) {
                 delete transports[sid];
+                
+                // Clean up session-specific resources
+                serverModule.settingsManager.clearSession(sid);
+                serverModule.apiManagerFactory.clearSession(sid);
+                
+                // Remove the session from session manager (this will also clean up SessionContext data)
+                serverModule.sessionManager.removeSession(sid);
+                
               }
             };
             
-            // Initialize settings from headers if available and fromHeaders is implemented
-            if (serverModule.Settings.fromHeaders) {
-              const settings = serverModule.Settings.fromHeaders(headersToEnvVars(req.headers, config));
-              serverModule.Settings.setSettings(settings);
+            // Initialize settings from headers will be done in the onsessioninitialized callback
+            // once we know the session ID
+            if (!serverModule.settingsManager) {
+              throw new Error('ServerModule must have a settingsManager. Create it with createServerModule.');
             }
             
             // Connect to the MCP server - only needed for new transports
+            // Configure the transport to include session information in the extra context
+            // Cast to any as the type definition may not include this property
+            (transport as any).extraContext = (msg: any) => {
+              const sessionId = (transport as any).sessionId;
+              return {
+                sessionId,
+                transport
+              };
+            };
+            
             await serverModule.server.connect(transport)
               .catch((error: Error) => {
-                console.error('Error connecting to SSE transport:', error);
+                console.error('Error connecting to HTTP transport:', error);
               });
           } else {
             // Invalid request
@@ -217,7 +276,7 @@ async function launchSSEServer(
           }));
         }
       } else if (req.method === 'GET') {
-        // GET requests for SSE streaming
+        // GET requests for HTTP streaming
         if (!sessionId || !transports[sessionId]) {
           res.writeHead(400, { 'Content-Type': 'text/plain' });
           res.end('Invalid or missing session ID');
@@ -244,11 +303,22 @@ async function launchSSEServer(
     } else if (req.url === '/health' || req.url === '/status') {
       // Handle health checks
       res.writeHead(200, { 'Content-Type': 'application/json' });
+      
+      // Get session information
+      const sessionCount = serverModule.sessionManager.getSessionCount();
+      const sessions = serverModule.sessionManager.getAllSessions().map((session: any) => ({
+        id: session.sessionId,
+        createdAt: session.createdAt,
+        lastActive: session.lastActive,
+        // Don't include potentially sensitive metadata
+      }));
+      
       res.end(JSON.stringify({ 
         status: 'ok',
         server: config.name,
         version: serverModule.pkg.version,
-        activeSessions: Object.keys(transports).length
+        activeSessions: sessionCount,
+        sessions: sessions 
       }));
     } else {
       // 404 for unknown routes
@@ -259,8 +329,8 @@ async function launchSSEServer(
   
   // Start HTTP server
   server.listen(port, () => {
-    console.error(`${config.name} running on SSE transport at http://localhost:${port}. Version: ${serverModule.pkg.version}`);
-    console.error(`Transport type: sse, Transport-port: ${port}`);
+    console.error(`${config.name} running on HTTP transport at http://localhost:${port}. Version: ${serverModule.pkg.version}`);
+    console.error(`Transport type: HTTP, Transport-port: ${port}`);
   });
   
   // Handle server errors

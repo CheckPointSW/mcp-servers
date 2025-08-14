@@ -1,6 +1,6 @@
 {
   "name": "@chkp/harmony-sase-mcp",
-  "version": "0.3.1",
+  "version": "0.3.4",
   "description": "Harmony SASE MCP server for Check Point products",
   "type": "module",
   "main": "dist/index.js",
@@ -17,12 +17,10 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "build:windows": "tsc && copy src\\server-config.json dist\\",
-    "build:unix": "tsc && chmod +x ./dist/index.js && cp src/server-config.json dist/",
-    "build": "node -e \"process.platform === 'win32' ? require('child_process').execSync('npm run build:windows', {stdio: 'inherit'}) : require('child_process').execSync('npm run build:unix', {stdio: 'inherit'})\"",
+    "clean": "rimraf dist",
+    "build": "npx tsc && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
     "dev": "tsc --watch",
-    "start": "node dist/index.js",
-    "build:all": "npm run clean && npm run build"
+    "start": "node dist/index.js"
   },
   "license": "MIT",
   "dependencies": {

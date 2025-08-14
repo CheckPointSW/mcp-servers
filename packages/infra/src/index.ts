@@ -3,4 +3,5 @@
 export * from './api-client.js';
 export * from './api-manager.js';
 export * from './settings.js';
-export * from './utils.js';
+export * from "./string-utils.js";
+export * from './external-user-token-manager.js';

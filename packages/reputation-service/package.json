@@ -1,6 +1,6 @@
 {
   "name": "@chkp/reputation-service-mcp",
-  "version": "0.1.1",
+  "version": "0.1.5",
   "bin": {
     "reputation-service-mcp": "dist/index.js"
   },
@@ -9,12 +9,10 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build:windows": "tsc && copy src\\server-config.json dist\\",
-    "build:unix": "tsc && chmod +x ./dist/index.js && cp src/server-config.json dist/",
-    "build": "node -e \"process.platform === 'win32' ? require('child_process').execSync('npm run build:windows', {stdio: 'inherit'}) : require('child_process').execSync('npm run build:unix', {stdio: 'inherit'})\"",
+    "clean": "rimraf dist",
+    "build": "npx tsc && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
     "dev": "tsc --watch",
-    "start": "node dist/index.js",
-    "build:all": "npm run clean && npm run build"
+    "start": "node dist/index.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.1",

@@ -2,10 +2,13 @@
 
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { Settings } from './lib/settings.js';
-import { ReputationClient } from './lib/reputation-client.js';
+import { ReputationClient, ReputationSettings } from './lib/reputation-client.js';
 import { isValidFileHash, isValidIp, getReputationVerdict } from './lib/common-utils.js';
-import { launchMCPServer } from '@chkp/mcp-utils';
+import { 
+  launchMCPServer, 
+  createServerModule,
+  SessionContext
+} from '@chkp/mcp-utils';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -22,6 +25,14 @@ const server = new McpServer({
     version: '1.0.0'
 });
 
+// Create a multi-user server module
+const serverModule = createServerModule(
+  server,
+  ReputationSettings,
+  pkg,
+  ReputationClient
+);
+
 // --- TOOLS ---
 
 server.tool(
@@ -36,7 +47,9 @@ server.tool(
         }
 
         try {
-            const client = new ReputationClient();
+            // Get settings from session context
+            const settings = SessionContext.getSettings(serverModule, extra);
+            const client = new ReputationClient(settings);
             const result = await client.getReputation('url', args.url as string);
             const verdict = getReputationVerdict(result.risk, result.confidence);
 
@@ -72,9 +85,11 @@ server.tool(
         }
 
         try {
-            const client = new ReputationClient();
+            // Get settings from session context
+            const settings = SessionContext.getSettings(serverModule, extra);
+            const client = new ReputationClient(settings);
             const result = await client.getReputation('ip', args.ip as string);
-            const verdict = getReputationVerdict(result.risk, result.classification);
+            const verdict = getReputationVerdict(result.risk, result.confidence);
 
             return {
                 content: [{
@@ -107,10 +122,12 @@ server.tool(
         }
 
         try {
-            const client = new ReputationClient();
+            // Get settings from session context
+            const settings = SessionContext.getSettings(serverModule, extra);
+            const client = new ReputationClient(settings);
             const result = await client.getReputation('file', args.hash as string);
 
-            const verdict = getReputationVerdict(result.risk, result.classification);
+            const verdict = getReputationVerdict(result.risk, result.confidence);
 
             return {
                 content: [{
@@ -131,7 +148,7 @@ export { server };
 const main = async () => {
     await launchMCPServer(
         join(dirname(fileURLToPath(import.meta.url)), 'server-config.json'),
-        { server, Settings, pkg }
+        serverModule
     );
 };
 main().catch((error) => {

@@ -1,6 +1,6 @@
 {
   "name": "@chkp/harmony-infra",
-  "version": "0.3.0",
+  "version": "0.3.3",
   "description": "Infrastructure for Check Point Harmony SASE MCP servers",
   "type": "module",
   "main": "dist/index.js",
@@ -11,12 +11,13 @@
     "directory": "packages/harmony-infra"
   },
   "scripts": {
+    "clean": "rimraf dist",
     "build": "tsc",
-    "dev": "tsc --watch",
-    "build:all": "npm run clean && npm run build"
+    "dev": "tsc --watch"
   },
   "license": "MIT",
   "dependencies": {
+    "@chkp/mcp-utils": "*",
     "@modelcontextprotocol/sdk": "^1.11.1",
     "axios": "^1.11.0",
     "commander": "^11.1.0",

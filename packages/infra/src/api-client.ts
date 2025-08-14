@@ -2,6 +2,14 @@
 import axios from 'axios';
 import https from 'https';
 
+/**
+ * Enum representing the types of authentication tokens
+ */
+export enum TokenType {
+  API_KEY = "API_KEY",
+  CI_TOKEN = "CI_TOKEN"
+}
+
 function getMainPackageUserAgent(): string {
   if (process.env.CP_MCP_MAIN_PKG) {
     if (process.env.CP_MCP_MAIN_PKG.includes("quantum-management-mcp")) {
@@ -25,27 +33,15 @@ export class ClientResponse {
  * Base class for API clients
  */
 export abstract class APIClientBase {
-  private static _instance: APIClientBase;
   protected sid: string | null = null;
   protected sessionTimeout: number | null = null; // in seconds
   protected sessionStart: number | null = null;   // timestamp when session was created
+  private _debug?: boolean;
 
-  
   constructor(
-    protected readonly apiKey: string,
-  ) {
-    if (APIClientBase._instance) {
-      return APIClientBase._instance;
-    }
-    APIClientBase._instance = this;
-  }
-
-  /**
-   * Reset the singleton instance (useful for testing)
-   */
-  static resetInstance(): void {
-    APIClientBase._instance = null as unknown as APIClientBase;
-  }
+    protected readonly authToken: string = "",
+    protected readonly tokenType: TokenType = TokenType.API_KEY // Default
+  ) {}
 
   /**
    * Get the host URL for the API client
@@ -73,6 +69,20 @@ export abstract class APIClientBase {
     }
     
     return headers;
+  }
+
+  /**
+   * Get debug mode
+   */
+  get debug(): boolean {
+    return !!this._debug;
+  }
+
+  /**
+   * Set debug mode
+   */
+  set debug(value: boolean) {
+    this._debug = value;
   }
 
   /**
@@ -108,7 +118,7 @@ export abstract class APIClientBase {
     }
 
 
-    return await APIClientBase.makeRequest(
+    return await this.makeRequest(
         this.getHost(),
         method,
         uri,
@@ -133,11 +143,12 @@ export abstract class APIClientBase {
    * Login to the API using the API key
    */
   async login(): Promise<string> {
-    const loginResp = await APIClientBase.makeRequest(
+    const apiTokenHeader = this.tokenType === TokenType.API_KEY ? "api-key" : "ci-token";
+    const loginResp = await this.makeRequest(
       this.getHost(),
       "POST",
       "login",
-      { "api-key": this.apiKey },
+      { [apiTokenHeader] : this.authToken },
       { "Content-Type": "application/json" }
     );
     if (loginResp.status !== 200 || !loginResp.response || !loginResp.response.sid) {
@@ -152,7 +163,8 @@ export abstract class APIClientBase {
 
   /**
    * Make a request to a Check Point API
-   */  static async makeRequest(
+   */
+  async makeRequest(
     host: string,
     method: string,
     uri: string,
@@ -191,6 +203,16 @@ export abstract class APIClientBase {
         console.error(`❌ API Error (${error.response.status}):`);
         console.error('Headers:', error.response.headers);
         console.error('Data:', error.response.data);
+
+        // Print the request details when debug is enabled
+        if (this.debug) {
+          console.error('Debug mode: Printing request details:');
+          console.error('Request Method:', method);
+          console.error('Request URL:', url);
+          console.error('Request Headers:', config.headers);
+          console.error('Request Data:', config.data);
+          console.error('Request Params:', config.params);
+        }
       }
       
       if (error.response) {
@@ -206,10 +228,11 @@ export abstract class APIClientBase {
  */
 export class SmartOneCloudAPIClient extends APIClientBase {
   constructor(
-    apiKey: string,
+    authToken: string,
+    tokenType: TokenType,
     private readonly s1cUrl: string
   ) {
-    super(apiKey);
+    super(authToken, tokenType);
   }
 
   getHost(): string {
@@ -249,7 +272,7 @@ export class OnPremAPIClient extends APIClientBase {
    */
   async login(): Promise<string> {
     // Determine if we're using API key or username/password
-    const isUsingApiKey = !!this.apiKey;
+    const isUsingApiKey = !!this.authToken;
     const isUsingCredentials = !!(this.username && this.password);
     
     if (!isUsingApiKey && !isUsingCredentials) {
@@ -265,10 +288,10 @@ export class OnPremAPIClient extends APIClientBase {
     
     // Prepare login payload based on authentication method
     const loginPayload = isUsingApiKey 
-      ? { "api-key": this.apiKey } 
+      ? { "api-key": this.authToken } 
       : { "user": this.username, "password": this.password };
     
-    const loginResp = await APIClientBase.makeRequest(
+    const loginResp = await this.makeRequest(
       this.getHost(),
       "POST",
       "login",

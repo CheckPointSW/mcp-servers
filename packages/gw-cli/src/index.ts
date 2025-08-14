@@ -2,8 +2,12 @@
 
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { Settings } from '@chkp/quantum-infra';
-import { launchMCPServer } from '@chkp/mcp-utils';
+import { Settings, APIManagerForAPIKey } from '@chkp/quantum-infra';
+import { 
+  launchMCPServer, 
+  createServerModule,
+  createApiRunner
+} from '@chkp/mcp-utils';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -27,6 +31,17 @@ const server = new McpServer({
   version: '0.0.1'
 });
 
+// Create a multi-user server module
+const serverModule = createServerModule(
+  server,
+  Settings,
+  pkg,
+  APIManagerForAPIKey
+);
+
+// Create an API runner function
+const runApiScript = createApiRunner(serverModule);
+
 
 // Register all tools
 
@@ -37,11 +52,13 @@ server.tool(
   {
     target_gateway: z.string().describe('The target gateway to run the command on'),
   },
-  async ({ target_gateway }) => {
+  async ({ target_gateway }, extra) => {
     const result = await runScript(server, 
       Scripts.DmidecodeScript,
       target_gateway,
-      { }
+      { },
+      serverModule,
+      extra
     );
     
     return {
@@ -56,7 +73,7 @@ server.tool(
   {
     target_gateway: z.string().describe('The target gateway to run the command on')
   },
-  async ({ target_gateway }) => {
+  async ({ target_gateway }, extra) => {
     const result = await runScript(server, 
       Scripts.ShowAssetAllScript,
       target_gateway,
@@ -75,7 +92,7 @@ server.tool(
   {
     target_gateway: z.string().describe('The target gateway to run the command on')
   },
-  async ({ target_gateway }) => {
+  async ({ target_gateway }, extra) => {
     const result = await runScript(server, 
       Scripts.CPInfoAllScript,
       target_gateway,
@@ -95,11 +112,13 @@ server.tool(
   {
     target_gateway: z.string().describe('The target gateway to run the command on'),
   },
-  async ({ target_gateway }) => {
+  async ({ target_gateway }, extra) => {
     const result = await runScript(server, 
       Scripts.ShowRouteScript,
       target_gateway,
-      {  }
+      {  },
+      serverModule,
+      extra
     );
     
     return {
@@ -114,11 +133,13 @@ server.tool(
   {
     target_gateway: z.string().describe('The target gateway to run the command on'),
   },
-  async ({ target_gateway }) => {
+  async ({ target_gateway }, extra) => {
     const result = await runScript(server, 
       Scripts.NetstatRouteScript,
       target_gateway,
-      {  }
+      {  },
+      serverModule,
+      extra
     );
     
     return {
@@ -133,7 +154,7 @@ server.tool(
   {
     target_gateway: z.string().describe('The target gateway to run the command on'),
   },
-  async ({ target_gateway }) => {
+  async ({ target_gateway }, extra) => {
     const result = await runScript(server, 
       Scripts.IPRouteShowScript,
       target_gateway,
@@ -153,7 +174,7 @@ server.tool(
   {
     target_gateway: z.string().describe('The target gateway to run the command on')
   },
-  async ({ target_gateway }) => {
+  async ({ target_gateway }, extra) => {
     const result = await runScript(server, 
       Scripts.CPHAProbStatScript,
       target_gateway,
@@ -172,7 +193,7 @@ server.tool(
   {
     target_gateway: z.string().describe('The target gateway to run the command on')
   },
-  async ({ target_gateway }) => {
+  async ({ target_gateway }, extra) => {
     const result = await runScript(server, 
       Scripts.CPHAProbIfScript,
       target_gateway,
@@ -191,7 +212,7 @@ server.tool(
   {
     target_gateway: z.string().describe('The target gateway to run the command on')
   },
-  async ({ target_gateway }) => {
+  async ({ target_gateway }, extra) => {
     const result = await runScript(server, 
       Scripts.CPHAProbSyncStatScript,
       target_gateway,
@@ -211,7 +232,7 @@ server.tool(
   {
     target_gateway: z.string().describe('The target gateway to run the command on'),
   },
-  async ({ target_gateway }) => {
+  async ({ target_gateway }, extra) => {
     const result = await runScript(server, 
       Scripts.CPLicPrintScript,
       target_gateway,
@@ -235,11 +256,13 @@ server.tool(
     target_gateway: z.string().describe('The target gateway to run the command on'),
     interface_name: z.string().optional().describe('Optional parameter for the show vlan command')
   },
-  async ({ target_gateway, interface_name }) => {
+  async ({ target_gateway, interface_name }, extra) => {
     const result = await runScript(server, 
       Scripts.ShowInterfaceScript,
       target_gateway,
-      { interface_name }
+      { interface_name },
+      serverModule,
+      extra
     );
     
     return {
@@ -254,7 +277,7 @@ server.tool(
   {
     target_gateway: z.string().describe('The target gateway to run the command on'),
   },
-  async ({ target_gateway }) => {
+  async ({ target_gateway }, extra) => {
     const result = await runScript(server, 
       Scripts.ShowInterfacesAllScript,
       target_gateway,
@@ -293,11 +316,13 @@ server.tool(
     ipv6: z.boolean().optional().describe('Optional parameter to show IPv6 statistics'),
     param: z.string().optional().describe('Optional parameter for the fwaccel stats command')
   },
-  async ({ target_gateway, ipv6, param }) => {
+  async ({ target_gateway, ipv6, param }, extra) => {
     const result = await runScript(server, 
       Scripts.FWAccelStatsScript,
       target_gateway,
-      { ipv6, param }
+      { ipv6, param },
+      serverModule,
+      extra
     );
     
     return {
@@ -327,11 +352,13 @@ server.tool(
     ipv6: z.boolean().optional().describe('Optional parameter to show IPv6 connections'),
     param: z.string().optional().describe('Optional parameter for the fwaccel conns command'),
   },
-  async ({ target_gateway, ipv6, param }) => {
+  async ({ target_gateway, ipv6, param }, extra) => {
     const result = await runScript(server, 
       Scripts.FWAccelConnsScript,
       target_gateway,
-      { ipv6, param }
+      { ipv6, param },
+      serverModule,
+      extra
     );
     
     return {
@@ -347,7 +374,7 @@ server.tool(
   {
     target_gateway: z.string().describe('The target gateway to run the command on'),
   },
-  async ({ target_gateway }) => {
+  async ({ target_gateway }, extra) => {
     const result = await runScript(server, 
       Scripts.FWAccelStatScript,
       target_gateway,
@@ -367,7 +394,7 @@ server.tool(
   {
     target_gateway: z.string().describe('The target gateway to run the command on'),
   },
-  async ({ target_gateway }) => {
+  async ({ target_gateway }, extra) => {
     const result = await runScript(server, 
       Scripts.FWCtlArpScript,
       target_gateway,
@@ -386,7 +413,7 @@ server.tool(
   {
     target_gateway: z.string().describe('The target gateway to run the command on'),
   },
-  async ({ target_gateway }) => {
+  async ({ target_gateway }, extra) => {
     const result = await runScript(server, 
       Scripts.FWCtlChainScript,
       target_gateway,
@@ -405,7 +432,7 @@ server.tool(
   {
     target_gateway: z.string().describe('The target gateway to run the command on'),
   },
-  async ({ target_gateway }) => {
+  async ({ target_gateway }, extra) => {
     const result = await runScript(server, 
       Scripts.FWCtlConnScript,
       target_gateway,
@@ -424,7 +451,7 @@ server.tool(
   {
     target_gateway: z.string().describe('The target gateway to run the command on'),
   },
-  async ({ target_gateway }) => {
+  async ({ target_gateway }, extra) => {
     const result = await runScript(server, 
       Scripts.FWCtlCPASStatScript,
       target_gateway,
@@ -443,7 +470,7 @@ server.tool(
   {
     target_gateway: z.string().describe('The target gateway to run the command on'),
   },
-  async ({ target_gateway }) => {
+  async ({ target_gateway }, extra) => {
     const result = await runScript(server, 
       Scripts.FWCtlDLPKStatScript,
       target_gateway,
@@ -462,7 +489,7 @@ server.tool(
   {
     target_gateway: z.string().describe('The target gateway to run the command on'),
   },
-  async ({ target_gateway }) => {
+  async ({ target_gateway }, extra) => {
     const result = await runScript(server, 
       Scripts.FWCtlIfListScript,
       target_gateway,
@@ -492,11 +519,13 @@ server.tool(
     target_gateway: z.string().describe('The target gateway to run the command on'),
     param: z.string().optional().describe('Optional parameter for the fw ctl pstat command')
   },
-  async ({ target_gateway, param }) => {
+  async ({ target_gateway, param }, extra) => {
     const result = await runScript(server, 
       Scripts.FWCtlPStatScript,
       target_gateway,
-      { param }
+      { param },
+      serverModule,
+      extra
     );
     
     return {
@@ -515,11 +544,13 @@ server.tool(
     target_gateway: z.string().describe('The target gateway to run the command on'),
     param: z.string().optional().describe('Optional parameter for the fw ctl tcpstrstat command')
   },
-  async ({ target_gateway, param }) => {
+  async ({ target_gateway, param }, extra) => {
     const result = await runScript(server, 
       Scripts.FWCtlTCPStrStatScript,
       target_gateway,
-      { param }
+      { param },
+      serverModule,
+      extra
     );
     
     return {
@@ -535,7 +566,7 @@ server.tool(
   {
     target_gateway: z.string().describe('The target gateway to run the command on')
   },
-  async ({ target_gateway }) => {
+  async ({ target_gateway }, extra) => {
     const result = await runScript(server, 
       Scripts.DynamicBalancingScript,
       target_gateway,
@@ -554,7 +585,7 @@ server.tool(
   {
     target_gateway: z.string().describe('The target gateway to run the command on')
   },
-  async ({ target_gateway }) => {
+  async ({ target_gateway }, extra) => {
     const result = await runScript(server, 
       Scripts.HCPProtectInfoScript,
       target_gateway,
@@ -573,7 +604,7 @@ server.tool(
   {
     target_gateway: z.string().describe('The target gateway to run the command on')
   },
-  async ({ target_gateway }) => {
+  async ({ target_gateway }, extra) => {
     const result = await runScript(server, 
       Scripts.DiskUsageScript,
       target_gateway,
@@ -591,7 +622,7 @@ export { server };
 const main = async () => {
   await launchMCPServer(
     join(dirname(fileURLToPath(import.meta.url)), 'server-config.json'),
-    { server, Settings, pkg }
+    serverModule
   );
 };
 

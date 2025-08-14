@@ -1,15 +1,42 @@
-import { Settings } from './settings.js';
 import axios from 'axios';
+import { getHeaderValue } from '@chkp/mcp-utils';
+
+export class ReputationSettings {
+    apiKey?: string;
+
+    constructor({
+    apiKey = process.env.API_KEY
+  }: {
+    apiKey?: string;
+  } = {}) {
+    this.apiKey = apiKey || '';
+  }
+
+
+  static fromArgs(options: any): ReputationSettings {
+    return new ReputationSettings({
+      apiKey: options.apiKey
+    });
+  }
+
+  static fromHeaders(headers: Record<string, string | string[]>): ReputationSettings {
+    const apiKey = getHeaderValue(headers, 'API-KEY');
+    return new ReputationSettings({
+      apiKey
+    });
+  }
+}
+
 
 let tokenCached = '';
 
 export class ReputationClient {
-    private settings: Settings;
+    private settings: ReputationSettings;
     private readonly BASE_AUTH_URL = 'https://rep.checkpoint.com/rep-auth/service/v1.0/request';
     private readonly BASE_REP_URL = 'https://rep.checkpoint.com';
 
-    constructor() {
-        this.settings = Settings.getSettings();
+    constructor(settings: ReputationSettings) {
+        this.settings = settings;
     }
     /**
      * Get reputation for a resource (URL, IP, or File hash)
@@ -50,7 +77,7 @@ export class ReputationClient {
                     resource: resource,
                     context:
                         {
-                            platform: "mcp"
+                            api_type: "mcp"
                         }
                 }]
             }, {

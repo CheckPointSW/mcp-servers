@@ -1,6 +1,6 @@
 {
   "name": "@chkp/quantum-infra",
-  "version": "0.5.1",
+  "version": "0.5.4",
   "description": "Shared infrastructure for Check Point Quantum Management MCP servers",
   "repository": {
     "type": "git",
@@ -12,13 +12,14 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
+    "clean": "rimraf dist",
     "build": "tsc",
     "dev": "tsc --watch",
-    "build:all": "npm run clean && npm run build",
     "test": "jest",
     "test:watch": "jest --watch"
   },
   "dependencies": {
+    "@chkp/mcp-utils": "*",
     "@modelcontextprotocol/sdk": "^1.11.1",
     "axios": "^1.11.0",
     "commander": "^11.1.0",

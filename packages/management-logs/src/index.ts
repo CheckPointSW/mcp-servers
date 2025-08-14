@@ -2,9 +2,12 @@
 
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { callManagementApi } from '@chkp/quantum-infra';
-import { Settings } from '@chkp/quantum-infra';
-import { launchMCPServer } from '@chkp/mcp-utils';
+import { Settings, APIManagerForAPIKey } from '@chkp/quantum-infra';
+import { 
+  launchMCPServer, 
+  createServerModule,
+  createApiRunner
+} from '@chkp/mcp-utils';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -15,16 +18,22 @@ const pkg = JSON.parse(
 
 process.env.CP_MCP_MAIN_PKG = `${pkg.name} v${pkg.version}`;
 
-
-async function runApi(method: string, uri: string, data: Record<string, any>): Promise<Record<string, any>> {
-  return await callManagementApi(method, uri, data);
-}
-
 const server = new McpServer({
   name: 'management-logs',
   version: '1.0.0',
   description: 'MCP server to interact with Management Logs objects on Check Point Products.'
 });
+
+// Create a multi-user server module
+const serverModule = createServerModule(
+  server,
+  Settings,
+  pkg,
+  APIManagerForAPIKey
+);
+
+// Create an API runner function
+const runApi = createApiRunner(serverModule);
 
 // Show logs tool
 server.tool(
@@ -79,7 +88,7 @@ server.tool(
       params['query-id'] = queryId;
     }
 
-    const resp = await callManagementApi('POST', 'show-logs', params);
+    const resp = await runApi('POST', 'show-logs', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -108,7 +117,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await callManagementApi('POST', 'show-gateways-and-servers', params);
+    const resp = await runApi('POST', 'show-gateways-and-servers', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -142,7 +151,7 @@ server.tool(
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     if (type) params.type = type;
-    const resp = await callManagementApi('POST', 'show-objects', params);
+    const resp = await runApi('POST', 'show-objects', params, extra);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -159,7 +168,7 @@ server.tool(
       const params: Record<string, any> = {}
       params.uid = uid
       params.details_level = 'full'
-      const resp = await callManagementApi('POST', 'show-object', params);
+      const resp = await runApi('POST', 'show-object', params, extra);
       return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -170,7 +179,7 @@ export { server };
 const main = async () => {
   await launchMCPServer(
     join(dirname(fileURLToPath(import.meta.url)), 'server-config.json'),
-    { server, Settings, pkg }
+    serverModule
   );
 };
 
