@@ -3,9 +3,14 @@ node_modules/
 
 # Build output
 dist/
+dxt-builds
+static/
 
 # Environment variables
 .env
+
+# npm config files
+.npmrc
 
 # IDE files
 .vscode/
@@ -36,3 +41,9 @@ Thumbs.db
 .env.local
 # Specify filepatterns you want git to ignore.
 
+# Temporary npm files
+.npmrc.*
+.npmignore.tmp*
+
+# Nx cache and workspace data
+.nx/
