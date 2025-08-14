@@ -1,5 +1,18 @@
 # @chkp/harmony-sase-mcp
 
+## 0.4.0
+
+### Minor Changes
+
+- e74252b: Updated implementation and features, Updated configuration, Added 1 new file(s), Modified 2 file(s) (synced from internal repository)
+
+### Patch Changes
+
+- Updated dependencies [e74252b]
+- Updated dependencies [e74252b]
+  - @chkp/harmony-infra@0.4.0
+  - @chkp/mcp-utils@0.4.0
+
 ## 0.3.1
 
 ### Patch Changes

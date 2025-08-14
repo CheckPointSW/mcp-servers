@@ -1,0 +1,4 @@
+
+> @chkp/quantum-gw-cli-mcp@0.2.2 build
+> npx tsc && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/
+

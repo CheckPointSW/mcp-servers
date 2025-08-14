@@ -1,5 +1,11 @@
 # @chkp/mcp-utils
 
+## 0.4.0
+
+### Minor Changes
+
+- e74252b: Updated implementation and features, Updated configuration, Added 7 new file(s), Modified 3 file(s) (synced from internal repository)
+
 ## 0.3.0
 
 ### Minor Changes

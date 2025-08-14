@@ -1,5 +1,16 @@
 # @chkp/quantum-infra
 
+## 0.6.0
+
+### Minor Changes
+
+- e74252b: Updated implementation and features, Updated configuration, Added 2 new file(s), Modified 6 file(s), Removed 1 file(s) (synced from internal repository)
+
+### Patch Changes
+
+- Updated dependencies [e74252b]
+  - @chkp/mcp-utils@0.4.0
+
 ## 0.5.1
 
 ### Patch Changes
