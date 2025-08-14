@@ -1,0 +1,4 @@
+
+> @chkp/management-logs-mcp@0.3.4 build
+> npx tsc && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/
+

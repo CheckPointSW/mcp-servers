@@ -1,5 +1,18 @@
 # @chkp/threat-prevention-mcp
 
+## 0.5.0
+
+### Minor Changes
+
+- e74252b: Updated implementation and features, Updated configuration, Added 1 new file(s), Modified 3 file(s) (synced from internal repository)
+
+### Patch Changes
+
+- Updated dependencies [e74252b]
+- Updated dependencies [e74252b]
+  - @chkp/quantum-infra@0.6.0
+  - @chkp/mcp-utils@0.4.0
+
 ## 0.4.1
 
 ### Patch Changes

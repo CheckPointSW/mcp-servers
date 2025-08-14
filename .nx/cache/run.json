@@ -1,0 +1,142 @@
+{
+  "run": {
+    "command": "nx run-many --target=build --all",
+    "startTime": "2025-08-14T12:35:39.272Z",
+    "endTime": "2025-08-14T12:36:02.218Z",
+    "inner": false
+  },
+  "tasks": [
+    {
+      "taskId": "@chkp/mcp-utils:build",
+      "target": "build",
+      "projectName": "@chkp/mcp-utils",
+      "hash": "17675503515115067741",
+      "startTime": "2025-08-14T12:35:39.295Z",
+      "endTime": "2025-08-14T12:35:41.383Z",
+      "params": "",
+      "cacheStatus": "cache-miss",
+      "status": 0
+    },
+    {
+      "taskId": "@chkp/harmony-infra:build",
+      "target": "build",
+      "projectName": "@chkp/harmony-infra",
+      "hash": "921343300723298441",
+      "startTime": "2025-08-14T12:35:41.389Z",
+      "endTime": "2025-08-14T12:35:44.381Z",
+      "params": "",
+      "cacheStatus": "cache-miss",
+      "status": 0
+    },
+    {
+      "taskId": "@chkp/quantum-infra:build",
+      "target": "build",
+      "projectName": "@chkp/quantum-infra",
+      "hash": "2653878255248487551",
+      "startTime": "2025-08-14T12:35:41.389Z",
+      "endTime": "2025-08-14T12:35:44.394Z",
+      "params": "",
+      "cacheStatus": "cache-miss",
+      "status": 0
+    },
+    {
+      "taskId": "@chkp/reputation-service-mcp:build",
+      "target": "build",
+      "projectName": "@chkp/reputation-service-mcp",
+      "hash": "12168768973781268889",
+      "startTime": "2025-08-14T12:35:41.389Z",
+      "endTime": "2025-08-14T12:35:47.309Z",
+      "params": "",
+      "cacheStatus": "cache-miss",
+      "status": 0
+    },
+    {
+      "taskId": "@chkp/quantum-gw-cli-base:build",
+      "target": "build",
+      "projectName": "@chkp/quantum-gw-cli-base",
+      "hash": "7816216167805424155",
+      "startTime": "2025-08-14T12:35:44.404Z",
+      "endTime": "2025-08-14T12:35:47.873Z",
+      "params": "",
+      "cacheStatus": "cache-miss",
+      "status": 0
+    },
+    {
+      "taskId": "@chkp/harmony-sase-mcp:build",
+      "target": "build",
+      "projectName": "@chkp/harmony-sase-mcp",
+      "hash": "16291217384649039358",
+      "startTime": "2025-08-14T12:35:44.387Z",
+      "endTime": "2025-08-14T12:35:50.317Z",
+      "params": "",
+      "cacheStatus": "cache-miss",
+      "status": 0
+    },
+    {
+      "taskId": "@chkp/quantum-gw-cli-mcp:build",
+      "target": "build",
+      "projectName": "@chkp/quantum-gw-cli-mcp",
+      "hash": "3384627460294768825",
+      "startTime": "2025-08-14T12:35:47.878Z",
+      "endTime": "2025-08-14T12:35:54.608Z",
+      "params": "",
+      "cacheStatus": "cache-miss",
+      "status": 0
+    },
+    {
+      "taskId": "@chkp/quantum-management-mcp:build",
+      "target": "build",
+      "projectName": "@chkp/quantum-management-mcp",
+      "hash": "8471148885710101081",
+      "startTime": "2025-08-14T12:35:47.311Z",
+      "endTime": "2025-08-14T12:35:54.913Z",
+      "params": "",
+      "cacheStatus": "cache-miss",
+      "status": 0
+    },
+    {
+      "taskId": "@chkp/management-logs-mcp:build",
+      "target": "build",
+      "projectName": "@chkp/management-logs-mcp",
+      "hash": "4537164613618126680",
+      "startTime": "2025-08-14T12:35:50.320Z",
+      "endTime": "2025-08-14T12:35:56.443Z",
+      "params": "",
+      "cacheStatus": "cache-miss",
+      "status": 0
+    },
+    {
+      "taskId": "@chkp/threat-prevention-mcp:build",
+      "target": "build",
+      "projectName": "@chkp/threat-prevention-mcp",
+      "hash": "11103498770784604006",
+      "startTime": "2025-08-14T12:35:54.615Z",
+      "endTime": "2025-08-14T12:36:00.996Z",
+      "params": "",
+      "cacheStatus": "cache-miss",
+      "status": 0
+    },
+    {
+      "taskId": "@chkp/https-inspection-mcp:build",
+      "target": "build",
+      "projectName": "@chkp/https-inspection-mcp",
+      "hash": "5940469790152999956",
+      "startTime": "2025-08-14T12:35:54.919Z",
+      "endTime": "2025-08-14T12:36:01.171Z",
+      "params": "",
+      "cacheStatus": "cache-miss",
+      "status": 0
+    },
+    {
+      "taskId": "@chkp/quantum-gw-connection-analysis-mcp:build",
+      "target": "build",
+      "projectName": "@chkp/quantum-gw-connection-analysis-mcp",
+      "hash": "6503592020155840474",
+      "startTime": "2025-08-14T12:35:56.444Z",
+      "endTime": "2025-08-14T12:36:02.216Z",
+      "params": "",
+      "cacheStatus": "cache-miss",
+      "status": 0
+    }
+  ]
+}
