@@ -87,28 +87,40 @@ npm run build
 
 This project uses Nx for managing the monorepo. You can use Nx commands to run tasks for specific packages:
 
+**Package Build Options:**
+- **Alias:** `npm run nx:build:<folder-name>` (e.g., `management`, `harmony-sase`, `infra`)
+- **Direct Nx:** `npx nx build <full-package-name>` (e.g., `@chkp/quantum-management-mcp`)
+
 ### Running Development Mode
 ```bash
-# Run @chkp/management in development mode  
-npx nx run @chkp/management:dev
+# Run @chkp/management in development mode
+npx nx run @chkp/quantum-management-mcp:dev
+# or using alias
+npm run nx:dev:management
 
 # Run https-inspection in development mode
-npx nx run @chkp/https-inspection:dev
+npx nx run @chkp/https-inspection-mcp:dev
+# or using alias
+npm run nx:dev:https-inspection
 ```
 
 ### Building Specific Packages
 ```bash
 # Build https-inspection server
-npx nx build @chkp/https-inspection
+npx nx build @chkp/https-inspection-mcp
+# or using alias
+npm run nx:build:https-inspection
 
 # Build threat-prevention server
-npx nx build @chkp/threat-prevention
+npx nx build @chkp/threat-prevention-mcp
+# or using alias
+npm run nx:build:threat-prevention
 ```
 
 ### Running Tests
 ```bash
 # Run tests for a specific package
-npx nx run @chkp/infra:test
+npx nx run @chkp/quantum-infra:test
 
 # Run tests for all packages
 npx nx run-many --target=test
