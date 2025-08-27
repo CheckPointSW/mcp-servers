@@ -1,5 +1,11 @@
 # @chkp/threat-emulation-mcp
 
+## 0.1.2
+
+### Patch Changes
+
+- 5d3670b: Updated configuration, Modified 1 file(s) (synced from internal repository)
+
 ## 0.1.1
 
 ### Patch Changes

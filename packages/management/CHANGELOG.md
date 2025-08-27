@@ -1,5 +1,11 @@
 # @chkp/quantum-management-mcp
 
+## 0.5.0
+
+### Minor Changes
+
+- 5d3670b: Updated implementation and features, Updated configuration, Modified 2 file(s) (synced from internal repository)
+
 ## 0.4.0
 
 ### Minor Changes

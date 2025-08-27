@@ -1,5 +1,11 @@
 # @chkp/https-inspection-mcp
 
+## 0.5.1
+
+### Patch Changes
+
+- 5d3670b: Updated configuration, Modified 1 file(s) (synced from internal repository)
+
 ## 0.5.0
 
 ### Minor Changes

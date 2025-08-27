@@ -1,5 +1,11 @@
 # @chkp/quantum-gw-connection-analysis-mcp
 
+## 0.3.1
+
+### Patch Changes
+
+- 5d3670b: Updated configuration, Modified 1 file(s) (synced from internal repository)
+
 ## 0.3.0
 
 ### Minor Changes
