@@ -77,7 +77,9 @@ server.tool(
     const result = await runScript(server, 
       Scripts.ShowAssetAllScript,
       target_gateway,
-      {}
+      {},
+      serverModule,
+      extra
     );
     
     return {
@@ -96,7 +98,9 @@ server.tool(
     const result = await runScript(server, 
       Scripts.CPInfoAllScript,
       target_gateway,
-      {}
+      {},
+      serverModule,
+      extra
     );
     
     return {
@@ -158,7 +162,9 @@ server.tool(
     const result = await runScript(server, 
       Scripts.IPRouteShowScript,
       target_gateway,
-      { }
+      { },
+      serverModule,
+      extra
     );
     
     return {
@@ -178,7 +184,9 @@ server.tool(
     const result = await runScript(server, 
       Scripts.CPHAProbStatScript,
       target_gateway,
-      {}
+      {},
+      serverModule,
+      extra
     );
     
     return {
@@ -197,7 +205,9 @@ server.tool(
     const result = await runScript(server, 
       Scripts.CPHAProbIfScript,
       target_gateway,
-      {}
+      {},
+      serverModule,
+      extra
     );
     
     return {
@@ -216,7 +226,9 @@ server.tool(
     const result = await runScript(server, 
       Scripts.CPHAProbSyncStatScript,
       target_gateway,
-      {}
+      {},
+      serverModule,
+      extra
     );
     
     return {
@@ -236,7 +248,9 @@ server.tool(
     const result = await runScript(server, 
       Scripts.CPLicPrintScript,
       target_gateway,
-      { }
+      { },
+      serverModule,
+      extra
     );
     
     return {
@@ -281,7 +295,9 @@ server.tool(
     const result = await runScript(server, 
       Scripts.ShowInterfacesAllScript,
       target_gateway,
-      { }
+      { },
+      serverModule,
+      extra
     );
     
     return {
@@ -378,7 +394,9 @@ server.tool(
     const result = await runScript(server, 
       Scripts.FWAccelStatScript,
       target_gateway,
-      {}
+      {},
+      serverModule,
+      extra
     );
     
     return {
@@ -398,7 +416,9 @@ server.tool(
     const result = await runScript(server, 
       Scripts.FWCtlArpScript,
       target_gateway,
-      { }
+      { },
+      serverModule,
+      extra
     );
     
     return {
@@ -417,7 +437,9 @@ server.tool(
     const result = await runScript(server, 
       Scripts.FWCtlChainScript,
       target_gateway,
-      { }
+      { },
+      serverModule,
+      extra
     );
     
     return {
@@ -436,7 +458,9 @@ server.tool(
     const result = await runScript(server, 
       Scripts.FWCtlConnScript,
       target_gateway,
-      { }
+      { },
+      serverModule,
+      extra
     );
     
     return {
@@ -455,7 +479,9 @@ server.tool(
     const result = await runScript(server, 
       Scripts.FWCtlCPASStatScript,
       target_gateway,
-      { }
+      { },
+      serverModule,
+      extra
     );
     
     return {
@@ -474,7 +500,9 @@ server.tool(
     const result = await runScript(server, 
       Scripts.FWCtlDLPKStatScript,
       target_gateway,
-      { }
+      { },
+      serverModule,
+      extra
     );
     
     return {
@@ -493,7 +521,9 @@ server.tool(
     const result = await runScript(server, 
       Scripts.FWCtlIfListScript,
       target_gateway,
-      { }
+      { },
+      serverModule,
+      extra
     );
     
     return {
@@ -570,7 +600,9 @@ server.tool(
     const result = await runScript(server, 
       Scripts.DynamicBalancingScript,
       target_gateway,
-      {}
+      {},
+      serverModule,
+      extra
     );
     
     return {
@@ -589,7 +621,9 @@ server.tool(
     const result = await runScript(server, 
       Scripts.HCPProtectInfoScript,
       target_gateway,
-      {}
+      {},
+      serverModule,
+      extra
     );
     
     return {
@@ -608,7 +642,9 @@ server.tool(
     const result = await runScript(server, 
       Scripts.DiskUsageScript,
       target_gateway,
-      { }
+      { },
+      serverModule,
+      extra
     );
     
     return {
