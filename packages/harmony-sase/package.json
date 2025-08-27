@@ -18,18 +18,20 @@
   },
   "scripts": {
     "clean": "rimraf dist",
-    "build": "npx tsc && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
+    "build": "npm run build:bundle && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
+    "build:bundle": "node ../../bundle-mcp.js",
+    "build:tsc": "npx tsc && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
     "dev": "tsc --watch",
     "start": "node dist/index.js"
   },
   "license": "MIT",
   "dependencies": {
-    "@chkp/harmony-infra": "*",
-    "@chkp/mcp-utils": "*",
     "@modelcontextprotocol/sdk": "^1.11.1",
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@chkp/harmony-infra": "*",
+    "@chkp/mcp-utils": "*",
     "@types/node": "^18.15.11",
     "typescript": "^5.0.4"
   }

@@ -246,19 +246,25 @@ server.tool(
   'show_hosts',
   'Show the hosts in the management server.',
   {
+    filter: z.string().optional(),
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     show_membership: z.boolean().optional().default(true),
   },
+  
   async (args: Record<string, unknown>, extra: any) => {
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : true;
-    // Get API manager for this session
+    const params: Record<string, any> = {};
+    if (typeof args.filter === 'string' && args.filter.trim() !== '') params.filter = args.filter;
+    if (typeof args.limit === 'number') params.limit = args.limit;
+    if (typeof args.offset === 'number') params.offset = args.offset;
+    if (Array.isArray(args.order) && args.order.length > 0) params.order = args.order;
+    if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params.details_level = args.details_level;
+    if (typeof args.show_membership === 'boolean') params.show_membership = args.show_membership;
+    
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     
     // Call the API
-    const resp = await apiManager.callApi('POST', 'show-hosts', { limit, offset, show_membership });
+    const resp = await apiManager.callApi('POST', 'show-hosts', params);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -267,7 +273,7 @@ server.tool(
   'show_access_rule',
   'Show a specific rule in the access control layer. Set requested rule by uid, name or rule-number (at least one is required). You must always specify the layer.',
   {
-      name: z.string().optional(),
+    name: z.string().optional(),
     layer: z.string(),
     rule_number: z.number().optional(),
     uid: z.string().optional(),
@@ -1535,6 +1541,25 @@ server.tool(
   }
 );
 
+server.tool(
+  'show_networks',
+  'Show all networks, with optional filtering and detail level.',
+  {
+    filter: z.string().optional(),
+    limit: z.number().optional(),
+    offset: z.number().optional(),
+    order: z.array(z.string()).optional(),
+  },
+  async (args: Record<string, unknown>, extra: any) => {
+    const params: Record<string, any> = {};
+    if (typeof args.filter === 'string' && args.filter.trim() !== '') params.filter = args.filter;
+    if (typeof args.limit === 'number') params.limit = args.limit;
+    if (typeof args.offset === 'number') params.offset = args.offset;
+    if (Array.isArray(args.order) && args.order.length > 0) params.order = args.order;
+    const resp = await runApi('POST', 'show-networks', params, extra);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+  }
+);
 
 
 export { server };
