@@ -1,0 +1,66 @@
+name: Update Dependencies
+on:
+  schedule:
+    - cron: '0 0 * * 1'  # Every Monday at midnight UTC
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  update-dependencies:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+          
+      - run: npm install
+      
+      # Fix security vulnerabilities
+      - run: npm audit fix
+      
+      # Update dependencies within semver ranges
+      - run: npm update
+      
+      # Check if package-lock.json has changed
+      - name: Check for package-lock.json changes
+        id: check_lockfile
+        run: |
+          git diff --exit-code package-lock.json || echo "lockfile_changed=true" >> $GITHUB_OUTPUT
+      
+      # Create PR for dependency updates if changed
+      - name: Create PR for dependency updates
+        if: steps.check_lockfile.outputs.lockfile_changed == 'true'
+        run: |
+          # Configure Git
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # Create a new branch
+          BRANCH_NAME="dependency-update-$(date +%Y%m%d%H%M%S)"
+          git checkout -b $BRANCH_NAME
+          
+          # Commit changes
+          git add package-lock.json
+          git commit -m "chore: update dependencies and fix security vulnerabilities"
+          
+          # Push the branch
+          git push --set-upstream origin $BRANCH_NAME
+          
+          # Create PR with helpful labels and instructions
+          gh pr create --title "Update dependencies $(date +%Y-%m-%d)" \
+                      --body "Dependency updates and security fixes. Review changes and create changesets if packages need republishing." \
+                      --label "dependencies" \
+                      --label "security"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: No changes needed
+        if: steps.check_lockfile.outputs.lockfile_changed != 'true'
+        run: echo "Dependencies are up to date - no changes needed"
