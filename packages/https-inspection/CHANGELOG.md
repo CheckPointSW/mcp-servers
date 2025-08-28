@@ -1,5 +1,11 @@
 # @chkp/https-inspection-mcp
 
+## 0.5.2
+
+### Patch Changes
+
+- 945ee81: Updated configuration, Modified 1 file(s) (synced from internal repository)
+
 ## 0.5.1
 
 ### Patch Changes
