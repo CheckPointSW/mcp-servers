@@ -28,7 +28,8 @@
     { "path": "./packages/reputation-service" },
     { "path": "./packages/gw-cli-base" },
     { "path": "./packages/gw-cli" },
-    { "path": "./packages/gw-cli-connection-analysis" }
+    { "path": "./packages/gw-cli-connection-analysis" },
+    { "path": "./packages/gaia" }
   ],
   "files": []
 }
