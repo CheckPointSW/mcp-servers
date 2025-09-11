@@ -30,6 +30,7 @@ This monorepo is organized with each Check Point security domain as a separate M
   - **`/gw-cli`** - Gateway Script MCP Server for Information, Perfomance and Diagnostics
   - **`/gw-cli-connection-analysis`** - Gateway Script MCP Server to Analyze Connection Issues
   - **`/threat-emulation`** - Threat Emulation MCP server for malware analysis and file scanning
+  - **`/gaia`** - GAIA OS MCP server for network management and interface configuration
 
 ## Available MCP Servers
 
@@ -46,6 +47,7 @@ The following MCP servers are available in this repository:
 | [GW CLI](./packages/gw-cli/) | `@chkp/quantum-gw-cli-mcp` | Provides comprehensive diagnostics and analysis across hardware, network configuration, high availability, performance, security, and real-time connection debugging |
 | [GW CLI connection analysis](./packages/gw-cli-connection-analysis/) | `@chkp/quantum-gw-connection-analysis-mcp` | Provides debug logs to help analyze connection issues |
 | [Threat emulation](./packages/threat-emulation/) | `@chkp/threat-emulation-mcp` | Analyze files for malware and threats using Check Point's cloud services |
+| [Gaia](./packages/gaia/) | `@chkp/quantum-gaia-mcp` | Network management and interface configuration for GAIA OS |
 
 
 ## Example: Setting Up an MCP Server
