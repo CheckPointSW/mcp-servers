@@ -1,0 +1,181 @@
+name: MCPB Release
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        default: 'latest'
+        type: choice
+        options:
+        - latest
+        - prerelease
+      custom_tag:
+        description: 'Custom tag suffix (optional)'
+        required: false
+        type: string
+
+jobs:
+  mcpb-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - run: npm install
+      
+      - name: Build MCPB packages
+        run: |
+          echo "🏗️ Building MCPB packages..."
+          npm run build:mcpb
+          
+          if [ -d "mcpb-builds" ]; then
+            echo "📦 Built MCPB packages:"
+            find mcpb-builds -name "*.mcpb" -type f | while read mcpb_file; do
+              echo "  $(basename "$mcpb_file")"
+            done
+          fi
+
+      - name: Create MCPB Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Check if we have MCPB packages to release
+          if [ ! -d "mcpb-builds" ] || [ -z "$(find mcpb-builds -name "*.mcpb" -type f)" ]; then
+            echo "⚠️ No MCPB packages found to release"
+            exit 1
+          fi
+          
+          # Generate version tag
+          if [ -n "${{ github.event.inputs.custom_tag }}" ]; then
+            VERSION_TAG="mcpb-$(date +'%Y.%m.%d-%H%M')-${{ github.event.inputs.custom_tag }}"
+          else
+            VERSION_TAG="mcpb-$(date +'%Y.%m.%d-%H%M')-$(git rev-parse --short HEAD)"
+          fi
+          echo "🏷️ Creating release: $VERSION_TAG"
+          
+          # Prepare release assets
+          mkdir -p release-assets
+          find mcpb-builds -name "*.mcpb" -type f | while read mcpb_file; do
+            filename=$(basename "$mcpb_file")
+            cp "$mcpb_file" "release-assets/$filename"
+            echo "✅ Prepared: $filename"
+          done
+          
+          # Create release notes
+          echo "# MCPB Packages Release" > release-notes.md
+          echo "" >> release-notes.md
+          echo "## 📦 Claude Desktop Extensions (MCPB)" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "Manual MCPB release triggered independently." >> release-notes.md
+          echo "" >> release-notes.md
+          
+          # Add package list to release notes
+          for mcpb_file in release-assets/*.mcpb; do
+            if [ -f "$mcpb_file" ]; then
+              filename=$(basename "$mcpb_file")
+              package_name=$(echo "$filename" | sed 's/\.mcpb$//')
+              echo "- **${package_name}**: \`${filename}\`" >> release-notes.md
+            fi
+          done
+          
+          # Add stable URLs section (only for latest releases)
+          if [ "${{ github.event.inputs.release_type }}" = "latest" ]; then
+            echo "" >> release-notes.md
+            echo "### 📥 Stable URLs" >> release-notes.md
+            echo "" >> release-notes.md
+            echo "For consistent download links that always point to the newest version:" >> release-notes.md
+            echo "" >> release-notes.md
+            
+            for mcpb_file in release-assets/*.mcpb; do
+              if [ -f "$mcpb_file" ]; then
+                filename=$(basename "$mcpb_file")
+                package_name=$(echo "$filename" | sed 's/\.mcpb$//')
+                latest_url="https://github.com/${{ github.repository }}/releases/latest/download/$filename"
+                echo "- **${package_name}**: [\`${filename}\`]($latest_url)" >> release-notes.md
+              fi
+            done
+          fi
+          
+          # Add installation and build info
+          echo "" >> release-notes.md
+          echo "## Installation" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "1. Download the \`.mcpb\` file for the package you want to install" >> release-notes.md
+          echo "2. Open Claude Desktop" >> release-notes.md
+          echo "3. Go to Extensions/Plugins" >> release-notes.md
+          echo "4. Install the downloaded \`.mcpb\` file" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "## Build Info" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "- **Commit**: \`${{ github.sha }}\`" >> release-notes.md
+          echo "- **Branch**: \`${{ github.ref_name }}\`" >> release-notes.md
+          echo "- **Timestamp**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> release-notes.md
+          echo "- **Workflow**: Manual MCPB Release" >> release-notes.md
+          echo "- **Release Type**: ${{ github.event.inputs.release_type }}" >> release-notes.md
+          
+          # Create the release
+          if [ "${{ github.event.inputs.release_type }}" = "latest" ]; then
+            echo "🎯 Creating latest release"
+            gh release create "$VERSION_TAG" \
+              --title "MCPB Packages - $VERSION_TAG" \
+              --notes-file release-notes.md \
+              --latest
+          else
+            echo "🚧 Creating prerelease"
+            gh release create "$VERSION_TAG" \
+              --title "MCPB Packages - $VERSION_TAG (Prerelease)" \
+              --notes-file release-notes.md \
+              --prerelease
+          fi
+          
+          # Upload MCPB files
+          for mcpb_file in release-assets/*.mcpb; do
+            if [ -f "$mcpb_file" ]; then
+              filename=$(basename "$mcpb_file")
+              echo "📎 Uploading: $filename"
+              gh release upload "$VERSION_TAG" "$mcpb_file" --clobber
+              echo "✅ Uploaded: $filename"
+            fi
+          done
+          
+          # Generate summary
+          echo "## 📦 MCPB Release Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Release**: [$VERSION_TAG](${{ github.server_url }}/${{ github.repository }}/releases/tag/$VERSION_TAG)" >> $GITHUB_STEP_SUMMARY
+          echo "**Type**: ${{ github.event.inputs.release_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          MCPB_COUNT=$(find release-assets -name "*.mcpb" -type f | wc -l | tr -d ' ')
+          echo "**Packages Released**: $MCPB_COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Show download links
+          if [ "${{ github.event.inputs.release_type }}" = "latest" ]; then
+            echo "### 📥 Stable URLs (always latest version):" >> $GITHUB_STEP_SUMMARY
+            for mcpb_file in release-assets/*.mcpb; do
+              if [ -f "$mcpb_file" ]; then
+                filename=$(basename "$mcpb_file")
+                package_name=$(echo "$filename" | sed 's/\.mcpb$//')
+                latest_url="${{ github.server_url }}/${{ github.repository }}/releases/latest/download/$filename"
+                echo "- 🔗 **${package_name}**: [\`$filename\`]($latest_url)" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "### 📦 Versioned Downloads:" >> $GITHUB_STEP_SUMMARY
+          for mcpb_file in release-assets/*.mcpb; do
+            if [ -f "$mcpb_file" ]; then
+              filename=$(basename "$mcpb_file")
+              download_url="${{ github.server_url }}/${{ github.repository }}/releases/download/$VERSION_TAG/$filename"
+              echo "- 📦 [\`$filename\`]($download_url)" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
