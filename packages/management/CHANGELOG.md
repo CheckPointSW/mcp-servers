@@ -1,5 +1,11 @@
 # @chkp/quantum-management-mcp
 
+## 0.5.3
+
+### Patch Changes
+
+- e33cb45: Modified 1 file(s) (synced from internal repository)
+
 ## 0.5.1
 
 ### Patch Changes

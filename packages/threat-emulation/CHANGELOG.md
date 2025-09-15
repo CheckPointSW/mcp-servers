@@ -1,5 +1,11 @@
 # @chkp/threat-emulation-mcp
 
+## 0.1.4
+
+### Patch Changes
+
+- e33cb45: Added 1 new file(s), Modified 1 file(s) (synced from internal repository)
+
 ## 0.1.2
 
 ### Patch Changes
