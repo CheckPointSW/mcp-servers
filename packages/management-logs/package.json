@@ -1,6 +1,6 @@
 {
   "name": "@chkp/management-logs-mcp",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Management Logs MCP server for Check Point products",
   "type": "module",
   "main": "dist/index.js",

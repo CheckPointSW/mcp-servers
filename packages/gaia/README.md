@@ -113,6 +113,13 @@ It is expected to work with any MCP client that supports the Model Context Proto
 
 ### Configuring the Claude Desktop App
 
+#### Using a Bundled MCPB (formerly DXT)
+1. Download the MCPB file: **[📥 gaia-latest.mcpb](https://github.com/CheckPointSW/mcp-servers/releases/latest/download/gaia-latest.mcpb)**
+2. Open Claude Desktop App → Settings → Extensions
+3. Drag the MCPB file and configure per the instructions.
+
+#### Or Configure Manually
+
 #### For macOS:
 
 ```bash
