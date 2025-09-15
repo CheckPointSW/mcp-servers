@@ -59,9 +59,29 @@ jobs:
       - name: Build all packages
         if: steps.check_lockfile.outputs.lockfile_changed != 'true'
         run: npm run build:all
+
+      # NEW: Build MCPB packages after NPM packages are built
+      - name: Build MCPB packages
+        if: steps.check_lockfile.outputs.lockfile_changed != 'true'
+        run: |
+          echo "🏗️ Building MCPB packages..."
+          
+          # Build MCPB packages (MCPB CLI should be installed as dev dependency)
+          npm run build:mcpb || echo "⚠️ MCPB build failed, continuing with NPM publishing"
+          
+          # List what was built
+          if [ -d "mcpb-builds" ]; then
+            echo "📦 Built MCPB packages:"
+            find mcpb-builds -name "*.mcpb" -type f | while read mcpb_file; do
+              echo "  $(basename "$mcpb_file")"
+            done
+          else
+            echo "⚠️ No MCPB packages were built"
+          fi
       
       - name: Create Release Pull Request or Publish
         if: steps.check_lockfile.outputs.lockfile_changed != 'true'
+        id: changesets
         uses: changesets/action@v1
         with:
           # This script runs ONLY when publishing (Phase 2)
@@ -73,3 +93,184 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
+
+      # NEW: Create MCPB Release (only when packages are actually published)
+      - name: Create MCPB Release
+        if: steps.check_lockfile.outputs.lockfile_changed != 'true' && steps.changesets.outputs.published == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Check if we have MCPB packages to release
+          if [ ! -d "mcpb-builds" ] || [ -z "$(find mcpb-builds -name "*.mcpb" -type f)" ]; then
+            echo "⚠️ No MCPB packages found to release"
+            exit 0
+          fi
+          
+          # Generate version tag based on timestamp and commit
+          VERSION_TAG="mcpb-$(date +'%Y.%m.%d-%H%M')-$(git rev-parse --short HEAD)"
+          echo "🏷️ Creating release: $VERSION_TAG"
+          
+          # Prepare release assets
+          mkdir -p release-assets
+          find mcpb-builds -name "*.mcpb" -type f | while read mcpb_file; do
+            filename=$(basename "$mcpb_file")
+            
+            # Copy the MCPB file
+            cp "$mcpb_file" "release-assets/$filename"
+            echo "✅ Prepared: $filename"
+          done
+          
+          # Create release notes
+          echo "# MCPB Packages Release" > release-notes.md
+          echo "" >> release-notes.md
+          echo "## 📦 Claude Desktop Extensions (MCPB)" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "Built from public release workflow." >> release-notes.md
+          echo "" >> release-notes.md
+          
+          # Add package list to release notes
+          for mcpb_file in release-assets/*.mcpb; do
+            if [ -f "$mcpb_file" ]; then
+              filename=$(basename "$mcpb_file")
+              package_name=$(echo "$filename" | sed 's/\.mcpb$//')
+              echo "- **${package_name}**: \`${filename}\`" >> release-notes.md
+            fi
+          done
+          
+          # Add stable URLs section
+          echo "" >> release-notes.md
+          echo "### 📥 Stable URLs" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "For consistent download links that always point to the newest version:" >> release-notes.md
+          echo "" >> release-notes.md
+          
+          # Add stable download links
+          for mcpb_file in release-assets/*.mcpb; do
+            if [ -f "$mcpb_file" ]; then
+              filename=$(basename "$mcpb_file")
+              package_name=$(echo "$filename" | sed 's/\.mcpb$//')
+              latest_url="https://github.com/${{ github.repository }}/releases/latest/download/$filename"
+              echo "- **${package_name}**: [\`${filename}\`]($latest_url)" >> release-notes.md
+            fi
+          done
+          
+          # Add installation and build info
+          echo "" >> release-notes.md
+          echo "## Installation" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "1. Download the \`.mcpb\` file for the package you want to install" >> release-notes.md
+          echo "2. Open Claude Desktop" >> release-notes.md
+          echo "3. Go to Extensions/Plugins" >> release-notes.md
+          echo "4. Install the downloaded \`.mcpb\` file" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "## Build Info" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "- **Commit**: \`${{ github.sha }}\`" >> release-notes.md
+          echo "- **Branch**: \`${{ github.ref_name }}\`" >> release-notes.md
+          echo "- **Timestamp**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> release-notes.md
+          echo "- **Workflow**: Public Release" >> release-notes.md
+          
+          # Create the release (mark as latest only if on main branch)
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "🎯 Creating stable release (main branch)"
+            gh release create "$VERSION_TAG" \
+              --title "MCPB Packages - $VERSION_TAG" \
+              --notes-file release-notes.md \
+              --latest
+          else
+            echo "🚧 Creating prerelease (branch: ${{ github.ref_name }})"
+            gh release create "$VERSION_TAG" \
+              --title "MCPB Packages - $VERSION_TAG (Branch: ${{ github.ref_name }})" \
+              --notes-file release-notes.md \
+              --prerelease
+          fi
+          
+          # Upload MCPB files individually
+          for mcpb_file in release-assets/*.mcpb; do
+            if [ -f "$mcpb_file" ]; then
+              filename=$(basename "$mcpb_file")
+              echo "📎 Uploading: $filename"
+              gh release upload "$VERSION_TAG" "$mcpb_file" --clobber
+              echo "✅ Uploaded: $filename"
+            fi
+          done
+          
+          # Verify latest URLs work (only for main branch releases)
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "🔍 Verifying latest download URLs..."
+            sleep 10  # Give GitHub a moment to process the release
+            for mcpb_file in release-assets/*.mcpb; do
+              if [ -f "$mcpb_file" ]; then
+                filename=$(basename "$mcpb_file")
+                latest_url="https://github.com/${{ github.repository }}/releases/latest/download/$filename"
+                echo "🔗 Testing URL: $latest_url"
+                if curl -I "$latest_url" 2>/dev/null | grep -q "200 OK"; then
+                  echo "✅ Latest URL works: $filename"
+                else
+                  echo "⚠️ Latest URL not ready yet: $filename (this may be normal immediately after release creation)"
+                fi
+              fi
+            done
+          fi
+          
+          # Add to summary
+          echo "## 📦 MCPB Release Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Release**: [$VERSION_TAG](${{ github.server_url }}/${{ github.repository }}/releases/tag/$VERSION_TAG)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Show release type info
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "🎯 **Release Type**: Latest (stable URLs available)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "🚧 **Release Type**: Prerelease (branch: ${{ github.ref_name }}, no stable URLs)" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### Available Packages:" >> $GITHUB_STEP_SUMMARY
+          
+          # Show latest URLs (only for main branch)
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "#### 📥 Stable URLs (always latest version):" >> $GITHUB_STEP_SUMMARY
+            for mcpb_file in release-assets/*.mcpb; do
+              if [ -f "$mcpb_file" ]; then
+                filename=$(basename "$mcpb_file")
+                package_name=$(echo "$filename" | sed 's/\.mcpb$//')
+                latest_url="${{ github.server_url }}/${{ github.repository }}/releases/latest/download/$filename"
+                echo "- 🔗 **${package_name}**: [\`$filename\`]($latest_url)" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "#### 📦 Versioned Downloads:" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Show all files
+          for mcpb_file in release-assets/*.mcpb; do
+            if [ -f "$mcpb_file" ]; then
+              filename=$(basename "$mcpb_file")
+              download_url="${{ github.server_url }}/${{ github.repository }}/releases/download/$VERSION_TAG/$filename"
+              echo "- 📦 [\`$filename\`]($download_url)" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+      # NEW: Generate Final Summary
+      - name: Generate Final Summary
+        if: always()
+        run: |
+          echo "## 📊 Public Release Workflow Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Branch: **${{ github.ref_name }}**" >> $GITHUB_STEP_SUMMARY
+          echo "Lockfile Changed: **$([ "${{ steps.check_lockfile.outputs.lockfile_changed }}" == "true" ] && echo "Yes" || echo "No")**" >> $GITHUB_STEP_SUMMARY
+          echo "NPM Published: **$([ "${{ steps.changesets.outputs.published }}" == "true" ] && echo "Yes" || echo "No")**" >> $GITHUB_STEP_SUMMARY
+          
+          # Show MCPB info if packages were built
+          if [ -d "mcpb-builds" ] && [ -n "$(find mcpb-builds -name "*.mcpb" -type f 2>/dev/null)" ]; then
+            MCPB_COUNT=$(find mcpb-builds -name "*.mcpb" -type f | wc -l | tr -d ' ')
+            echo "MCPB Packages: **$MCPB_COUNT**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "MCPB Packages: **0**" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Workflow Complete: **$(date '+%Y-%m-%d %H:%M:%S')**" >> $GITHUB_STEP_SUMMARY
