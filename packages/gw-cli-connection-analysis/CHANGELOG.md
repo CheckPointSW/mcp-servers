@@ -1,5 +1,11 @@
 # @chkp/quantum-gw-connection-analysis-mcp
 
+## 0.3.4
+
+### Patch Changes
+
+- e33cb45: Added 1 new file(s), Modified 1 file(s) (synced from internal repository)
+
 ## 0.3.2
 
 ### Patch Changes

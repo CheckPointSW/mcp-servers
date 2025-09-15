@@ -1,5 +1,13 @@
 # @chkp/quantum-gw-cli-base
 
+## 0.3.2
+
+### Patch Changes
+
+- e33cb45: General improvements and updates (synced from internal repository)
+- Updated dependencies [e33cb45]
+  - @chkp/quantum-infra@0.6.2
+
 ## 0.3.0
 
 ### Minor Changes

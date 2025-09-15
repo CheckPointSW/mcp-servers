@@ -1,5 +1,11 @@
 # @chkp/quantum-gw-cli-mcp
 
+## 0.4.3
+
+### Patch Changes
+
+- e33cb45: Added 1 new file(s), Modified 1 file(s) (synced from internal repository)
+
 ## 0.4.1
 
 ### Patch Changes
