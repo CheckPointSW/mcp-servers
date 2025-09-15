@@ -16,7 +16,7 @@
     "test": "npm run test --workspaces --if-present",
     "build:all": "npm run clean && npm run build",
     "build:all:tsc": "npm run clean && npm run build:tsc",
-    "build:dxt": "node scripts-internal/dxt/build-dxt.js",
+    "build:mcpb": "node scripts-internal/mcpb/build-mcpb.js",
     "build-debug": "tsc -p tsconfig.debug.json",
     "debug-api": "node dev-scripts/debug-api.js",
     "debug-harmony": "node dev-scripts/debug-harmony.js",
@@ -87,6 +87,7 @@
     "zod": "^3.24.4"
   },
   "devDependencies": {
+    "@anthropic-ai/mcpb": "^1.1.0",
     "@changesets/cli": "^2.9.2",
     "@nx/eslint": "21.3.5",
     "@nx/eslint-plugin": "21.3.5",
