@@ -1,0 +1,11 @@
+{
+  "name": "@chkp/https-inspection-mcp-server",
+  "version": "0.5.4",
+  "main": "index.js",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.11.1",
+    "axios": "^1.12.1",
+    "commander": "^11.0.0",
+    "zod": "^3.22.4"
+  }
+}

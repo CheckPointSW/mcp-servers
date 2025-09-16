@@ -1,0 +1,105 @@
+{
+  "dxt_version": "0.1",
+  "name": "management-logs",
+  "display_name": "Check Point Management Logs MCP",
+  "version": "0.4.4",
+  "description": "Management Logs MCP server for Check Point products",
+  "long_description": "This extension provides MCP (Model Context Protocol) integration for Check Point Management Logs. It allows Claude Desktop to interact with Check Point's Management Logs services and APIs.",
+  "author": {
+    "name": "Check Point Software Technologies Ltd.",
+    "email": "support@checkpoint.com",
+    "url": "https://www.checkpoint.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CheckPointSW/mcp-servers"
+  },
+  "homepage": "https://www.checkpoint.com",
+  "documentation": "https://github.com/CheckPointSW/mcp-servers",
+  "support": "https://github.com/CheckPointSW/mcp-servers/issues",
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/server/index.js"
+      ],
+      "env": {
+        "USERNAME": "${user_config.username}",
+        "PASSWORD": "${user_config.password}",
+        "MANAGEMENT_HOST": "${user_config.management_host}",
+        "MANAGEMENT_PORT": "${user_config.management_port}"
+      }
+    }
+  },
+  "tools_generated": true,
+  "prompts_generated": false,
+  "keywords": [
+    "checkpoint",
+    "security",
+    "mcp",
+    "api",
+    "management-logs"
+  ],
+  "license": "MIT",
+  "compatibility": {
+    "claude_desktop": ">=0.11.6",
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  },
+  "user_config": {
+    "s1c_url": {
+      "type": "string",
+      "title": "S1c Url",
+      "description": "S1C URL",
+      "required": false
+    },
+    "api_key": {
+      "type": "string",
+      "title": "Api Key",
+      "description": "API key",
+      "required": false,
+      "sensitive": true
+    },
+    "cloud_infra_token": {
+      "type": "string",
+      "title": "Cloud Infra Token",
+      "description": "Cloud Infra token",
+      "required": false,
+      "sensitive": true
+    },
+    "username": {
+      "type": "string",
+      "title": "Username For On Prem Authentication",
+      "description": "Username for on-prem authentication",
+      "required": false
+    },
+    "password": {
+      "type": "string",
+      "title": "Password For On Prem Authentication",
+      "description": "Password for on-prem authentication",
+      "required": false,
+      "sensitive": true
+    },
+    "management_host": {
+      "type": "string",
+      "title": "Management Host (for On Prem)",
+      "description": "Management host (for on-prem)",
+      "required": false
+    },
+    "management_port": {
+      "type": "string",
+      "title": "Port For On Prem Api",
+      "description": "Port for on-prem API",
+      "required": false,
+      "default": "443"
+    }
+  }
+}

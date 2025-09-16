@@ -1,0 +1,40 @@
+{
+  "name": "@chkp/https-inspection-mcp",
+  "version": "0.5.4",
+  "description": "HTTPS Inspection MCP server for Check Point products",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "https-inspection-mcp": "./dist/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "npm run build:bundle && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
+    "build:bundle": "node ../../bundle-mcp.js",
+    "build:tsc": "npx tsc && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.11.1",
+    "axios": "^1.12.1",
+    "commander": "^11.0.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@chkp/mcp-utils": "*",
+    "@chkp/quantum-infra": "*",
+    "@types/node": "^18.15.11",
+    "typescript": "^5.0.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CheckPointSW/mcp-servers.git",
+    "directory": "packages/https-inspection"
+  },
+  "license": "MIT"
+}

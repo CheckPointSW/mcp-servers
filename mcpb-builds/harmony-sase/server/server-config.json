@@ -1,0 +1,33 @@
+{
+  "name": "harmony-sase",
+  "description": "MCP server for Check Point Harmony SASE",
+  "options": [
+    {
+      "flag": "--api-key <key>",
+      "description": "API key for authentication",
+      "env": "API_KEY",
+      "required": true,
+      "type": "string"
+    },
+    {
+      "flag": "--management-host <host>",
+      "description": "Management host or IP for on-prem management",
+      "env": "MANAGEMENT_HOST",
+      "required": true,
+      "type": "string"
+    },
+    {
+      "flag": "--management-port <port>",
+      "description": "Port for management",
+      "env": "MANAGEMENT_PORT",
+      "default": 443,
+      "type": "number"
+    },
+    {
+      "flag": "--origin <origin>",
+      "description": "Origin header for Harmony SASE",
+      "env": "ORIGIN",
+      "type": "string"
+    }
+  ]
+}

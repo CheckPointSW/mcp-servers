@@ -1,0 +1,63 @@
+{
+  "dxt_version": "0.1",
+  "name": "threat-emulation",
+  "display_name": "Check Point Threat Emulation MCP",
+  "version": "0.1.4",
+  "description": "Threat Emulation MCP server of Check Point",
+  "long_description": "This extension provides MCP (Model Context Protocol) integration for Check Point Threat Emulation. It allows Claude Desktop to interact with Check Point's Threat Emulation services and APIs.",
+  "author": {
+    "name": "Check Point Software Technologies Ltd.",
+    "email": "support@checkpoint.com",
+    "url": "https://www.checkpoint.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CheckPointSW/mcp-servers"
+  },
+  "homepage": "https://www.checkpoint.com",
+  "documentation": "https://github.com/CheckPointSW/mcp-servers",
+  "support": "https://github.com/CheckPointSW/mcp-servers/issues",
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/server/index.js"
+      ],
+      "env": {
+        "API_KEY": "${user_config.api_key}"
+      }
+    }
+  },
+  "tools_generated": true,
+  "prompts_generated": false,
+  "keywords": [
+    "checkpoint",
+    "security",
+    "mcp",
+    "api",
+    "threat-emulation"
+  ],
+  "license": "MIT",
+  "compatibility": {
+    "claude_desktop": ">=0.11.6",
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  },
+  "user_config": {
+    "api_key": {
+      "type": "string",
+      "title": "Api Key For The Threat Emulation Service",
+      "description": "API key for the Threat Emulation Service",
+      "required": false,
+      "sensitive": true
+    }
+  }
+}
