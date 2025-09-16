@@ -16,7 +16,7 @@
     "test": "npm run test --workspaces --if-present",
     "build:all": "npm run clean && npm run build",
     "build:all:tsc": "npm run clean && npm run build:tsc",
-    "build:mcpb": "node scripts-internal/mcpb/build-mcpb.js",
+    "build:mcpb": "node scripts/mcpb/build-mcpb.js",
     "build-debug": "tsc -p tsconfig.debug.json",
     "debug-api": "node dev-scripts/debug-api.js",
     "debug-harmony": "node dev-scripts/debug-harmony.js",
