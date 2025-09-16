@@ -1,0 +1,13 @@
+{
+  "name": "quantum-gaia",
+  "description": "Check Point GAIA API MCP Server with dialog authentication",
+  "options": [
+    {
+      "flag": "--verbose",
+      "description": "Enable verbose output",
+      "env": "VERBOSE",
+      "required": false,
+      "type": "boolean"
+    }
+  ]
+}

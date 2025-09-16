@@ -1,5 +1,11 @@
 # @chkp/quantum-gw-cli-mcp
 
+## 0.4.4
+
+### Patch Changes
+
+- 7f00dd2: Modified 1 file(s) (synced from internal repository)
+
 ## 0.4.3
 
 ### Patch Changes

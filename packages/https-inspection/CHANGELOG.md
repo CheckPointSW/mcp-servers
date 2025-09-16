@@ -1,5 +1,11 @@
 # @chkp/https-inspection-mcp
 
+## 0.5.5
+
+### Patch Changes
+
+- 7f00dd2: Modified 1 file(s) (synced from internal repository)
+
 ## 0.5.4
 
 ### Patch Changes

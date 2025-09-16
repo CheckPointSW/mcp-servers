@@ -1,0 +1,49 @@
+{
+  "name": "@chkp/quantum-management-mcp",
+  "version": "0.5.3",
+  "bin": {
+    "quantum-management-mcp": "dist/index.js"
+  },
+  "description": "Official MCP server for Check Point Quantum Management",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CheckPointSW/mcp-servers.git",
+    "directory": "packages/management"
+  },
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "npm run build:bundle && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
+    "build:bundle": "node ../../bundle-mcp.js",
+    "build:tsc": "npx tsc && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.11.1",
+    "axios": "^1.12.1",
+    "body-parser": "^1.20.2",
+    "commander": "^13.1.0",
+    "express": "^4.21.2",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@chkp/mcp-utils": "*",
+    "@chkp/quantum-infra": "*",
+    "@types/body-parser": "^1.19.2",
+    "@types/commander": "^2.12.0",
+    "@types/express": "^4.17.17",
+    "@types/node": "^18.15.11",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.4",
+    "zod": "^3.24.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [],
+  "author": ""
+}

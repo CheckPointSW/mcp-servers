@@ -1,5 +1,11 @@
 # @chkp/quantum-gaia-mcp
 
+## 0.3.3
+
+### Patch Changes
+
+- 7f00dd2: Modified 1 file(s) (synced from internal repository)
+
 ## 0.3.2
 
 ### Patch Changes

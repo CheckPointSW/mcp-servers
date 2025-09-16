@@ -1,0 +1,50 @@
+{
+  "name": "@chkp/quantum-gw-cli-mcp",
+  "version": "0.4.3",
+  "description": "Model Context Protocol (MCP) server for Check Point gateway CLI commands and diagnostic tools.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "npm run build:bundle && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
+    "build:bundle": "node ../../bundle-mcp.js",
+    "build:tsc": "npx tsc && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js"
+  },
+  "author": "Check Point Software Technologies",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.11.1",
+    "axios": "^1.12.1",
+    "commander": "^11.0.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@chkp/quantum-infra": "*",
+    "@chkp/quantum-gw-cli-base": "*",
+    "@chkp/mcp-utils": "*",
+    "typescript": "^5.0.0",
+    "ts-node": "^10.0.0",
+    "eslint": "^8.0.0",
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "@types/jest": "^29.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CheckPointSW/mcp-servers.git",
+    "directory": "packages/gw-cli"
+  },
+  "bin": {
+    "quantum-gw-cli-mcp": "dist/index.js"
+  }
+}

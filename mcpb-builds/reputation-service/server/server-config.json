@@ -1,0 +1,12 @@
+{
+  "name": "reputation-service",
+  "description": "Check Point Reputation Service for IP, URL, and file hashes",
+  "options": [
+    {
+      "flag": "--api-key <key>",
+      "description": "API key for the Reputation Service",
+      "env": "API_KEY",
+      "type": "string"
+    }
+  ]
+}
