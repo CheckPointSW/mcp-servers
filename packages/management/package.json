@@ -1,6 +1,6 @@
 {
   "name": "@chkp/quantum-management-mcp",
-  "version": "0.5.5",
+  "version": "0.6.0",
   "bin": {
     "quantum-management-mcp": "dist/index.js"
   },
