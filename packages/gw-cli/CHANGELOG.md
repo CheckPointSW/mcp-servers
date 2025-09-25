@@ -1,5 +1,11 @@
 # @chkp/quantum-gw-cli-mcp
 
+## 0.4.6
+
+### Patch Changes
+
+- e12cf6a: General improvements and updates (synced from internal repository)
+
 ## 0.4.4
 
 ### Patch Changes

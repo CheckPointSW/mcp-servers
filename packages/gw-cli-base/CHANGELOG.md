@@ -1,5 +1,16 @@
 # @chkp/quantum-gw-cli-base
 
+## 0.4.0
+
+### Minor Changes
+
+- e12cf6a: Updated implementation and features, Modified 1 file(s) (synced from internal repository)
+
+### Patch Changes
+
+- Updated dependencies [e12cf6a]
+  - @chkp/quantum-infra@0.7.0
+
 ## 0.3.2
 
 ### Patch Changes

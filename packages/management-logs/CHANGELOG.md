@@ -1,5 +1,11 @@
 # @chkp/management-logs-mcp
 
+## 0.5.0
+
+### Minor Changes
+
+- e12cf6a: Updated implementation and features, Modified 1 file(s) (synced from internal repository)
+
 ## 0.4.5
 
 ### Patch Changes
