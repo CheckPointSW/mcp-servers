@@ -36,6 +36,7 @@ export abstract class APIClientBase {
   protected sid: string | null = null;
   protected sessionTimeout: number | null = null; // in seconds
   protected sessionStart: number | null = null;   // timestamp when session was created
+  protected isMDS: boolean = false; // Whether this is an MDS environment
   private _debug?: boolean;
 
   constructor(
@@ -85,6 +86,57 @@ export abstract class APIClientBase {
     this._debug = value;
   }
 
+ /**
+   * Check if this client needs to perform login before making API calls
+   */
+  protected needsLogin(): boolean {
+    return true;
+  }
+  
+  /**
+   * Check if this client is in an MDS environment
+   */
+  async isMDSEnvironment(): Promise<boolean> {
+    if (!this.hasValidSession()) {
+      await this.login();
+    }
+    return this.isMDS;
+  }
+
+  /**
+   * Check if the client has a valid session
+   */
+  hasValidSession(): boolean {
+    return !!this.sid && !this.isSessionExpired();
+  }
+
+  /**
+   * Get the current session ID (for debugging/logging purposes)
+   */
+  getSessionId(): string | null {
+    return this.sid;
+  }
+
+  /**
+   * Create a new API client instance with a specific session ID
+   * Used for domain-specific clients in MDS environments
+   */
+  static createWithSid<T extends APIClientBase>(
+    this: new (...args: any[]) => T,
+    originalClient: T,
+    sid: string
+  ): T {
+    // Create a new instance with the same configuration as the original
+    const newClient = Object.create(Object.getPrototypeOf(originalClient));
+    Object.assign(newClient, originalClient);
+    
+    // Set the new session ID
+    newClient.sid = sid;
+    newClient.sessionStart = Date.now();
+    
+    return newClient;
+  }
+
   /**
    * Call an API endpoint
    */
@@ -95,7 +147,7 @@ export abstract class APIClientBase {
     params?: Record<string, any>
   ): Promise<ClientResponse> {
 
-    if (!this.sid || this.isSessionExpired()) {
+    if (this.needsLogin() && (!this.sid || this.isSessionExpired())) {
       try {
         this.sid = await this.login();
       }
@@ -158,7 +210,43 @@ export abstract class APIClientBase {
     this.sessionTimeout = loginResp.response["session-timeout"] || null;
     this.sessionStart = Date.now();
     
+    // Check if this is an MDS environment by calling get-session with the session UID
+    if (loginResp.response.uid) {
+      await this.detectMDS(loginResp.response.uid); // handleSelfSigned = false (default) for cloud
+    }
+    
     return loginResp.response.sid;
+  }
+
+  /**
+   * Detect if this is an MDS environment by checking the session details
+   */
+  protected async detectMDS(sessionUid: string, handleSelfSigned: boolean = false): Promise<void> {
+    try {
+      let httpsAgent;
+      if (handleSelfSigned) {
+        httpsAgent = new https.Agent({ rejectUnauthorized: false });
+      }
+      
+      const sessionResp = await this.makeRequest(
+        this.getHost(),
+        "POST", 
+        "show-session",
+        { uid: sessionUid },
+        this.getHeaders(),
+        null,
+        httpsAgent
+      );
+      
+      if (sessionResp.status === 200 && 
+          sessionResp.response?.domain?.["domain-type"] === "mds") {
+        this.isMDS = true;
+      }
+    } catch (error) {
+      // If we can't determine MDS status, assume it's not MDS
+      console.warn("Could not determine MDS status:", error);
+      this.isMDS = false;
+    }
   }
 
   /**
@@ -241,6 +329,41 @@ export class SmartOneCloudAPIClient extends APIClientBase {
 }
 
 /**
+ * API client for Bearer token authentication
+ * Does not use session management - uses Bearer token directly
+ */
+export class BearerTokenAPIClient extends APIClientBase {
+  constructor(
+    private readonly bearerToken: string,
+    private readonly baseUrl: string
+  ) {
+    super(""); // No auth token needed for base class
+  }
+
+  getHost(): string {
+    return this.baseUrl;
+  }
+
+  /**
+   * Override getHeaders to use Authorization Bearer instead of X-chkp-sid
+   */
+  protected getHeaders(): Record<string, string> {
+    return {
+      "Content-Type": "application/json",
+      "User-Agent": getMainPackageUserAgent(),
+      "Authorization": `Bearer ${this.bearerToken}`
+    };
+  }
+
+  /**
+   * Override needsLogin - Bearer token doesn't need session management
+   */
+  protected needsLogin(): boolean {
+    return false;
+  }
+}
+
+/**
  * API client for on-premises management server
  * Allows self-signed certificates and username/password authentication
  */
@@ -308,6 +431,11 @@ export class OnPremAPIClient extends APIClientBase {
     this.sessionTimeout = loginResp.response["session-timeout"] || null;
     this.sessionStart = Date.now();
     this.sid = loginResp.response.sid;
+
+    // Check if this is an MDS environment by calling get-session with the session UID
+    if (loginResp.response.uid) {
+      await this.detectMDS(loginResp.response.uid, true); // handleSelfSigned = true for OnPrem
+    }
 
     return loginResp.response.sid;
   }

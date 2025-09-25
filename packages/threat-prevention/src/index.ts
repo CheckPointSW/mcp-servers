@@ -5,7 +5,8 @@ import { Settings, APIManagerForAPIKey } from '@chkp/quantum-infra';
 import { 
   launchMCPServer, 
   createServerModule,
-  createApiRunner
+  createApiRunner,
+  SessionContext
 } from '@chkp/mcp-utils';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
@@ -35,6 +36,52 @@ const serverModule = createServerModule(
 const runApi = createApiRunner(serverModule);
 
 
+server.tool(
+  'init',
+  'Verify, login and initialize management connection. Use this tool on your first interaction with the server.',
+  {},
+  async (args: Record<string, unknown>, extra: any) => {
+    try {
+      // Get API manager for this session
+      const apiManager = SessionContext.getAPIManager(serverModule, extra);
+      
+      // Check if environment is MDS
+      const isMds = await apiManager.isMds();
+      
+      if (!isMds) {
+        return { 
+          content: [{ 
+            type: 'text', 
+            text: 'Management server is up and running. The environment is NOT part of Multi Domain system, there is no need to use domain parameters in tool calls.' 
+          }] 
+        };
+      } else {
+        // Get domains for MDS environment
+        const domains = await apiManager.getDomains();
+        
+        // Format domain information
+        const domainList = domains.map((domain: { name: string; type: string }) => `${domain.name} (${domain.type})`).join(', ');
+        
+        return { 
+          content: [{ 
+            type: 'text', 
+            text: `Management server is up and running. The environment is part of Multi Domain system. You need to use the domain parameter for calling APIs, if you are not sure which to use, ask the user. The domains in the system are: ${domainList}` 
+          }] 
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { 
+        content: [{ 
+          type: 'text', 
+          text: `Error initializing management connection: ${errorMessage}` 
+        }] 
+      };
+    }
+  }
+);
+
+
 // Tool: show_threat_protections
 server.tool(
   'show_threat_protections',
@@ -46,14 +93,17 @@ server.tool(
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
     domains_to_process: z.array(z.string()).optional(),
+    domain: z.string().optional(),
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process }, extra) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }, extra) => {
+    const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-threat-protections', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-threat-protections', params, domainParam);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -66,13 +116,16 @@ server.tool(
     name: z.string().optional(),
     uid: z.string().optional(),
     details_level: z.string().optional(),
+    domain: z.string().optional(),
   },
-  async ({ name = '', uid = '', details_level }, extra) => {
+  async ({ name = '', uid = '', details_level, domain }, extra) => {
+    const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = {};
     if (name) params.name = name;
     if (uid) params.uid = uid;
     if (details_level) params['details-level'] = details_level;
-    const resp = await runApi('POST', 'show-threat-layer', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-threat-layer', params, domainParam);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -85,13 +138,16 @@ server.tool(
     name: z.string().optional(),
     uid: z.string().optional(),
     details_level: z.string().optional(),
+    domain: z.string().optional(),
   },
-  async ({ name = '', uid = '', details_level }, extra) => {
+  async ({ name = '', uid = '', details_level, domain }, extra) => {
+    const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = {};
     if (name) params.name = name;
     if (uid) params.uid = uid;
     if (details_level) params['details-level'] = details_level;
-    const resp = await runApi('POST', 'show-threat-indicator', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-threat-indicator', params, domainParam);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -101,9 +157,12 @@ server.tool(
   'show_ips_status',
   'Show the IPS (Intrusion Prevention System) status.',
   {
+    domain: z.string().optional(),
   },
-  async (extra) => {
-    const resp = await runApi('POST', 'show-ips-status', {}, extra);
+  async ({ domain }, extra) => {
+    const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-ips-status', {}, domainParam);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -119,14 +178,17 @@ server.tool(
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
     domains_to_process: z.array(z.string()).optional(),
+    domain: z.string().optional(),
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process }, extra) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }, extra) => {
+    const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-threat-ioc-feeds', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-threat-ioc-feeds', params, domainParam);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -141,8 +203,10 @@ server.tool(
     rule_number: z.number().optional(),
     layer: z.string(),
     details_level: z.enum(['uid', 'standard', 'full']).optional(),
+    domain: z.string().optional(),
   },
-  async ({ uid, name, rule_number, layer, details_level }, extra) => {
+  async ({ uid, name, rule_number, layer, details_level, domain }, extra) => {
+    const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const body: Record<string, any> = {};
     if (uid) body.uid = uid;
     if (name) body.name = name;
@@ -150,7 +214,8 @@ server.tool(
     if (layer) body.layer = layer;
     if (details_level) body['details-level'] = details_level;
     const params = { body };
-    const resp = await runApi('POST', 'show-threat-rule', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-threat-rule', params, domainParam);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -166,14 +231,17 @@ server.tool(
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
     domains_to_process: z.array(z.string()).optional(),
+    domain: z.string().optional(),
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process }, extra) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }, extra) => {
+    const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-exception-groups', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-exception-groups', params, domainParam);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -183,9 +251,12 @@ server.tool(
   'show_ips_update_schedule',
   'Show the IPS update schedule.',
   {
+    domain: z.string().optional(),
   },
-  async (extra) => {
-    const resp = await runApi('POST', 'show-ips-update-schedule', {}, extra);
+  async ({ domain }, extra) => {
+    const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-ips-update-schedule', {}, domainParam);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -201,14 +272,17 @@ server.tool(
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
     domains_to_process: z.array(z.string()).optional(),
+    domain: z.string().optional(),
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process }, extra) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }, extra) => {
+    const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-threat-indicators', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-threat-indicators', params, domainParam);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -224,14 +298,17 @@ server.tool(
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
     domains_to_process: z.array(z.string()).optional(),
+    domain: z.string().optional(),
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process }, extra) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }, extra) => {
+    const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-threat-profiles', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-threat-profiles', params, domainParam);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -244,13 +321,16 @@ server.tool(
     name: z.string().optional(),
     uid: z.string().optional(),
     details_level: z.string().optional(),
+    domain: z.string().optional(),
   },
-  async ({ name = '', uid = '', details_level }, extra) => {
+  async ({ name = '', uid = '', details_level, domain }, extra) => {
+    const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = {};
     if (name) params.name = name;
     if (uid) params.uid = uid;
     if (details_level) params['details-level'] = details_level;
-    const resp = await runApi('POST', 'show-ips-protection-extended-attribute', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-ips-protection-extended-attribute', params, domainParam);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -266,14 +346,17 @@ server.tool(
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
     domains_to_process: z.array(z.string()).optional(),
+    domain: z.string().optional(),
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process }, extra) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }, extra) => {
+    const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-ips-protection-extended-attributes', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-ips-protection-extended-attributes', params, domainParam);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -289,14 +372,17 @@ server.tool(
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
     domains_to_process: z.array(z.string()).optional(),
+    domain: z.string().optional(),
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process }, extra) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }, extra) => {
+    const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-threat-layers', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-threat-layers', params, domainParam);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -327,8 +413,10 @@ server.tool(
     dereference_group_members: z.boolean().optional(),
     show_membership: z.boolean().optional(),
     details_level: z.enum(['uid', 'standard', 'full']).optional(),
+    domain: z.string().optional(),
   },
-  async ({ name, uid, filter, filter_settings, limit, offset, order, package: pkg, use_object_dictionary, dereference_group_members, show_membership, details_level }, extra) => {
+  async ({ name, uid, filter, filter_settings, limit, offset, order, package: pkg, use_object_dictionary, dereference_group_members, show_membership, details_level, domain }, extra) => {
+    const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const body: Record<string, any> = {};
     if (name) body.name = name;
     if (uid) body.uid = uid;
@@ -355,7 +443,8 @@ server.tool(
     if (show_membership !== undefined) body['show-membership'] = show_membership;
     if (details_level) body['details-level'] = details_level;
     const params = { body };
-    const resp = await runApi('POST', 'show-threat-rulebase', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-threat-rulebase', params, domainParam);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -368,13 +457,16 @@ server.tool(
     name: z.string().optional(),
     uid: z.string().optional(),
     details_level: z.string().optional(),
+    domain: z.string().optional(),
   },
-  async ({ name = '', uid = '', details_level }, extra) => {
+  async ({ name = '', uid = '', details_level, domain }, extra) => {
+    const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = {};
     if (name) params.name = name;
     if (uid) params.uid = uid;
     if (details_level) params['details-level'] = details_level;
-    const resp = await runApi('POST', 'show-exception-group', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-exception-group', params, domainParam);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -390,8 +482,10 @@ server.tool(
     show_ips_additional_properties: z.boolean().optional(),
     show_profiles: z.boolean().optional(),
     details_level: z.enum(['uid', 'standard', 'full']).optional(),
+    domain: z.string().optional(),
   },
-  async ({ name, uid, show_capture_packets_and_track, show_ips_additional_properties, show_profiles, details_level }, extra) => {
+  async ({ name, uid, show_capture_packets_and_track, show_ips_additional_properties, show_profiles, details_level, domain }, extra) => {
+    const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const body: Record<string, any> = {};
     if (name) body.name = name;
     if (uid) body.uid = uid;
@@ -400,7 +494,8 @@ server.tool(
     if (show_profiles !== undefined) body['show-profiles'] = show_profiles;
     if (details_level) body['details-level'] = details_level;
     const params = { body };
-    const resp = await runApi('POST', 'show-threat-protection', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-threat-protection', params, domainParam);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -434,8 +529,10 @@ server.tool(
     dereference_group_members: z.boolean().optional(),
     show_membership: z.boolean().optional(),
     details_level: z.enum(['uid', 'standard', 'full']).optional(),
+    domain: z.string().optional(),
   },
-  async ({ name, uid, rule_uid, rule_name, rule_number, filter, filter_settings, limit, offset, order, package: pkg, use_object_dictionary, dereference_group_members, show_membership, details_level }, extra) => {
+  async ({ name, uid, rule_uid, rule_name, rule_number, filter, filter_settings, limit, offset, order, package: pkg, use_object_dictionary, dereference_group_members, show_membership, details_level, domain }, extra) => {
+    const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const body: Record<string, any> = {};
     if (name) body.name = name;
     if (uid) body.uid = uid;
@@ -465,7 +562,8 @@ server.tool(
     if (show_membership !== undefined) body['show-membership'] = show_membership;
     if (details_level) body['details-level'] = details_level;
     const params = { body };
-    const resp = await runApi('POST', 'show-threat-rule-exception-rulebase', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-threat-rule-exception-rulebase', params, domainParam);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -474,10 +572,14 @@ server.tool(
 server.tool(
   'show_threat_advanced_settings',
   "Show Threat Prevention's Blades' advanced settings.",
-  {},
-  async (extra) => {
+  {
+    domain: z.string().optional(),
+  },
+  async ({ domain }, extra) => {
+    const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params = { body: {} };
-    const resp = await runApi('POST', 'show-threat-advanced-settings', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-threat-advanced-settings', params, domainParam);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -490,14 +592,17 @@ server.tool(
     name: z.string().optional(),
     uid: z.string().optional(),
     details_level: z.enum(['uid', 'standard', 'full']).optional(),
+    domain: z.string().optional(),
   },
-  async ({ name, uid, details_level }, extra) => {
+  async ({ name, uid, details_level, domain }, extra) => {
+    const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const body: Record<string, any> = {};
     if (name) body.name = name;
     if (uid) body.uid = uid;
     if (details_level) body['details-level'] = details_level;
     const params = { body };
-    const resp = await runApi('POST', 'show-threat-profile', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-threat-profile', params, domainParam);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -510,13 +615,16 @@ server.tool(
     name: z.string().optional(),
     uid: z.string().optional(),
     details_level: z.string().optional(),
+    domain: z.string().optional(),
   },
-  async ({ name = '', uid = '', details_level }, extra) => {
+  async ({ name = '', uid = '', details_level, domain }, extra) => {
+    const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = {};
     if (name) params.name = name;
     if (uid) params.uid = uid;
     if (details_level) params['details-level'] = details_level;
-    const resp = await runApi('POST', 'show-threat-ioc-feed', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-threat-ioc-feed', params, domainParam);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -561,6 +669,7 @@ server.tool(
       details_level: z.string().optional(),
       domains_to_process: z.array(z.string()).optional(),
       type: z.string().optional(),
+      domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
     const uids = Array.isArray(args.uids) ? args.uids as string[] : undefined;
@@ -571,6 +680,7 @@ server.tool(
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
     const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
     const type = typeof args.type === 'string' ? args.type : undefined;
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if ( uids ) params.uids = uids;
     if (filter) params.filter = filter;
@@ -578,7 +688,8 @@ server.tool(
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     if (type) params.type = type;
-    const resp = await runApi('POST', 'show-objects', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-objects', params, domain);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -588,14 +699,17 @@ server.tool(
   'show_object',
   'Retrieve a generic object by UID.',
   {
-    uid: z.string()
+    uid: z.string(),
+    domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
       const uid = args.uid as string;
+      const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
       const params: Record<string, any> = {};
       params.uid = uid;
       params.details_level = 'full';
-      const resp = await runApi('POST', 'show-object', params, extra);
+      const apiManager = SessionContext.getAPIManager(serverModule, extra);
+      const resp = await apiManager.callApi('POST', 'show-object', params, domain);
       return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -607,12 +721,16 @@ server.tool(
   {
     cve: z.string().describe('The CVE to check for protection'),
     gateway: z.string().optional().describe('The gateway to check for protection. Leave empty to check all gateways.'),
+    domain: z.string().optional(),
   },
-  async ({ cve, gateway }, extra) => {
+  async ({ cve, gateway, domain }, extra) => {
+    const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    
     // 1. Query protections for the CVE
-    const protectionsResp = await runApi('POST', 'show-threat-protections', { filter: cve, 'details-level': 'full' }, extra);
+    const protectionsResp = await apiManager.callApi('POST', 'show-threat-protections', { filter: cve, 'details-level': 'full' }, domainParam);
     // 2. Query all gateways and servers
-    const gatewaysResp = await runApi('POST', 'show-gateways-and-servers', { 'details-level': 'full' }, extra);
+    const gatewaysResp = await apiManager.callApi('POST', 'show-gateways-and-servers', { 'details-level': 'full' }, domainParam);
     const gateways: any[] = Array.isArray(gatewaysResp.objects) ? gatewaysResp.objects.filter((gw: any) => !gateway || gw.name === gateway) : [];
     // 3. For each gateway, check IPS and threat policy
     const rulebases = new Set<string>();
@@ -627,7 +745,7 @@ server.tool(
     // 4. For each rulebase, get rules and collect profile names
     const profileNames = new Set<string>();
     for (const rulebase of rulebases) {
-      const rulebaseResp = await runApi('POST', 'show-threat-rulebase', { name: rulebase, 'details-level': 'full' }, extra);
+      const rulebaseResp = await apiManager.callApi('POST', 'show-threat-rulebase', { name: rulebase, 'details-level': 'full' }, domainParam);
       const rules = Array.isArray(rulebaseResp.rulebase) ? rulebaseResp.rulebase : [];
       for (const rule of rules) {
         if (rule.action) profileNames.add(rule.action);
@@ -636,7 +754,7 @@ server.tool(
     // 5. For each profile, get details
     const profiles = [];
     for (const profileName of profileNames) {
-      const profileResp = await runApi('POST', 'show-threat-profile', { name: profileName, 'details-level': 'full' }, extra);
+      const profileResp = await apiManager.callApi('POST', 'show-threat-profile', { name: profileName, 'details-level': 'full' }, domainParam);
       profiles.push(profileResp);
     }
     return {

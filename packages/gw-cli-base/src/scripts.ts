@@ -172,7 +172,7 @@ export abstract class GWCLIScript {
       return [true, { message: `Started running the script ${scriptName}` }];
     }
     
-    const [taskSuccess, taskOutput] = await this.apiManager.getTaskResult(tasks.tasks[0]);
+    const [taskSuccess, taskOutput] = await this.apiManager.getTaskResult(this.targetGateway, tasks.tasks[0]);
     return [taskSuccess, {
       message: `Result for running the script ${scriptName}:\n${taskOutput}`
     }];
@@ -235,7 +235,7 @@ export abstract class GWCLIScript {
       return [false, "Failed to get the output"];
     }
     
-    return await this.apiManager.getTaskResult(tasks.tasks[0]);
+    return await this.apiManager.getTaskResult(this.targetGateway,tasks.tasks[0]);
   }
 }
 

@@ -25,11 +25,11 @@ export function getHeaderValue(headers: Record<string, string | string[]>, key: 
  * @returns A function that can be used to call APIs
  */
 export function createApiRunner(serverModule: ServerModule): 
-  (method: string, uri: string, data: Record<string, any>, extra: any) => Promise<Record<string, any>> {
+  (method: string, uri: string, data: Record<string, any>, extra: any, domain?: string) => Promise<Record<string, any>> {
   
-  return async (method: string, uri: string, data: Record<string, any>, extra: any): Promise<Record<string, any>> => {
+  return async (method: string, uri: string, data: Record<string, any>, extra: any, domain?: string): Promise<Record<string, any>> => {
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    return await apiManager.callApi(method, uri, data);
+    return await apiManager.callApi(method, uri, data, domain);
   };
 }/**
  * Creates a ServerModule with multi-user support.

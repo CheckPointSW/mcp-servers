@@ -29,7 +29,8 @@
     { "path": "./packages/gw-cli-base" },
     { "path": "./packages/gw-cli" },
     { "path": "./packages/gw-cli-connection-analysis" },
-    { "path": "./packages/gaia" }
+    { "path": "./packages/gaia" },
+    { "path": "./packages/spark-management" }
   ],
   "files": []
 }

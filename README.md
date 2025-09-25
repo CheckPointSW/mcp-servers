@@ -31,6 +31,7 @@ This monorepo is organized with each Check Point security domain as a separate M
   - **`/gw-cli-connection-analysis`** - Gateway Script MCP Server to Analyze Connection Issues
   - **`/threat-emulation`** - Threat Emulation MCP server for malware analysis and file scanning
   - **`/gaia`** - GAIA OS MCP server for network management and interface configuration
+  - **`/spark-management`** - Spark Management MCP server for Quantum Spark appliance management
 
 ## Available MCP Servers
 
@@ -48,6 +49,7 @@ The following MCP servers are available in this repository:
 | [GW CLI connection analysis](./packages/gw-cli-connection-analysis/) | `@chkp/quantum-gw-connection-analysis-mcp` | Provides debug logs to help analyze connection issues |
 | [Threat emulation](./packages/threat-emulation/) | `@chkp/threat-emulation-mcp` | Analyze files for malware and threats using Check Point's cloud services |
 | [Gaia](./packages/gaia/) | `@chkp/quantum-gaia-mcp` | Network management and interface configuration for GAIA OS |
+| [Spark management](./packages/spark-management/) | `@chkp/spark-management-mcp` | Manage and monitor Quantum Spark appliances for MSPs and distributed networks |
 
 
 ## Example: Setting Up an MCP Server

@@ -13,17 +13,22 @@ export interface ExternalUserTokenInfo {
 /**
  * Service for obtaining and caching external user tokens
  */
-export class ExternalUserTokenManager {
+export class ExternalTokenManager {
   private tokenCache: Map<string, ExternalUserTokenInfo> = new Map();
   
   /**
-   * Create a new ExternalUserTokenManager
+   * Create a new ExternalTokenManager
    *
    * @param settings Settings containing clientId and secretKey
    */
-  constructor(private settings: Settings) {
+  constructor(protected settings: Settings) {
   }
-  
+
+  authUrl(): string {
+    const gatewayUrl = this.settings.getCloudInfraGateway();
+    return `${gatewayUrl}/auth/external`;
+  }
+
   /**
    * Get a valid auth token, fetching a new one if necessary
    * @returns Promise resolving to a valid token
@@ -42,10 +47,7 @@ export class ExternalUserTokenManager {
     }
 
     // Fetch a new token
-    const gatewayUrl = this.settings.getCloudInfraGateway();
-    const authUrl = `${gatewayUrl}/auth/external/user`;
-
-    const response = await axios.post(authUrl, {
+    const response = await axios.post(this.authUrl(), {
       clientId: this.settings.clientId,
       accessKey: this.settings.secretKey
     }, {
@@ -73,6 +75,7 @@ export class ExternalUserTokenManager {
     };
 
     this.tokenCache.set(cacheKey, tokenInfo);
+    
     return token;
   }
   
@@ -82,9 +85,22 @@ export class ExternalUserTokenManager {
    * @returns A new ExternalUserTokenManager
    * instance
    */
-  static create(settings: Settings): ExternalUserTokenManager
+  static create(settings: Settings): ExternalTokenManager
+ {
+    return new ExternalTokenManager
+(settings);
+  }
+}
+
+export class ExternalUserTokenManager extends ExternalTokenManager {
+    static create(settings: Settings): ExternalUserTokenManager
  {
     return new ExternalUserTokenManager
 (settings);
+  }
+
+    authUrl(): string {
+    const gatewayUrl = this.settings.getCloudInfraGateway();
+    return `${gatewayUrl}/auth/external/user`;
   }
 }

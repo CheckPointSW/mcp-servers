@@ -58,7 +58,7 @@ export class Settings {
     this.cloudInfraToken = cloudInfraToken;
     this.clientId = clientId;
     this.secretKey = secretKey;
-    this.region = this.isValidRegion(region) ? region : 'EU';
+    this.region = this.isValidRegion(region) ? region : 'EU';  
     this.devPort = devPort;
 
     this.validate();

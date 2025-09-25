@@ -1,6 +1,6 @@
 {
   "name": "@chkp/threat-prevention-mcp",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "description": "Threat Prevention MCP server for Check Point products",
   "type": "module",
   "main": "dist/index.js",
