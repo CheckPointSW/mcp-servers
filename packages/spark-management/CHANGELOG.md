@@ -1,5 +1,11 @@
 # @chkp/spark-management-mcp
 
+## 0.1.1
+
+### Patch Changes
+
+- fa02c82: Modified 1 file(s) (synced from internal repository)
+
 ## 0.1.0
 
 ### Minor Changes
