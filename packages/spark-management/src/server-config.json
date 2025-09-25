@@ -1,0 +1,35 @@
+{
+  "name": "spark-management",
+  "description": "MCP server for Spark Management",
+  "options": [
+    {
+      "flag": "--client-id <clientId>",
+      "description": "Client ID for Spark Management authentication",
+      "env": "CLIENT_ID",
+      "required": true,
+      "type": "string"
+    },
+    {
+      "flag": "--secret-key <secretKey>",
+      "description": "Secret key for Spark Management authentication",
+      "env": "SECRET_KEY",
+      "required": true,
+      "type": "string"
+    },
+    {
+      "flag": "--infinity-portal-url <url>",
+      "description": "Infinity Portal base URL (e.g., https://portal.checkpoint.com)",
+      "env": "INFINITY_PORTAL_URL",
+      "required": true,
+      "type": "string"
+    },
+    {
+      "flag": "--region <region>",
+      "description": "Region for cloud infrastructure (EU, US, STG, LOCAL)",
+      "env": "REGION",
+      "required": false,
+      "type": "string",
+      "default": "EU"
+    }
+  ]
+}

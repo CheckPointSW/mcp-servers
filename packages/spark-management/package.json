@@ -1,13 +1,19 @@
 {
-  "name": "@chkp/https-inspection-mcp",
-  "version": "0.5.6",
-  "description": "HTTPS Inspection MCP server for Check Point products",
+  "name": "@chkp/spark-management-mcp",
+  "version": "0.0.1",
+  "description": "MCP server for Spark Management",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "https-inspection-mcp": "./dist/index.js"
+    "spark-management-mcp": "./dist/index.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CheckPointSW/mcp-servers.git",
+    "directory": "packages/spark-management"
+  },
+  "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
   },
@@ -22,19 +28,13 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.1",
     "axios": "^1.12.1",
-    "commander": "^11.0.0",
+    "commander": "^11.1.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@chkp/mcp-utils": "*",
     "@chkp/quantum-infra": "*",
+    "@chkp/mcp-utils": "*",
     "@types/node": "^18.15.11",
     "typescript": "^5.0.4"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/CheckPointSW/mcp-servers.git",
-    "directory": "packages/https-inspection"
-  },
-  "license": "MIT"
+  }
 }

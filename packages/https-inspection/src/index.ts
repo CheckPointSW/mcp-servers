@@ -6,7 +6,8 @@ import { Settings, APIManagerForAPIKey } from '@chkp/quantum-infra';
 import { 
   launchMCPServer, 
   createServerModule,
-  createApiRunner
+  createApiRunner,
+  SessionContext
 } from '@chkp/mcp-utils';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
@@ -39,6 +40,52 @@ const runApi = createApiRunner(serverModule);
 // HTTPS Inspection Tools
 
 server.tool(
+  'init',
+  'Verify, login and initialize management connection. Use this tool on your first interaction with the server.',
+  {},
+  async (args: Record<string, unknown>, extra: any) => {
+    try {
+      // Get API manager for this session
+      const apiManager = SessionContext.getAPIManager(serverModule, extra);
+      
+      // Check if environment is MDS
+      const isMds = await apiManager.isMds();
+      
+      if (!isMds) {
+        return { 
+          content: [{ 
+            type: 'text', 
+            text: 'Management server is up and running. The environment is NOT part of Multi Domain system, there is no need to use domain parameters in tool calls.' 
+          }] 
+        };
+      } else {
+        // Get domains for MDS environment
+        const domains = await apiManager.getDomains();
+        
+        // Format domain information
+        const domainList = domains.map((domain: { name: string; type: string }) => `${domain.name} (${domain.type})`).join(', ');
+        
+        return { 
+          content: [{ 
+            type: 'text', 
+            text: `Management server is up and running. The environment is part of Multi Domain system. You need to use the domain parameter for calling APIs, if you are not sure which to use, ask the user. The domains in the system are: ${domainList}` 
+          }] 
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { 
+        content: [{ 
+          type: 'text', 
+          text: `Error initializing management connection: ${errorMessage}` 
+        }] 
+      };
+    }
+  }
+);
+
+
+server.tool(
   'show_https_rule',
   'Retrieve an existing HTTPS Inspection rule using either the rule number or the unique identifier (UID) of the rule. It also allows you to specify the level of detail for the fields in the response, ranging from just the UID value to a fully detailed representation of the rule.',
   {
@@ -46,12 +93,14 @@ server.tool(
     rule_number: z.string().optional(),
     layer: z.string().optional(),
     details_level: z.string().optional().default('standard'),
+    domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
     const uid = typeof args.uid === 'string' ? args.uid : undefined;
     const rule_number = typeof args.rule_number === 'string' ? args.rule_number : undefined;
     const layer = typeof args.layer === 'string' ? args.layer : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : 'standard';
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
     
     const params: Record<string, any> = {};
     if (uid) {
@@ -64,7 +113,8 @@ server.tool(
     if (layer) params.layer = layer;
     params['details-level'] = details_level;
     
-    const resp = await runApi('POST', 'show-https-rule', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-https-rule', params, domain);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -84,6 +134,7 @@ server.tool(
     use_object_dictionary: z.boolean().optional(),
     dereference_group_members: z.boolean().optional(),
     show_membership: z.boolean().optional(),
+    domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
     const uid = typeof args.uid === 'string' ? args.uid : undefined;
@@ -97,6 +148,7 @@ server.tool(
     const use_object_dictionary = typeof args.use_object_dictionary === 'boolean' ? args.use_object_dictionary : undefined;
     const dereference_group_members = typeof args.dereference_group_members === 'boolean' ? args.dereference_group_members : undefined;
     const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : undefined;
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
     
     const params: Record<string, any> = { limit, offset };
     if (uid) params.uid = uid;
@@ -109,7 +161,8 @@ server.tool(
     if (dereference_group_members !== undefined) params['dereference-group-members'] = dereference_group_members;
     if (show_membership !== undefined) params['show-membership'] = show_membership;
     
-    const resp = await runApi('POST', 'show-https-rulebase', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-https-rulebase', params, domain);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -122,12 +175,14 @@ server.tool(
     name: z.string().optional(),
     layer: z.string(),
     details_level: z.string().optional().default('standard'),
+    domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
     const uid = typeof args.uid === 'string' ? args.uid : undefined;
     const name = typeof args.name === 'string' ? args.name : undefined;
     const layer = args.layer as string;
     const details_level = typeof args.details_level === 'string' ? args.details_level : 'standard';
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
     
     if (!uid && !name) {
       throw new Error('Either uid or name must be provided');
@@ -141,7 +196,8 @@ server.tool(
     }
     params['details-level'] = details_level;
     
-    const resp = await runApi('POST', 'show-https-section', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-https-section', params, domain);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -153,11 +209,13 @@ server.tool(
     uid: z.string().optional(),
     name: z.string().optional(),
     details_level: z.string().optional().default('standard'),
+    domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
     const uid = typeof args.uid === 'string' ? args.uid : undefined;
     const name = typeof args.name === 'string' ? args.name : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : 'standard';
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
     
     if (!uid && !name) {
       throw new Error('Either uid or name must be provided');
@@ -171,7 +229,8 @@ server.tool(
     }
     params['details-level'] = details_level;
     
-    const resp = await runApi('POST', 'show-https-layer', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-https-layer', params, domain);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -186,6 +245,7 @@ server.tool(
     order: z.array(z.object({ ASC: z.string().optional(), DESC: z.string().optional() })).optional(),
     details_level: z.string().optional().default('standard'),
     domains_to_process: z.array(z.string()).optional(),
+    domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : undefined;
@@ -194,6 +254,7 @@ server.tool(
     const order = Array.isArray(args.order) ? args.order : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : 'standard';
     const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
     
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
@@ -201,7 +262,8 @@ server.tool(
     params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     
-    const resp = await runApi('POST', 'show-https-layers', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-https-layers', params, domain);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -251,6 +313,7 @@ server.tool(
       details_level: z.string().optional(),
       domains_to_process: z.array(z.string()).optional(),
       type: z.string().optional(),
+      domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
     const uids = Array.isArray(args.uids) ? args.uids as string[] : undefined;
@@ -261,6 +324,7 @@ server.tool(
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
     const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
     const type = typeof args.type === 'string' ? args.type : undefined;
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if ( uids ) params.uids = uids;
     if (filter) params.filter = filter;
@@ -268,7 +332,8 @@ server.tool(
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     if (type) params.type = type;
-    const resp = await runApi('POST', 'show-objects', params, extra);
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-objects', params, domain);
     return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
@@ -278,14 +343,17 @@ server.tool(
   'show_object',
   'Retrieve a generic object by UID.',
   {
-    uid: z.string()
+    uid: z.string(),
+    domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
       const uid = args.uid as string;
+      const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
       const params: Record<string, any> = {};
       params.uid = uid;
       params.details_level = 'full';
-      const resp = await runApi('POST', 'show-object', params, extra);
+      const apiManager = SessionContext.getAPIManager(serverModule, extra);
+      const resp = await apiManager.callApi('POST', 'show-object', params, domain);
       return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
