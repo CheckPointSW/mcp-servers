@@ -77,19 +77,19 @@ Receiving Credentials:
 
 Step 1: Open API Keys<br>
 Navigate to Quantum Spark Management portal and click on API Keys.
-<img width="2043" height="754" alt="image" src="https://github.com/user-attachments/assets/ed73cfe6-e1b5-45ea-9c33-0995a52e9010" /><br>
+![API Keys Portal](../../resources/spark-management/api-keys-portal.png)<br>
 
 Step 2: Create New Account API Key<br>
 Click New and select New account API key or New user API key.
-<img width="1304" height="316" alt="image" src="https://github.com/user-attachments/assets/635bc881-6493-4a90-ac43-a2d3417a9591" /><br>
+![Create API Key](../../resources/spark-management/create-api-key.png)<br>
 
 Step 3: Fill in API Key Details<br>
 Provide the required details such as Service(Quantum Spark Management), Expiration, Description, and Role, then click Create.
-<img width="498" height="463" alt="image" src="https://github.com/user-attachments/assets/d520dd6d-7340-4be6-b664-7a406be3b313" /><br>
+![API Key Details](../../resources/spark-management/api-key-details.png)<br>
 
 Step 4: Save Your Credentials<br>
 Copy and securely store the Client ID, Secret Key, and Authentication URL shown after creation.
-<img width="491" height="530" alt="image" src="https://github.com/user-attachments/assets/e65f19eb-67fb-4748-8864-f0b4725043bd" /><br>
+![API Key Credentials](../../resources/spark-management/api-key-credentials.png)<br>
 
 ### Supported Clients
 
