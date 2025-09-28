@@ -122,7 +122,22 @@ function parseTableContent(tableContent) {
         console.error('Error parsing table content:', error);
         return [];
     }
-}// Parse individual server table row
+}
+
+// Transform abbreviations for better website display
+function transformDisplayText(text) {
+    if (!text) return text;
+
+    // Transform common abbreviations for website display
+    return text
+        .replace(/\bGW\b/g, 'Gateway')
+        .replace(/\bs1c\b/gi, 'Smart-1 Cloud')
+        .replace(/\bS1C\b/g, 'Smart-1 Cloud')
+        .replace(/\bUrl\b/g, 'URL')
+        .replace(/\bApi\b/g, 'API');
+}
+
+// Parse individual server table row
 function parseServerTableRow(row) {
     try {
         // Split by | and clean up
@@ -151,9 +166,9 @@ function parseServerTableRow(row) {
         
         // Generate additional metadata (without features)
         const server = {
-            name: name,
+            name: transformDisplayText(name),
             package: packageName,
-            description: description,
+            description: transformDisplayText(description),
             repoPath: repoPath,
             icon: getIconForServer(name),
             category: getCategoryForServer(name),
@@ -962,4 +977,3 @@ function addDynamicStyles() {
 document.addEventListener('DOMContentLoaded', function() {
     addDynamicStyles();
 });
-

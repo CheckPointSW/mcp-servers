@@ -289,13 +289,14 @@ body {
 
 .btn-secondary {
     background-color: transparent;
-    color: white;
-    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: var(--text-primary);
+    border: 2px solid var(--border-color);
 }
 
 .btn-secondary:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.6);
+    background-color: var(--background-secondary);
+    border-color: var(--brand-berry);
+    color: var(--brand-berry);
 }
 
 .btn-accent {
@@ -312,6 +313,13 @@ body {
     box-shadow: var(--shadow-lg);
 }
 
+
+/* Button size variants */
+.btn-sm {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    min-width: auto;
+}
 /* Hero Visual */
 .hero-visual {
     display: flex;
@@ -1001,6 +1009,7 @@ html {
     color: var(--brand-berry);
 }
 
+
 .config-code {
     background: var(--background-dark);
     color: var(--clay);
@@ -1020,10 +1029,18 @@ html {
     gap: var(--spacing-md);
     justify-content: flex-end;
     flex-wrap: wrap;
+    align-items: center;
 }
 
 .modal-actions .btn {
     min-width: 150px;
+    text-align: center;
+    justify-content: center;
+}
+
+/* Special styling for single close buttons to center them */
+.modal-footer .modal-actions:has(.btn:only-child) {
+    justify-content: center;
 }
 
 /* Loading Overlay */
@@ -1270,3 +1287,4 @@ html {
     margin: 0 0 1rem 0;
     color: var(--text-primary);
 }
+

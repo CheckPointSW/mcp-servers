@@ -1,5 +1,19 @@
 // Configuration Modal Handler for Check Point MCP Servers
 
+// Transform abbreviations for better website display
+function transformDisplayText(text) {
+    if (!text) return text;
+
+    // Transform common abbreviations for website display
+    return text
+        .replace(/\bGW\b/g, 'Gateway')
+        .replace(/\bs1c\b/gi, 'Smart-1 Cloud')
+        .replace(/\bS1C\b/g, 'Smart-1 Cloud')
+        .replace(/\bUrl\b/g, 'URL')
+        .replace(/\burl\b/g, 'URL')
+        .replace(/\bApi\b/g, 'API');
+}
+
 class ConfigurationManager {
     constructor() {
         this.currentServer = null;
@@ -234,10 +248,11 @@ class ConfigurationManager {
         const defaultValue = option.default || option.defaultValue || option.value || '';
         
         // Handle CLI flag format (e.g., "--api-key <key>")
-        let displayName = description;
+        let displayName = transformDisplayText(description);
         if (option.flag && option.flag.includes('<')) {
             displayName = option.flag.replace(/^--?/, '').replace(/<.*>/, '').trim();
             displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1).replace(/-/g, ' ');
+            displayName = transformDisplayText(displayName);
         }
         
         // Only mark as required if explicitly set in the config file
@@ -248,7 +263,7 @@ class ConfigurationManager {
         return `
             <div class="field-group">
                 <label class="field-label" for="${fieldId}">
-                    ${displayName || description}
+                    ${displayName || transformDisplayText(description)}
                     ${isRequired ? '<span class="field-required">*</span>' : ''}
                 </label>
                 <input 
@@ -257,10 +272,10 @@ class ConfigurationManager {
                     class="field-input" 
                     data-env="${envVar}"
                     data-required="${isRequired}"
-                    placeholder="${defaultValue || `Enter ${(displayName || description).toLowerCase()}`}"
+                    placeholder="${defaultValue || `Enter ${transformDisplayText(displayName || description).toLowerCase()}`}"
                     value="${defaultValue || ''}"
                 />
-                <div class="field-description">${this.getFieldHelp(envVar, option)}</div>
+                <div class="field-description">${transformDisplayText(this.getFieldHelp(envVar, option))}</div>
                 <div class="field-error" id="${fieldId}_error"></div>
             </div>
         `;
