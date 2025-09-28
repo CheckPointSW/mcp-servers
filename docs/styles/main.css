@@ -298,6 +298,20 @@ body {
     border-color: rgba(255, 255, 255, 0.6);
 }
 
+.btn-accent {
+    background: var(--accent-color);
+    color: white;
+    border: 2px solid var(--accent-color);
+    font-weight: 700;
+}
+
+.btn-accent:hover {
+    background: var(--orange);
+    border-color: var(--orange);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
 /* Hero Visual */
 .hero-visual {
     display: flex;

@@ -351,6 +351,15 @@ document.addEventListener('DOMContentLoaded', async function() {
     await loadAndRenderMCPServers();
 });
 
+// Update the server count in the hero stats section
+function updateServerCount(count) {
+    const serverCountElement = document.getElementById('server-count');
+    if (serverCountElement) {
+        serverCountElement.textContent = count;
+        console.log(`Updated server count to: ${count}`);
+    }
+}
+
 // Load and render MCP servers
 async function loadAndRenderMCPServers() {
     try {
@@ -360,6 +369,9 @@ async function loadAndRenderMCPServers() {
         // Load servers from README
         await loadMCPServersFromReadme();
         
+        // Update the server count in the hero section
+        updateServerCount(mcpServers.length);
+
         // Render the servers
         renderMCPServers();
         
@@ -950,3 +962,4 @@ function addDynamicStyles() {
 document.addEventListener('DOMContentLoaded', function() {
     addDynamicStyles();
 });
+
