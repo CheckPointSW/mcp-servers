@@ -74,11 +74,26 @@ export function createServerModule(
 }
 
 /**
- * Converts a string from camelCase to snake_case.
- * @param str The string to convert.
- * @returns The snake_cased string.
+ * Formats a string to be compatible with the Check Point API.
+ * Converts camelCase to snake_case, but preserves kebab-case for specific keys.
+ * @param str The string to format.
+ * @returns The formatted string.
  */
-function camelToSnake(str: string): string {
+function formatApiKey(str: string): string {
+  // Keywords that should be in kebab-case
+  const kebabCaseKeywords = [
+    'os-name',
+    'one-time-password',
+    'hardware-model',
+    'ipv4-address',
+    'ipv4-mask-wildcard',
+    'is-sub-domain',
+  ];
+
+  if (kebabCaseKeywords.includes(str)) {
+    return str;
+  }
+
   return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
 }
 
@@ -114,11 +129,11 @@ export function createApiTool<T extends z.ZodObject<any>>(
         // Extract domain from args if it exists, otherwise undefined
         const domain = 'domain' in args ? args.domain : undefined;
 
-        // Prepare params for the API call, excluding 'domain' and converting keys to snake_case
+        // Prepare params for the API call, excluding 'domain' and formatting keys
         const params: Record<string, any> = {};
         for (const key in args) {
           if (key !== 'domain' && args[key] !== undefined) {
-            params[camelToSnake(key)] = args[key];
+            params[formatApiKey(key)] = args[key];
           }
         }
 

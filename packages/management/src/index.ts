@@ -342,6 +342,99 @@ createApiTool(server, serverModule,
 );
 
 createApiTool(server, serverModule,
+  'add_address_range',
+  'Create a new address range object.',
+  'add-address-range',
+  DomainSchema.extend({
+    name: z.string(),
+    ip_address_first: z.string(),
+    ip_address_last: z.string(),
+    color: z.string().optional(),
+    comments: z.string().optional(),
+  })
+);
+
+createApiTool(server, serverModule,
+  'add_simple_gateway',
+  'Create a new simple gateway object.',
+  'add-simple-gateway',
+  DomainSchema.extend({
+    name: z.string(),
+    ip_address: z.string(),
+    'os-name': z.string().optional(),
+    'version': z.string().optional(),
+    'one-time-password': z.string().optional(),
+    'hardware-model': z.string().optional(),
+    color: z.string().optional(),
+    comments: z.string().optional(),
+  })
+);
+
+createApiTool(server, serverModule,
+  'add_simple_cluster',
+  'Create a new simple cluster object.',
+  'add-simple-cluster',
+  DomainSchema.extend({
+    name: z.string(),
+    ip_address: z.string(),
+    'os-name': z.string().optional(),
+    'version': z.string().optional(),
+    'one-time-password': z.string().optional(),
+    'hardware-model': z.string().optional(),
+    members: z.array(z.string()),
+    color: z.string().optional(),
+    comments: z.string().optional(),
+  })
+);
+
+createApiTool(server, serverModule,
+  'add_dynamic_object',
+  'Create a new dynamic object.',
+  'add-dynamic-object',
+  DomainSchema.extend({
+    name: z.string(),
+    color: z.string().optional(),
+    comments: z.string().optional(),
+  })
+);
+
+createApiTool(server, serverModule,
+  'add_wildcard',
+  'Create a new wildcard object.',
+  'add-wildcard',
+  DomainSchema.extend({
+    name: z.string(),
+    'ipv4-address': z.string(),
+    'ipv4-mask-wildcard': z.string(),
+    color: z.string().optional(),
+    comments: z.string().optional(),
+  })
+);
+
+createApiTool(server, serverModule,
+  'add_security_zone',
+  'Create a new security zone object.',
+  'add-security-zone',
+  DomainSchema.extend({
+    name: z.string(),
+    color: z.string().optional(),
+    comments: z.string().optional(),
+  })
+);
+
+createApiTool(server, serverModule,
+  'add_dns_domain',
+  'Create a new DNS domain object.',
+  'add-dns-domain',
+  DomainSchema.extend({
+    name: z.string(),
+    is_sub_domain: z.boolean().optional(),
+    color: z.string().optional(),
+    comments: z.string().optional(),
+  })
+);
+
+createApiTool(server, serverModule,
   'add_service_icmp',
   'Create a new ICMP service.',
   'add-service-icmp',
@@ -730,89 +823,32 @@ createApiTool(server, serverModule,
 
 // --- Creation Tools ---
 
-createApiTool(server, serverModule,
-  'add_host',
-  'Create a new host object.',
-  'add-host',
-  DomainSchema.extend({
-    name: z.string(),
-    ip_address: z.string(),
-    color: z.string().optional(),
-    comments: z.string().optional(),
-  })
-);
+// Network Objects
+createApiTool(server, serverModule, 'add_host', 'Create a new host object.', 'add-host', DomainSchema.extend({ name: z.string(), ip_address: z.string(), color: z.string().optional(), comments: z.string().optional() }));
+createApiTool(server, serverModule, 'add_network', 'Create a new network object.', 'add-network', DomainSchema.extend({ name: z.string(), subnet: z.string(), mask_length: z.number(), color: z.string().optional(), comments: z.string().optional() }));
+createApiTool(server, serverModule, 'add_group', 'Create a new group object.', 'add-group', DomainSchema.extend({ name: z.string(), members: z.array(z.string()), color: z.string().optional(), comments: z.string().optional() }));
+createApiTool(server, serverModule, 'add_address_range', 'Create a new address range object.', 'add-address-range', DomainSchema.extend({ name: z.string(), ip_address_first: z.string(), ip_address_last: z.string(), color: z.string().optional(), comments: z.string().optional() }));
+createApiTool(server, serverModule, 'add_dynamic_object', 'Create a new dynamic object.', 'add-dynamic-object', DomainSchema.extend({ name: z.string(), color: z.string().optional(), comments: z.string().optional() }));
+createApiTool(server, serverModule, 'add_wildcard', 'Create a new wildcard object.', 'add-wildcard', DomainSchema.extend({ name: z.string(), 'ipv4-address': z.string(), 'ipv4-mask-wildcard': z.string(), color: z.string().optional(), comments: z.string().optional() }));
+createApiTool(server, serverModule, 'add_security_zone', 'Create a new security zone object.', 'add-security-zone', DomainSchema.extend({ name: z.string(), color: z.string().optional(), comments: z.string().optional() }));
+createApiTool(server, serverModule, 'add_dns_domain', 'Create a new DNS domain object.', 'add-dns-domain', DomainSchema.extend({ name: z.string(), is_sub_domain: z.boolean().optional(), color: z.string().optional(), comments: z.string().optional() }));
 
-createApiTool(server, serverModule,
-  'add_network',
-  'Create a new network object.',
-  'add-network',
-  DomainSchema.extend({
-    name: z.string(),
-    subnet: z.string(),
-    mask_length: z.number(),
-    color: z.string().optional(),
-    comments: z.string().optional(),
-  })
-);
+// Service Objects
+createApiTool(server, serverModule, 'add_service_tcp', 'Create a new TCP service.', 'add-service-tcp', DomainSchema.extend({ name: z.string(), port: z.string(), color: z.string().optional(), comments: z.string().optional() }));
+createApiTool(server, serverModule, 'add_service_udp', 'Create a new UDP service.', 'add-service-udp', DomainSchema.extend({ name: z.string(), port: z.string(), color: z.string().optional(), comments: z.string().optional() }));
+createApiTool(server, serverModule, 'add_service_icmp', 'Create a new ICMP service.', 'add-service-icmp', DomainSchema.extend({ name: z.string(), icmp_type: z.number(), icmp_code: z.number().optional(), color: z.string().optional(), comments: z.string().optional() }));
+createApiTool(server, serverModule, 'add_service_sctp', 'Create a new SCTP service.', 'add-service-sctp', DomainSchema.extend({ name: z.string(), port: z.string(), color: z.string().optional(), comments: z.string().optional() }));
+createApiTool(server, serverModule, 'add_service_dce_rpc', 'Create a new DCE-RPC service.', 'add-service-dce-rpc', DomainSchema.extend({ name: z.string(), interface_uuid: z.string(), color: z.string().optional(), comments: z.string().optional() }));
+createApiTool(server, serverModule, 'add_service_other', 'Create a new service with a custom IP protocol.', 'add-service-other', DomainSchema.extend({ name: z.string(), ip_protocol: z.string(), color: z.string().optional(), comments: z.string().optional() }));
+createApiTool(server, serverModule, 'add_service_group', 'Create a new service group.', 'add-service-group', DomainSchema.extend({ name: z.string(), members: z.array(z.string()), color: z.string().optional(), comments: z.string().optional() }));
 
-createApiTool(server, serverModule,
-  'add_service_tcp',
-  'Create a new TCP service.',
-  'add-service-tcp',
-  DomainSchema.extend({
-    name: z.string(),
-    port: z.string(),
-    color: z.string().optional(),
-    comments: z.string().optional(),
-  })
-);
+// Gateways and Servers
+createApiTool(server, serverModule, 'add_simple_gateway', 'Create a new simple gateway object.', 'add-simple-gateway', DomainSchema.extend({ name: z.string(), ip_address: z.string(), 'os-name': z.string().optional(), version: z.string().optional(), 'one-time-password': z.string().optional(), 'hardware-model': z.string().optional(), color: z.string().optional(), comments: z.string().optional() }));
+createApiTool(server, serverModule, 'add_simple_cluster', 'Create a new simple cluster object.', 'add-simple-cluster', DomainSchema.extend({ name: z.string(), ip_address: z.string(), 'os-name': z.string().optional(), version: z.string().optional(), 'one-time-password': z.string().optional(), 'hardware-model': z.string().optional(), members: z.array(z.string()), color: z.string().optional(), comments: z.string().optional() }));
 
-createApiTool(server, serverModule,
-  'add_service_udp',
-  'Create a new UDP service.',
-  'add-service-udp',
-  DomainSchema.extend({
-    name: z.string(),
-    port: z.string(),
-    color: z.string().optional(),
-    comments: z.string().optional(),
-  })
-);
-
-createApiTool(server, serverModule,
-  'add_access_rule',
-  'Create a new access rule.',
-  'add-access-rule',
-  DomainSchema.extend({
-    layer: z.string(),
-    position: z.union([z.number(), z.string()]),
-    name: z.string().optional(),
-    action: z.string(),
-    destination: z.string(),
-    source: z.string(),
-    service: z.string(),
-    track: z.string().optional(),
-    enabled: z.boolean().optional(),
-  })
-);
-
-createApiTool(server, serverModule,
-  'add_nat_rule',
-  'Create a new NAT rule.',
-  'add-nat-rule',
-  DomainSchema.extend({
-    package: z.string(),
-    position: z.union([z.number(), z.string()]),
-    original_destination: z.string(),
-    original_service: z.string(),
-    original_source: z.string(),
-    translated_destination: z.string(),
-    translated_service: z.string(),
-    translated_source: z.string(),
-    enabled: z.boolean().optional(),
-    method: z.string().optional(),
-  })
-);
+// Rules
+createApiTool(server, serverModule, 'add_access_rule', 'Create a new access rule.', 'add-access-rule', DomainSchema.extend({ layer: z.string(), position: z.union([z.number(), z.string()]), name: z.string().optional(), action: z.string(), destination: z.string(), source: z.string(), service: z.string(), track: z.string().optional(), enabled: z.boolean().optional() }));
+createApiTool(server, serverModule, 'add_nat_rule', 'Create a new NAT rule.', 'add-nat-rule', DomainSchema.extend({ package: z.string(), position: z.union([z.number(), z.string()]), original_destination: z.string(), original_service: z.string(), original_source: z.string(), translated_destination: z.string(), translated_service: z.string(), translated_source: z.string(), enabled: z.boolean().optional(), method: z.string().optional() }));
 
 // Tool: find_zero_hits_rules
 server.tool(
