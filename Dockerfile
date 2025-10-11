@@ -34,16 +34,23 @@ COPY package.json package-lock.json ./
 # Install only production dependencies
 RUN npm install --omit=dev
 
+# Install pm2 globally
+RUN npm install pm2 -g
+
 # Copy the built artifacts from the 'builder' stage
-# This includes the 'dist' directories for each package
 COPY --from=builder /app/packages/management/dist ./packages/management/dist
+COPY --from=builder /app/packages/management-logs/dist ./packages/management-logs/dist
 COPY --from=builder /app/packages/mcp-utils/dist ./packages/mcp-utils/dist
 COPY --from=builder /app/packages/infra/dist ./packages/infra/dist
 COPY --from=builder /app/packages/quantum-infra/dist ./packages/quantum-infra/dist
 
-# Copy the server configuration file
+# Copy the server configuration files
 COPY packages/management/src/server-config.json ./packages/management/dist/
+COPY packages/management-logs/src/server-config.json ./packages/management-logs/dist/
+
+# Copy the pm2 ecosystem config file
+COPY ecosystem.config.js .
 
 # The default command to run when the container starts.
-# It executes the main script of the quantum-management-mcp server.
-CMD ["node", "packages/management/dist/index.js"]
+# It uses pm2-runtime to start all applications defined in the ecosystem file.
+CMD ["pm2-runtime", "start", "ecosystem.config.js"]
