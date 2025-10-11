@@ -2,6 +2,9 @@
  * Utility functions for MCP servers
  */
 
+import { ZodSchema, z } from 'zod';
+import { APIManager } from '@chkp/quantum-infra';
+import { McpServer, McpTool } from '@modelcontextprotocol/sdk/server';
 import { APIManagerFactory } from './api-manager-factory.js';
 import { ServerModule } from './launcher.js';
 import { SessionContext } from './session-context.js';
@@ -68,4 +71,55 @@ export function createServerModule(
         sessionManager,
         pkg
     };
+}
+
+/**
+ * Creates a standard API tool and adds it to the MCP server.
+ * This function abstracts the common pattern of defining a Zod schema,
+ * creating a tool handler that calls a Check Point API, and returning
+ * the response.
+ *
+ * @param server The McpServer instance.
+ * @param serverModule The server module containing session and API managers.
+ * @param toolName The name of the tool.
+ * @param description A description of what the tool does.
+ * @param command The Check Point API command to execute (e.g., 'show-hosts').
+ * @param schema The Zod schema defining the tool's arguments.
+ */
+export function createApiTool<T extends z.ZodObject<any>>(
+  server: McpServer,
+  serverModule: ServerModule,
+  toolName: string,
+  description: string,
+  command: string,
+  schema: T
+): void {
+  server.tool(
+    toolName,
+    description,
+    schema,
+    async (args: z.infer<T>, extra: any) => {
+      try {
+        const apiManager = SessionContext.getAPIManager(serverModule, extra);
+
+        // Extract domain from args if it exists, otherwise undefined
+        const domain = 'domain' in args ? args.domain : undefined;
+
+        // Prepare params for the API call, excluding 'domain'
+        const params: Record<string, any> = { ...args };
+        delete params.domain;
+
+        const resp = await apiManager.callApi('POST', command, params, domain);
+        return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return {
+          content: [{
+            type: 'text',
+            text: `Error executing '${toolName}': ${errorMessage}`
+          }]
+        };
+      }
+    }
+  );
 }

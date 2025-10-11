@@ -87,6 +87,61 @@ npm install
 npm run build
 ```
 
+## Docker Builds
+
+This repository includes a parameterized `Dockerfile` that can be used to build a container image for any of the MCP services.
+
+To build an image, use the `docker build` command with the `--build-arg` flag to specify the service you want to package.
+
+### Build Command
+
+```bash
+docker build --build-arg SERVICE_PATH=<path_to_service> -t <image_name> .
+```
+
+- `<path_to_service>`: The path to the service package within the `packages` directory (e.g., `packages/management`).
+- `<image_name>`: The name and tag for your Docker image (e.g., `management-mcp:latest`).
+
+### Examples
+
+**Building the Management MCP Server:**
+```bash
+docker build --build-arg SERVICE_PATH=packages/management -t management-mcp .
+```
+
+**Building the Management Logs MCP Server:**
+```bash
+docker build --build-arg SERVICE_PATH=packages/management-logs -t management-logs-mcp .
+```
+
+**Building the Threat Prevention MCP Server:**
+```bash
+docker build --build-arg SERVICE_PATH=packages/threat-prevention -t threat-prevention-mcp .
+```
+
+### Running the Container
+
+To run a built image, use the `docker run` command. You can use environment variables to control the number of instances for the service.
+
+**Running a Single Instance:**
+```bash
+docker run -p 8080:8080 management-mcp
+```
+
+**Running Multiple Instances (Cluster Mode):**
+
+You can leverage `pm2`'s cluster mode to run multiple instances of a service, which can improve performance on multi-core systems. Use the `INSTANCES` environment variable to specify the number of instances.
+
+To run 4 instances:
+```bash
+docker run -e INSTANCES=4 -p 8080:8080 management-mcp
+```
+
+To automatically scale to the maximum number of available CPUs:
+```bash
+docker run -e INSTANCES=max -p 8080:8080 management-mcp
+```
+
 ## Nx Workspace Commands
 
 This project uses Nx for managing the monorepo. You can use Nx commands to run tasks for specific packages:

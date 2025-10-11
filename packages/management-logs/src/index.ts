@@ -3,11 +3,11 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Settings, APIManagerForAPIKey } from '@chkp/quantum-infra';
-import { 
-  launchMCPServer, 
+import {
+  launchMCPServer,
   createServerModule,
-  createApiRunner,
-  SessionContext
+  SessionContext,
+  createApiTool,
 } from '@chkp/mcp-utils';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
@@ -32,9 +32,6 @@ const serverModule = createServerModule(
   pkg,
   APIManagerForAPIKey
 );
-
-// Create an API runner function
-const runApi = createApiRunner(serverModule);
 
 server.tool(
   'init',
@@ -143,6 +140,57 @@ server.tool(
   }
 );
 
+// find logs tool
+server.tool(
+  'find_logs',
+  'Find logs by source, destination, and/or port. You can provide one or more values for each.',
+  {
+    sources: z.array(z.string()).optional(),
+    destinations: z.array(z.string()).optional(),
+    ports: z.array(z.string()).optional(),
+    'time-frame': z.enum(['last-7-days', 'last-hour', 'today', 'last-24-hours', 'yesterday', 'this-week', 'this-month', 'last-30-days', 'all-time', 'custom']).optional(),
+    limit: z.number().optional().default(10),
+    domain: z.string().optional(),
+  },
+  async (args: Record<string, unknown>, extra: any) => {
+    const { sources, destinations, ports, domain } = args;
+    const timeFrame = args['time-frame'] as string | undefined;
+    const limit = args.limit as number;
+
+    let filterClauses: string[] = [];
+
+    if (Array.isArray(sources) && sources.length > 0) {
+      filterClauses.push(`(${sources.map(s => `src:"${s}"`).join(' OR ')})`);
+    }
+
+    if (Array.isArray(destinations) && destinations.length > 0) {
+      filterClauses.push(`(${destinations.map(d => `dst:"${d}"`).join(' OR ')})`);
+    }
+
+    if (Array.isArray(ports) && ports.length > 0) {
+      filterClauses.push(`(${ports.map(p => `service:"${p}"`).join(' OR ')})`);
+    }
+
+    const filter = filterClauses.join(' AND ');
+
+    const params = {
+      'new-query': {
+        filter: filter,
+        'time-frame': timeFrame || 'last-7-days',
+        'max-logs-per-request': limit,
+      },
+    };
+
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    try {
+      const resp = await apiManager.callApi('POST', 'show-logs', params, domain as string | undefined);
+      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { content: [{ type: 'text', text: `Error finding logs: ${errorMessage}` }] };
+    }
+  }
+);
 // Generic object tools
 server.tool(
   'show_gateways_and_servers',
