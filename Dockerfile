@@ -34,23 +34,18 @@ COPY package.json package-lock.json ./
 # Install only production dependencies
 RUN npm install --omit=dev
 
-# Install pm2 globally
-RUN npm install pm2 -g
+# Define build argument for the service path
+ARG SERVICE_PATH
 
-# Copy the built artifacts from the 'builder' stage
-COPY --from=builder /app/packages/management/dist ./packages/management/dist
-COPY --from=builder /app/packages/management-logs/dist ./packages/management-logs/dist
+# Copy the built artifacts for the specified service
+COPY --from=builder /app/${SERVICE_PATH}/dist ./${SERVICE_PATH}/dist
 COPY --from=builder /app/packages/mcp-utils/dist ./packages/mcp-utils/dist
 COPY --from=builder /app/packages/infra/dist ./packages/infra/dist
 COPY --from=builder /app/packages/quantum-infra/dist ./packages/quantum-infra/dist
 
-# Copy the server configuration files
-COPY packages/management/src/server-config.json ./packages/management/dist/
-COPY packages/management-logs/src/server-config.json ./packages/management-logs/dist/
-
-# Copy the pm2 ecosystem config file
-COPY ecosystem.config.js .
+# Copy the server configuration file for the specified service
+COPY ${SERVICE_PATH}/src/server-config.json ./${SERVICE_PATH}/dist/
 
 # The default command to run when the container starts.
-# It uses pm2-runtime to start all applications defined in the ecosystem file.
-CMD ["pm2-runtime", "start", "ecosystem.config.js"]
+# It executes the main script of the specified service.
+CMD ["node", "${SERVICE_PATH}/dist/index.js"]

@@ -87,6 +87,38 @@ npm install
 npm run build
 ```
 
+## Docker Builds
+
+This repository includes a parameterized `Dockerfile` that can be used to build a container image for any of the MCP services.
+
+To build an image, use the `docker build` command with the `--build-arg` flag to specify the service you want to package.
+
+### Build Command
+
+```bash
+docker build --build-arg SERVICE_PATH=<path_to_service> -t <image_name> .
+```
+
+- `<path_to_service>`: The path to the service package within the `packages` directory (e.g., `packages/management`).
+- `<image_name>`: The name and tag for your Docker image (e.g., `management-mcp:latest`).
+
+### Examples
+
+**Building the Management MCP Server:**
+```bash
+docker build --build-arg SERVICE_PATH=packages/management -t management-mcp .
+```
+
+**Building the Management Logs MCP Server:**
+```bash
+docker build --build-arg SERVICE_PATH=packages/management-logs -t management-logs-mcp .
+```
+
+**Building the Threat Prevention MCP Server:**
+```bash
+docker build --build-arg SERVICE_PATH=packages/threat-prevention -t threat-prevention-mcp .
+```
+
 ## Nx Workspace Commands
 
 This project uses Nx for managing the monorepo. You can use Nx commands to run tasks for specific packages:
