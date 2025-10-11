@@ -324,6 +324,31 @@ createApiTool(server, serverModule,
 );
 
 createApiTool(server, serverModule,
+  'add_service_icmp',
+  'Create a new ICMP service.',
+  'add-service-icmp',
+  DomainSchema.extend({
+    name: z.string(),
+    icmp_type: z.number(),
+    icmp_code: z.number().optional(),
+    color: z.string().optional(),
+    comments: z.string().optional(),
+  })
+);
+
+createApiTool(server, serverModule,
+  'add_service_group',
+  'Create a new service group.',
+  'add-service-group',
+  DomainSchema.extend({
+    name: z.string(),
+    members: z.array(z.string()),
+    color: z.string().optional(),
+    comments: z.string().optional(),
+  })
+);
+
+createApiTool(server, serverModule,
   'show_access_rule',
   'Show a specific rule in the access control layer. Set requested rule by uid, name or rule-number (at least one is required). You must always specify the layer.',
   'show-access-rule',
@@ -685,6 +710,92 @@ createApiTool(server, serverModule,
   })
 );
 
+// --- Creation Tools ---
+
+createApiTool(server, serverModule,
+  'add_host',
+  'Create a new host object.',
+  'add-host',
+  DomainSchema.extend({
+    name: z.string(),
+    ip_address: z.string(),
+    color: z.string().optional(),
+    comments: z.string().optional(),
+  })
+);
+
+createApiTool(server, serverModule,
+  'add_network',
+  'Create a new network object.',
+  'add-network',
+  DomainSchema.extend({
+    name: z.string(),
+    subnet: z.string(),
+    mask_length: z.number(),
+    color: z.string().optional(),
+    comments: z.string().optional(),
+  })
+);
+
+createApiTool(server, serverModule,
+  'add_service_tcp',
+  'Create a new TCP service.',
+  'add-service-tcp',
+  DomainSchema.extend({
+    name: z.string(),
+    port: z.string(),
+    color: z.string().optional(),
+    comments: z.string().optional(),
+  })
+);
+
+createApiTool(server, serverModule,
+  'add_service_udp',
+  'Create a new UDP service.',
+  'add-service-udp',
+  DomainSchema.extend({
+    name: z.string(),
+    port: z.string(),
+    color: z.string().optional(),
+    comments: z.string().optional(),
+  })
+);
+
+createApiTool(server, serverModule,
+  'add_access_rule',
+  'Create a new access rule.',
+  'add-access-rule',
+  DomainSchema.extend({
+    layer: z.string(),
+    position: z.union([z.number(), z.string()]),
+    name: z.string().optional(),
+    action: z.string(),
+    destination: z.string(),
+    source: z.string(),
+    service: z.string(),
+    track: z.string().optional(),
+    enabled: z.boolean().optional(),
+  })
+);
+
+createApiTool(server, serverModule,
+  'add_nat_rule',
+  'Create a new NAT rule.',
+  'add-nat-rule',
+  DomainSchema.extend({
+    package: z.string(),
+    position: z.union([z.number(), z.string()]),
+    original_destination: z.string(),
+    original_service: z.string(),
+    original_source: z.string(),
+    translated_destination: z.string(),
+    translated_service: z.string(),
+    translated_source: z.string(),
+    enabled: z.boolean().optional(),
+    method: z.string().optional(),
+  })
+);
+
 // Tool: find_zero_hits_rules
 server.tool(
   'find_zero_hits_rules',
@@ -795,7 +906,9 @@ createApiTool(server, serverModule,
   'show_networks',
   'Show all networks, with optional filtering and detail level.',
   'show-networks',
-  FilterSchema.omit({ domains_to_process: true })
+  FilterSchema.extend({
+    domains_to_process: z.array(z.string()).optional(),
+  })
 );
 
 

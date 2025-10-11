@@ -74,12 +74,12 @@ export function createServerModule(
 }
 
 /**
- * Converts a string from camelCase to kebab-case.
+ * Converts a string from camelCase to snake_case.
  * @param str The string to convert.
- * @returns The kebab-cased string.
+ * @returns The snake_cased string.
  */
-function camelToKebab(str: string): string {
-  return str.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase();
+function camelToSnake(str: string): string {
+  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
 }
 
 /**
@@ -114,11 +114,11 @@ export function createApiTool<T extends z.ZodObject<any>>(
         // Extract domain from args if it exists, otherwise undefined
         const domain = 'domain' in args ? args.domain : undefined;
 
-        // Prepare params for the API call, excluding 'domain' and converting keys to kebab-case
+        // Prepare params for the API call, excluding 'domain' and converting keys to snake_case
         const params: Record<string, any> = {};
         for (const key in args) {
           if (key !== 'domain' && args[key] !== undefined) {
-            params[camelToKebab(key)] = args[key];
+            params[camelToSnake(key)] = args[key];
           }
         }
 
