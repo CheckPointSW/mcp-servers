@@ -74,6 +74,8 @@ const TOPOLOGY_VISUALIZATION = `Create a visual topology diagram of the Check Po
 
 const SOURCE_TO_DESTINATION = `The user is asking to know the possible paths from {SOURCE} to {DESTINATION}. To create a source-to-destination path, You need to gather the following information:\n1. The source and destination objects (hosts, networks, etc.)\n2. The relevant access layer and rules that apply to the traffic between these objects\n3. Any NAT rules that may affect the traffic flow\n4. The gateways involved in the path\n\nI can use the show_access_rulebase, show_nat_rulebase, and show_gateways_and_servers functions to gather this information.\nOnce You have all the necessary details, You can construct the path. You will explain my decision with objects and rules references and also create a visualization of the path if needed.`;
 
+const SHOW_NATS = `To see the NAT rulebase, you first need to identify the policy package it belongs to. Use the 'show-packages' command to list all available packages. Once you have the package name, you can use the 'show-nat-rulebase' command with that package name to see the full list of NAT rules.`;
+
 // --- PROMPTS ---
 server.prompt(
   'show_gateways_prompt',
@@ -131,6 +133,22 @@ server.prompt(
   }
 );
 
+
+server.prompt(
+  'show_nats_prompt',
+  {},
+  () => ({
+    messages: [
+      {
+        role: 'user',
+        content: {
+          type: 'text',
+          text: SHOW_NATS,
+        },
+      },
+    ],
+  })
+);
 
 server.prompt(
   'source_to_destination_prompt',
