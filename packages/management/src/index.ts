@@ -847,7 +847,94 @@ createApiTool(server, serverModule, 'add_simple_gateway', 'Create a new simple g
 createApiTool(server, serverModule, 'add_simple_cluster', 'Create a new simple cluster object.', 'add-simple-cluster', DomainSchema.extend({ name: z.string(), ip_address: z.string(), 'os-name': z.string().optional(), version: z.string().optional(), 'one-time-password': z.string().optional(), 'hardware-model': z.string().optional(), members: z.array(z.string()), color: z.string().optional(), comments: z.string().optional() }));
 
 // Rules
-createApiTool(server, serverModule, 'add_access_rule', 'Create a new access rule.', 'add-access-rule', DomainSchema.extend({ layer: z.string(), position: z.union([z.number(), z.string()]), name: z.string().optional(), action: z.string(), destination: z.string(), source: z.string(), service: z.string(), track: z.string().optional(), enabled: z.boolean().optional() }));
+const RuleObjectSchema = z.union([
+  z.string(),
+  z.object({
+    name: z.string(),
+    type: z.enum(['host', 'network', 'group', 'address-range', 'dynamic-object', 'wildcard', 'security-zone', 'dns-domain', 'service-tcp', 'service-udp', 'service-icmp', 'service-sctp', 'service-dce-rpc', 'service-other', 'service-group']),
+    ip_address: z.string().optional(),
+    subnet: z.string().optional(),
+    mask_length: z.number().optional(),
+    members: z.array(z.string()).optional(),
+    ip_address_first: z.string().optional(),
+    ip_address_last: z.string().optional(),
+    'ipv4-address': z.string().optional(),
+    'ipv4-mask-wildcard': z.string().optional(),
+    is_sub_domain: z.boolean().optional(),
+    port: z.string().optional(),
+    icmp_type: z.number().optional(),
+    icmp_code: z.number().optional(),
+    interface_uuid: z.string().optional(),
+    ip_protocol: z.string().optional(),
+  }),
+]);
+
+server.tool(
+  'add_access_rule',
+  'Create a new access rule. If source, destination, or service objects do not exist, they will be created.',
+  DomainSchema.extend({
+    layer: z.string(),
+    position: z.union([z.number(), z.string()]),
+    name: z.string().optional(),
+    action: z.string(),
+    destination: z.array(RuleObjectSchema),
+    source: z.array(RuleObjectSchema),
+    service: z.array(RuleObjectSchema),
+    track: z.string().optional(),
+    enabled: z.boolean().optional(),
+  }),
+  async (args: any, extra: any) => {
+    const { layer, position, name, action, destination, source, service, track, enabled, domain } = args;
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+
+    const upsertObject = async (obj: any) => {
+      if (typeof obj === 'string') {
+        return obj; // Assume existing object by name
+      }
+
+      try {
+        await apiManager.callApi('POST', `show-${obj.type}`, { name: obj.name }, domain);
+        return obj.name; // Object exists
+      } catch (error: any) {
+        if (error.response && error.response.data && error.response.data.code === 'generic_err_object_not_found') {
+          // Object not found, proceed to create
+          const createParams: { [key: string]: any } = { ...obj };
+          delete createParams.type; // Remove 'type' before sending to API
+          await apiManager.callApi('POST', `add-${obj.type}`, createParams, domain);
+          return obj.name;
+        }
+        // Re-throw other errors
+        throw error;
+      }
+    };
+
+    try {
+      const [sourceNames, destinationNames, serviceNames] = await Promise.all([
+        Promise.all(source.map(upsertObject)),
+        Promise.all(destination.map(upsertObject)),
+        Promise.all(service.map(upsertObject)),
+      ]);
+
+      const ruleParams = {
+        layer,
+        position,
+        name,
+        action,
+        destination: destinationNames,
+        source: sourceNames,
+        service: serviceNames,
+        track,
+        enabled,
+      };
+
+      const resp = await apiManager.callApi('POST', 'add-access-rule', ruleParams, domain);
+      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { content: [{ type: 'text', text: `Error creating access rule: ${errorMessage}` }] };
+    }
+  }
+);
 createApiTool(server, serverModule, 'add_nat_rule', 'Create a new NAT rule.', 'add-nat-rule', DomainSchema.extend({ package: z.string(), position: z.union([z.number(), z.string()]), original_destination: z.string(), original_service: z.string(), original_source: z.string(), translated_destination: z.string(), translated_service: z.string(), translated_source: z.string(), enabled: z.boolean().optional(), method: z.string().optional() }));
 
 // Tool: find_zero_hits_rules

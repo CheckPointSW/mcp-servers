@@ -74,30 +74,6 @@ export function createServerModule(
 }
 
 /**
- * Formats a string to be compatible with the Check Point API.
- * Converts camelCase to snake_case, but preserves kebab-case for specific keys.
- * @param str The string to format.
- * @returns The formatted string.
- */
-function formatApiKey(str: string): string {
-  // Keywords that should be in kebab-case
-  const kebabCaseKeywords = [
-    'os-name',
-    'one-time-password',
-    'hardware-model',
-    'ipv4-address',
-    'ipv4-mask-wildcard',
-    'is-sub-domain',
-  ];
-
-  if (kebabCaseKeywords.includes(str)) {
-    return str;
-  }
-
-  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-}
-
-/**
  * Creates a standard API tool and adds it to the MCP server.
  * This function abstracts the common pattern of defining a Zod schema,
  * creating a tool handler that calls a Check Point API, and returning
@@ -129,13 +105,9 @@ export function createApiTool<T extends z.ZodObject<any>>(
         // Extract domain from args if it exists, otherwise undefined
         const domain = 'domain' in args ? args.domain : undefined;
 
-        // Prepare params for the API call, excluding 'domain' and formatting keys
-        const params: Record<string, any> = {};
-        for (const key in args) {
-          if (key !== 'domain' && args[key] !== undefined) {
-            params[formatApiKey(key)] = args[key];
-          }
-        }
+        // Prepare params for the API call, excluding 'domain'
+        const params: Record<string, any> = { ...args };
+        delete params.domain;
 
         const resp = await apiManager.callApi('POST', command, params, domain);
         return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
