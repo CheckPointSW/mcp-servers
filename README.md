@@ -119,6 +119,29 @@ docker build --build-arg SERVICE_PATH=packages/management-logs -t management-log
 docker build --build-arg SERVICE_PATH=packages/threat-prevention -t threat-prevention-mcp .
 ```
 
+### Running the Container
+
+To run a built image, use the `docker run` command. You can use environment variables to control the number of instances for the service.
+
+**Running a Single Instance:**
+```bash
+docker run -p 8080:8080 management-mcp
+```
+
+**Running Multiple Instances (Cluster Mode):**
+
+You can leverage `pm2`'s cluster mode to run multiple instances of a service, which can improve performance on multi-core systems. Use the `INSTANCES` environment variable to specify the number of instances.
+
+To run 4 instances:
+```bash
+docker run -e INSTANCES=4 -p 8080:8080 management-mcp
+```
+
+To automatically scale to the maximum number of available CPUs:
+```bash
+docker run -e INSTANCES=max -p 8080:8080 management-mcp
+```
+
 ## Nx Workspace Commands
 
 This project uses Nx for managing the monorepo. You can use Nx commands to run tasks for specific packages:

@@ -46,6 +46,12 @@ COPY --from=builder /app/packages/quantum-infra/dist ./packages/quantum-infra/di
 # Copy the server configuration file for the specified service
 COPY ${SERVICE_PATH}/src/server-config.json ./${SERVICE_PATH}/dist/
 
+# Install pm2 globally
+RUN npm install pm2 -g
+
+# Copy the pm2 ecosystem config file
+COPY ecosystem.config.js .
+
 # The default command to run when the container starts.
-# It executes the main script of the specified service.
-CMD ["node", "${SERVICE_PATH}/dist/index.js"]
+# It uses pm2-runtime to start the application in cluster mode.
+CMD ["pm2-runtime", "start", "ecosystem.config.js"]
