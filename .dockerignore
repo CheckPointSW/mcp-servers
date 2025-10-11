@@ -1,0 +1,14 @@
+# Ignore dependencies, build artifacts, and local development files
+node_modules
+dist
+mcpb-builds
+npm-debug.log
+.npm
+.git
+.github
+.idea
+*.tsbuildinfo
+
+# Ignore Docker files themselves
+Dockerfile
+.dockerignore

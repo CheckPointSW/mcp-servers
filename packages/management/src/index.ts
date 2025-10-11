@@ -3,11 +3,11 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Settings, APIManagerForAPIKey } from '@chkp/quantum-infra';
-import { 
-  launchMCPServer, 
+import {
+  launchMCPServer,
   createServerModule,
   SessionContext,
-  createApiRunner
+  createApiTool,
 } from '@chkp/mcp-utils';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
@@ -39,8 +39,29 @@ const serverModule = createServerModule(
   APIManagerForAPIKey
 );
 
-// Create an API runner function
-const runApi = createApiRunner(serverModule);
+// --- Zod Schemas for API Tools ---
+
+const DomainSchema = z.object({
+  domain: z.string().optional(),
+});
+
+const PaginationSchema = z.object({
+  limit: z.number().optional().default(50),
+  offset: z.number().optional().default(0),
+  order: z.array(z.string()).optional(),
+  details_level: z.string().optional(),
+  domains_to_process: z.array(z.string()).optional(),
+});
+
+const FilterSchema = PaginationSchema.extend({
+  filter: z.string().optional(),
+});
+
+const NameOrUidSchema = DomainSchema.extend({
+  name: z.string().optional(),
+  uid: z.string().optional(),
+  details_level: z.string().optional(),
+});
 
 // --- PROMPT RESOURCES ---
 const SHOW_INSTALLED_POLICIES = `Please show me my installed policies per gateway. In order to see which policies are installed, you need to call show-gateways-and-servers with details-level set to 'full'.\nIf you already know the gateway name or uid, you can use the show-simple-gateway or show simple-cluster function with details-level set to 'full' to get the installed policy.\n`;
@@ -291,1449 +312,377 @@ ${formattedOutput}`;
   }
 );
 
-server.tool(
+// Refactored tools using the new createApiTool factory
+
+createApiTool(server, serverModule,
   'show_hosts',
   'Show the hosts in the management server.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
+  'show-hosts',
+  FilterSchema.extend({
     show_membership: z.boolean().optional().default(true),
-    domain: z.string().optional(),
-  },
-  
-  async (args: Record<string, unknown>, extra: any) => {
-    const params: Record<string, any> = {};
-    if (typeof args.filter === 'string' && args.filter.trim() !== '') params.filter = args.filter;
-    if (typeof args.limit === 'number') params.limit = args.limit;
-    if (typeof args.offset === 'number') params.offset = args.offset;
-    if (Array.isArray(args.order) && args.order.length > 0) params.order = args.order;
-    if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params.details_level = args.details_level;
-    if (typeof args.show_membership === 'boolean') params.show_membership = args.show_membership;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    
-    // Call the API
-    const resp = await apiManager.callApi('POST', 'show-hosts', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  })
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_access_rule',
   'Show a specific rule in the access control layer. Set requested rule by uid, name or rule-number (at least one is required). You must always specify the layer.',
-  {
-    name: z.string().optional(),
+  'show-access-rule',
+  NameOrUidSchema.extend({
     layer: z.string(),
     rule_number: z.number().optional(),
-    uid: z.string().optional(),
-    details_level: z.string().optional(),
     show_as_ranges: z.boolean().optional().default(false),
     show_hits: z.boolean().optional().default(false),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const params: Record<string, any> = {};
-    
-    if (typeof args.name === 'string' && args.name.trim() !== '') {
-      params.name = args.name;
-    }
-    
-    if (typeof args.layer === 'string' && args.layer.trim() !== '') {
-      params.layer = args.layer;
-    }
-    
-    if (typeof args.rule_number === 'number') {
-      params.rule_number = args.rule_number;
-    }
-    
-    if (typeof args.uid === 'string' && args.uid.trim() !== '') {
-      params.uid = args.uid;
-    }
-    
-    if (typeof args.details_level === 'string' && args.details_level.trim() !== '') {
-      params.details_level = args.details_level;
-    }
-    
-    if (typeof args.show_as_ranges === 'boolean') {
-      params.show_as_ranges = args.show_as_ranges;
-    }
-    
-    if (typeof args.show_hits === 'boolean') {
-      params.show_hits = args.show_hits;
-    }
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-access-rule', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  })
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_access_layer',
   'Show an access layer object by name or UID (at least one is required).',
-  {
-    name: z.string().optional(),
-    uid: z.string().optional(),
-    details_level: z.string().optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const params: Record<string, any> = {};
-    if (typeof args.name === 'string' && args.name.trim() !== '') {
-      params.name = args.name;
-    }
-    if (typeof args.uid === 'string' && args.uid.trim() !== '') {
-      params.uid = args.uid;
-    }
-    if (typeof args.details_level === 'string' && args.details_level.trim() !== '') {
-      params.details_level = args.details_level;
-    }
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-access-layer', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-access-layer',
+  NameOrUidSchema
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_access_layers',
   'Show all access layers, with optional filtering and detail level.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional(),
-    offset: z.number().optional(),
-    order: z.array(z.string()).optional(),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const params: Record<string, any> = {};
-    if (typeof args.filter === 'string' && args.filter.trim() !== '') params.filter = args.filter;
-    if (typeof args.limit === 'number') params.limit = args.limit;
-    if (typeof args.offset === 'number') params.offset = args.offset;
-    if (Array.isArray(args.order) && args.order.length > 0) params.order = args.order;
-    if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params.details_level = args.details_level;
-    if (Array.isArray(args.domains_to_process) && args.domains_to_process.length > 0) params.domains_to_process = args.domains_to_process;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-access-layers', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-access-layers',
+  FilterSchema
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_nat_rulebase',
   'Show the NAT rulebase of a given package.',
-  {
+  'show-nat-rulebase',
+  FilterSchema.extend({
     package: z.string(),
-    filter: z.string().optional(),
-    limit: z.number().optional(),
-    offset: z.number().optional(),
-    order: z.array(z.string()).optional(),
-    details_level: z.string().optional(),
     dereference_group_members: z.boolean().optional().default(false),
     show_membership: z.boolean().optional().default(false),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const params: Record<string, any> = {};
-    if (typeof args.package === 'string' && args.package.trim() !== '') params.package = args.package;
-    if (typeof args.filter === 'string' && args.filter.trim() !== '') params.filter = args.filter;
-    if (typeof args.limit === 'number') params.limit = args.limit;
-    if (typeof args.offset === 'number') params.offset = args.offset;
-    if (Array.isArray(args.order) && args.order.length > 0) params.order = args.order;
-    if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params.details_level = args.details_level;
-    if (typeof args.dereference_group_members === 'boolean') params.dereference_group_members = args.dereference_group_members;
-    if (typeof args.show_membership === 'boolean') params.show_membership = args.show_membership;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-nat-rulebase', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  })
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_access_section',
   'Show an access section by name, UID or layer (at least one is required).',
-  {
-    name: z.string().optional(),
-    uid: z.string().optional(),
+  'show-access-section',
+  NameOrUidSchema.extend({
     layer: z.string().optional(),
-    details_level: z.string().optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const params: Record<string, any> = {};
-    if (typeof args.name === 'string' && args.name.trim() !== '') params.name = args.name;
-    if (typeof args.uid === 'string' && args.uid.trim() !== '') params.uid = args.uid;
-    if (typeof args.layer === 'string' && args.layer.trim() !== '') params.layer = args.layer;
-    if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params.details_level = args.details_level;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-access-section', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  })
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_nat_section',
   'Show a NAT section by name or UID and layer (at least one is required). You must always specify the package.',
-  {
-    name: z.string().optional(),
-    uid: z.string().optional(),
-    layer: z.string().optional(),
+  'show-nat-section',
+  NameOrUidSchema.extend({
     package: z.string(),
-    details_level: z.string().optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const params: Record<string, any> = {};
-    if (typeof args.name === 'string' && args.name.trim() !== '') params.name = args.name;
-    if (typeof args.uid === 'string' && args.uid.trim() !== '') params.uid = args.uid;
-    if (typeof args.layer === 'string' && args.layer.trim() !== '') params.layer = args.layer;
-    if (typeof args.package === 'string' && args.package.trim() !== '') params.package = args.package;
-    if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params.details_level = args.details_level;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-nat-section', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+    layer: z.string().optional(),
+  })
 );
 
 // --- VPN Community and Gateway/Cluster/LSM Tools ---
 
-server.tool(
+createApiTool(server, serverModule,
   'show_vpn_community_star',
   'Show a VPN Community Star object by name or UID (at least one is required).',
-  {
-    name: z.string().optional(),
-    uid: z.string().optional(),
-    details_level: z.string().optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const params: Record<string, any> = {};
-    if (typeof args.name === 'string' && args.name.trim() !== '') params.name = args.name;
-    if (typeof args.uid === 'string' && args.uid.trim() !== '') params.uid = args.uid;
-    if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params.details_level = args.details_level;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-vpn-community-star', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-vpn-community-star',
+  NameOrUidSchema
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_vpn_communities_star',
   'Show all VPN Community Star objects, with optional filtering and detail level.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional(),
-    offset: z.number().optional(),
-    order: z.array(z.string()).optional(),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : undefined;
-    const offset = typeof args.offset === 'number' ? args.offset : undefined;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-vpn-communities-star', {
-      filter,
-      limit,
-      offset,
-      order,
-      details_level,
-      domains_to_process,
-    }, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-vpn-communities-star',
+  FilterSchema
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_vpn_community_meshed',
   'Show a VPN Community Meshed object by name or UID (at least one is required).',
-  {
-    name: z.string().optional(),
-    uid: z.string().optional(),
-    details_level: z.string().optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const params: Record<string, any> = {};
-    if (typeof args.name === 'string' && args.name.trim() !== '') params.name = args.name;
-    if (typeof args.uid === 'string' && args.uid.trim() !== '') params.uid = args.uid;
-    if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params.details_level = args.details_level;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-vpn-community-meshed', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-vpn-community-meshed',
+  NameOrUidSchema
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_vpn_communities_meshed',
   'Show all VPN Community Meshed objects, with optional filtering and detail level.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional(),
-    offset: z.number().optional(),
-    order: z.array(z.string()).optional(),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : undefined;
-    const offset = typeof args.offset === 'number' ? args.offset : undefined;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-vpn-communities-meshed', {
-      filter,
-      limit,
-      offset,
-      order,
-      details_level,
-      domains_to_process,
-    }, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-vpn-communities-meshed',
+  FilterSchema
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_vpn_community_remote_access',
   'Show a VPN Community Remote Access object by name or UID (at least one is required).',
-  {
-      uid: z.string().optional(),
-      name: z.string().optional(),
-      details_level: z.string().optional(),
-      domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const params: Record<string, any> = {};
-    if (typeof args.uid === 'string' && args.uid.trim() !== '') params.uid = args.uid;
-    if (typeof args.name === 'string' && args.name.trim() !== '') params.name = args.name;
-    if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params.details_level = args.details_level;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-vpn-community-remote-access', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-vpn-community-remote-access',
+  NameOrUidSchema
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_vpn_communities_remote_access',
   'Show all VPN Community Remote Access objects, with optional filtering and detail level.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional(),
-    offset: z.number().optional(),
-    order: z.array(z.string()).optional(),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : undefined;
-    const offset = typeof args.offset === 'number' ? args.offset : undefined;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-vpn-communities-remote-access', {
-      filter,
-      limit,
-      offset,
-      order,
-      details_level,
-      domains_to_process,
-    }, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-vpn-communities-remote-access',
+  FilterSchema
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_domains',
   'Retrieve all domains available in the management server.',
-  {},
-  async (args: Record<string, unknown>, extra: any) => {
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-domains', {});
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-domains',
+  z.object({})
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_mdss',
   'Retrieve all Multi-Domain Servers (MDS) in the management server. Use this to discover available domains in an MDS environment.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
-    details_level: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const params: Record<string, any> = { limit, offset };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    const resp = await runApi('POST', 'show-mdss', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-mdss',
+  FilterSchema.omit({ domains_to_process: true })
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_gateways_and_servers',
   'Retrieve multiple gateway and server objects with optional filtering and pagination. Use this to get the currently installed policies only gateways.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    const params: Record<string, any> = { limit, offset };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-gateways-and-servers', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-gateways-and-servers',
+  FilterSchema
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_simple_gateway',
   'Retrieve a simple gateway object by name or UID. (at least one is required).',
-  {
-    name: z.string().optional(),
-    uid: z.string().optional(),
-    details_level: z.string().optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const params: Record<string, any> = {};
-    if (typeof args.name === 'string' && args.name.trim() !== '') params.name = args.name;
-    if (typeof args.uid === 'string' && args.uid.trim() !== '') params.uid = args.uid;
-    if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params['details-level'] = args.details_level;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-simple-gateway', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-simple-gateway',
+  NameOrUidSchema
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_simple_gateways',
   'Retrieve multiple simple gateway objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
+  'show-simple-gateways',
+  FilterSchema.extend({
     show_membership: z.boolean().optional().default(false),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const params: Record<string, any> = { limit, offset, 'show-membership': show_membership };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-simple-gateways', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  })
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_lsm_clusters',
   'Retrieve multiple LSM cluster objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const params: Record<string, any> = { limit, offset };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-lsm-clusters', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-lsm-clusters',
+  FilterSchema
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_cluster_member',
   'Retrieve a cluster member object by or UID',
-  {
+  'show-cluster-member',
+  DomainSchema.extend({
     uid: z.string().optional(),
     details_level: z.string().optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const uid = typeof args.uid === 'string' ? args.uid : '';
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const params: Record<string, any> = {};
-    if (uid) params.uid = uid;
-    if (details_level) params['details-level'] = details_level;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-cluster-member', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  })
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_cluster_members',
   'Retrieve multiple cluster member objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const params: Record<string, any> = { limit, offset };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-cluster-members', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-cluster-members',
+  FilterSchema
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_lsm_gateway',
   'Retrieve an LSM gateway object by name or UID. (at least one is required).',
-  {
-    name: z.string().optional(),
-    uid: z.string().optional(),
-    details_level: z.string().optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const params: Record<string, any> = {};
-    if (typeof args.name === 'string' && args.name.trim() !== '') params.name = args.name;
-    if (typeof args.uid === 'string' && args.uid.trim() !== '') params.uid = args.uid;
-    if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params['details-level'] = args.details_level;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-lsm-gateway', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-lsm-gateway',
+  NameOrUidSchema
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_simple_clusters',
   'Retrieve multiple simple cluster objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const params: Record<string, any> = { limit, offset };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-simple-clusters', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-simple-clusters',
+  FilterSchema
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_simple_cluster',
   'Retrieve a simple cluster object by name or UID (at least one is required).',
-  {
-    name: z.string().optional(),
-    uid: z.string().optional(),
-    details_level: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const params: Record<string, any> = {};
-    if (typeof args.name === 'string' && args.name.trim() !== '') params.name = args.name;
-    if (typeof args.uid === 'string' && args.uid.trim() !== '') params.uid = args.uid;
-    if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params['details-level'] = args.details_level;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-simple-cluster', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-simple-cluster',
+  NameOrUidSchema
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_lsm_gateways',
   'Retrieve multiple LSM gateway objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const params: Record<string, any> = { limit, offset };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-lsm-gateways', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-lsm-gateways',
+  FilterSchema
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_lsm_cluster',
   'Retrieve an LSM cluster object by name or UID (at least one is required).',
-  {
-    name: z.string().optional(),
-    uid: z.string().optional(),
-    details_level: z.string().optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const params: Record<string, any> = {};
-    if (typeof args.name === 'string' && args.name.trim() !== '') params.name = args.name;
-    if (typeof args.uid === 'string' && args.uid.trim() !== '') params.uid = args.uid;
-    if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params['details-level'] = args.details_level;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-lsm-cluster', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-lsm-cluster',
+  NameOrUidSchema
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_groups',
   'Retrieve multiple group objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
+  'show-groups',
+  FilterSchema.extend({
     show_as_ranges: z.boolean().optional().default(false),
     dereference_group_members: z.boolean().optional().default(false),
     show_membership: z.boolean().optional().default(false),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const show_as_ranges = typeof args.show_as_ranges === 'boolean' ? args.show_as_ranges : false;
-    const dereference_group_members = typeof args.dereference_group_members === 'boolean' ? args.dereference_group_members : false;
-    const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const params: Record<string, any> = {
-      limit, offset, 'show-as-ranges': show_as_ranges, 'dereference-group-members': dereference_group_members, 'show-membership': show_membership
-    };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-groups', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  })
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_services_tcp',
   'Retrieve multiple TCP service objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
+  'show-services-tcp',
+  FilterSchema.extend({
     show_membership: z.boolean().optional().default(false),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const params: Record<string, any> = { limit, offset, 'show-membership': show_membership };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-services-tcp', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  })
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_application_sites',
   'Retrieve multiple application site objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
+  'show-application-sites',
+  FilterSchema.extend({
     show_membership: z.boolean().optional().default(false),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    const params: Record<string, any> = { limit, offset, 'show-membership': show_membership };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-application-sites', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  }).omit({ domain: true })
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_application_site_groups',
   'Retrieve multiple application site group objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
+  'show-application-site-groups',
+  FilterSchema.extend({
     dereference_members: z.boolean().optional().default(false),
     show_membership: z.boolean().optional().default(false),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const dereference_members = typeof args.dereference_members === 'boolean' ? args.dereference_members : false;
-    const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const params: Record<string, any> = { limit, offset, 'dereference-members': dereference_members, 'show-membership': show_membership };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-application-site-groups', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  })
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_services_udp',
   'Retrieve multiple UDP service objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
+  'show-services-udp',
+  FilterSchema.extend({
     show_membership: z.boolean().optional().default(false),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const params: Record<string, any> = { limit, offset, 'show-membership': show_membership };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-services-udp', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  })
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_wildcards',
   'Retrieve multiple wildcard objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const params: Record<string, any> = { limit, offset };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-wildcards', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-wildcards',
+  FilterSchema
 );
 
-// Tool: show_security_zones
-server.tool(
+createApiTool(server, serverModule,
   'show_security_zones',
   'Retrieve multiple security zone objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const params: Record<string, any> = { limit, offset };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-security-zones', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-security-zones',
+  FilterSchema
 );
 
-// Tool: show_tags
-server.tool(
+createApiTool(server, serverModule,
   'show_tags',
   'Retrieve multiple tag objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const params: Record<string, any> = { limit, offset };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-tags', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-tags',
+  FilterSchema
 );
 
-// Tool: show_address_ranges
-server.tool(
+createApiTool(server, serverModule,
   'show_address_ranges',
   'Retrieve multiple address range objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const params: Record<string, any> = { limit, offset };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-address-ranges', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-address-ranges',
+  FilterSchema
 );
 
-// Tool: show_application_site_categories
-server.tool(
+createApiTool(server, serverModule,
   'show_application_site_categories',
   'Retrieve multiple application site category objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const params: Record<string, any> = { limit, offset };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-application-site-categories', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-application-site-categories',
+  FilterSchema
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_dynamic_objects',
   'Retrieve multiple dynamic objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const params: Record<string, any> = { limit, offset };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-dynamic-objects', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-dynamic-objects',
+  FilterSchema.omit({ domain: true })
 );
 
-// Tool: show_services_icmp6
-server.tool(
+createApiTool(server, serverModule,
   'show_services_icmp6',
   'Retrieve multiple ICMPv6 service objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
+  'show-services-icmp6',
+  FilterSchema.extend({
     show_membership: z.boolean().optional().default(false),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    const params: Record<string, any> = { limit, offset, 'show-membership': show_membership };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-services-icmp6', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  }).omit({ domain: true })
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_services_icmp',
   'Retrieve multiple ICMP service objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
+  'show-services-icmp',
+  FilterSchema.extend({
     show_membership: z.boolean().optional().default(false),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    const params: Record<string, any> = { limit, offset, 'show-membership': show_membership };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-services-icmp', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  }).omit({ domain: true })
 );
 
-// Tool: show_service_groups
-server.tool(
+createApiTool(server, serverModule,
   'show_service_groups',
   'Retrieve multiple service group objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
+  'show-service-groups',
+  FilterSchema.extend({
     show_as_ranges: z.boolean().optional().default(false),
     dereference_members: z.boolean().optional().default(false),
     show_membership: z.boolean().optional().default(false),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const show_as_ranges = typeof args.show_as_ranges === 'boolean' ? args.show_as_ranges : false;
-    const dereference_members = typeof args.dereference_members === 'boolean' ? args.dereference_members : false;
-    const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    const params: Record<string, any> = {
-      limit, offset, 'show-as-ranges': show_as_ranges, 'dereference-members': dereference_members, 'show-membership': show_membership
-    };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-service-groups', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  }).omit({ domain: true })
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_multicast_address_ranges',
   'Retrieve multiple multicast address range objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    const params: Record<string, any> = { limit, offset };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-multicast-address-ranges', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-multicast-address-ranges',
+  FilterSchema.omit({ domain: true })
 );
 
-// Tool: show_dns_domains
-server.tool(
+createApiTool(server, serverModule,
   'show_dns_domains',
   'Retrieve multiple DNS domain objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-    domain: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    
-    // Get domain parameter
-    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const params: Record<string, any> = { limit, offset };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    
-    const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-dns-domains', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-dns-domains',
+  FilterSchema
 );
 
-// Tool: show_time_groups
-server.tool(
+createApiTool(server, serverModule,
   'show_time_groups',
   'Retrieve multiple time group objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    const params: Record<string, any> = { limit, offset };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-time-groups', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-time-groups',
+  FilterSchema.omit({ domain: true })
 );
 
-// Tool: show_access_point_names
-server.tool(
+createApiTool(server, serverModule,
   'show_access_point_names',
   'Retrieve multiple access point name objects with optional filtering and pagination.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional().default(50),
-    offset: z.number().optional().default(0),
-    order: z.array(z.string()).optional(),
-    details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    const params: Record<string, any> = { limit, offset };
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-access-point-names', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-access-point-names',
+  FilterSchema.omit({ domain: true })
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_objects',
   'Retrieve multiple generic objects with filtering and pagination. Can use type (e.g host, service-tcp, network, address-range...) to get objects of a certain type.',
-  {
-      uids: z.array(z.string()).optional(),
-      filter: z.string().optional(),
-      limit: z.number().optional().default(50),
-      offset: z.number().optional().default(0),
-      order: z.array(z.string()).optional(),
-      details_level: z.string().optional(),
-      domains_to_process: z.array(z.string()).optional(),
-      type: z.string().optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const uids = Array.isArray(args.uids) ? args.uids as string[] : undefined;
-      const filter = typeof args.filter === 'string' ? args.filter : '';
-    const limit = typeof args.limit === 'number' ? args.limit : 50;
-    const offset = typeof args.offset === 'number' ? args.offset : 0;
-    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
-    const type = typeof args.type === 'string' ? args.type : undefined;
-    const params: Record<string, any> = { limit, offset };
-    if ( uids ) params.uids = uids;
-    if (filter) params.filter = filter;
-    if (order) params.order = order;
-    if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    if (type) params.type = type;
-    const resp = await runApi('POST', 'show-objects', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-objects',
+  FilterSchema.extend({
+    uids: z.array(z.string()).optional(),
+    type: z.string().optional(),
+  }).omit({ domain: true })
 );
 
-// Tool: show_object
-server.tool(
+createApiTool(server, serverModule,
   'show_object',
   'Retrieve a generic object by UID.',
-  {
-    uid: z.string()
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-      const uid = args.uid as string;
-      const params: Record<string, any> = {}
-      params.uid = uid
-      params.details_level = 'full'
-      const resp = await runApi('POST', 'show-object', params, extra);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-object',
+  z.object({
+    uid: z.string(),
+  })
 );
 
 // Tool: find_zero_hits_rules
@@ -1792,7 +741,7 @@ server.tool(
 
         if (Array.isArray(results) && results.length > 0 && 'policy' in results[0]) {
           // Policy-based results
-          summary = 'Zero Hits Rules Summary by Policy Package:\n\n';
+          summary = 'Zero Hits Summary by Policy Package:\n\n';
           for (const policyResult of results) {
             summary += `Policy: ${policyResult.policy} (${policyResult.status})\n`;
             if (policyResult.layers) {
@@ -1842,24 +791,11 @@ server.tool(
   }
 );
 
-server.tool(
+createApiTool(server, serverModule,
   'show_networks',
   'Show all networks, with optional filtering and detail level.',
-  {
-    filter: z.string().optional(),
-    limit: z.number().optional(),
-    offset: z.number().optional(),
-    order: z.array(z.string()).optional(),
-  },
-  async (args: Record<string, unknown>, extra: any) => {
-    const params: Record<string, any> = {};
-    if (typeof args.filter === 'string' && args.filter.trim() !== '') params.filter = args.filter;
-    if (typeof args.limit === 'number') params.limit = args.limit;
-    if (typeof args.offset === 'number') params.offset = args.offset;
-    if (Array.isArray(args.order) && args.order.length > 0) params.order = args.order;
-    const resp = await runApi('POST', 'show-networks', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  }
+  'show-networks',
+  FilterSchema.omit({ domains_to_process: true })
 );
 
 
