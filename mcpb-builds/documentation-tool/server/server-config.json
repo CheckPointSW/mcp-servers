@@ -1,0 +1,26 @@
+{
+  "name": "checkpoint-documentation-tool",
+  "description": "Check Point Documentation Tool Service - API integration with Check Point Documentation Tool",
+  "options": [
+    {
+      "flag": "--client-id <client-id>",
+      "description": "Client ID for authentication with Documentation Tool",
+      "env": "CLIENT_ID",
+      "required": true,
+      "type": "string"
+    },
+    {
+      "flag": "--secret-key <secret-key>",
+      "description": "Secret Key for authentication with Documentation Tool",
+      "env": "SECRET_KEY",
+      "required": true,
+      "type": "string"
+    },
+    {
+      "flag": "--region <region>",
+      "description": "Documentation Tool region: EU, US, STG, or Local",
+      "env": "REGION",
+      "type": "string"
+    }
+  ]
+}

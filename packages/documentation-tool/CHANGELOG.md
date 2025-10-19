@@ -1,0 +1,7 @@
+# @chkp/documentation-mcp
+
+## 0.1.0
+
+### Minor Changes
+
+- bd77252: Updated implementation and features, Updated configuration, Added 9 new file(s) (synced from internal repository)
