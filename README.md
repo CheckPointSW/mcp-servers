@@ -31,6 +31,7 @@ This monorepo is organized with each Check Point security domain as a separate M
   - **`/gw-cli-connection-analysis`** - Gateway Script MCP Server to Analyze Connection Issues
   - **`/threat-emulation`** - Threat Emulation MCP server for malware analysis and file scanning
   - **`/gaia`** - GAIA OS MCP server for network management and interface configuration
+  - **`/documentation-tool`** - Check Point documentation assistant MCP server for product information and technical guidance
   - **`/spark-management`** - Spark Management MCP server for Quantum Spark appliance management
 
 ## Available MCP Servers
@@ -40,16 +41,17 @@ The following MCP servers are available in this repository:
 | MCP Server | Package Name | Description |
 |------------|--------------|-------------|
 | [Management](./packages/management/) | `@chkp/quantum-management-mcp` | Query policies, rules, objects, and network topology |
-| [Management-logs](./packages/management-logs/) | `@chkp/management-logs-mcp` | Make queries and gain insights from connection and audit logs |
+| [Management Logs](./packages/management-logs/) | `@chkp/management-logs-mcp` | Make queries and gain insights from connection and audit logs |
 | [Threat-Prevention](./packages/threat-prevention/) | `@chkp/threat-prevention-mcp` | Query Threat Prevention policies, profiles and indicators, view IPS updates and IOC feeds |
 | [HTTPS-Inspection](./packages/https-inspection/) | `@chkp/https-inspection-mcp` | Query Https Inspection policies, rules and exceptions |
-| [Harmony sase](./packages/harmony-sase/) | `@chkp/harmony-sase-mcp` | Query and manage Harmony SASE Regions, Networks, Applications and configurations |
-| [Reputation service](./packages/reputation-service/) | `@chkp/reputation-service-mcp` | Query Url, IP and File Reputaions |
+| [Harmony SASE](./packages/harmony-sase/) | `@chkp/harmony-sase-mcp` | Query and manage Harmony SASE Regions, Networks, Applications and configurations |
+| [Reputation Service](./packages/reputation-service/) | `@chkp/reputation-service-mcp` | Query Url, IP and File Reputation |
 | [GW CLI](./packages/gw-cli/) | `@chkp/quantum-gw-cli-mcp` | Provides comprehensive diagnostics and analysis across hardware, network configuration, high availability, performance, security, and real-time connection debugging |
-| [GW CLI connection analysis](./packages/gw-cli-connection-analysis/) | `@chkp/quantum-gw-connection-analysis-mcp` | Provides debug logs to help analyze connection issues |
-| [Threat emulation](./packages/threat-emulation/) | `@chkp/threat-emulation-mcp` | Analyze files for malware and threats using Check Point's cloud services |
+| [GW CLI Connection Analysis](./packages/gw-cli-connection-analysis/) | `@chkp/quantum-gw-connection-analysis-mcp` | Provides debug logs to help analyze connection issues |
+| [Threat Emulation](./packages/threat-emulation/) | `@chkp/threat-emulation-mcp` | Analyze files for malware and threats using Check Point's cloud services |
 | [Gaia](./packages/gaia/) | `@chkp/quantum-gaia-mcp` | Network management and interface configuration for GAIA OS |
-| [Spark management](./packages/spark-management/) | `@chkp/spark-management-mcp` | Manage and monitor Quantum Spark appliances for MSPs and distributed networks |
+| [Documentation Tool](./packages/documentation-tool/) | `@chkp/documentation-mcp` | Comprehensive Check Point documentation assistant providing instant access to product information, technical specifications, configuration guidance, and feature documentation across the entire Check Point security portfolio |
+| [Spark Management](./packages/spark-management/) | `@chkp/spark-management-mcp` | Manage and monitor Quantum Spark appliances for MSPs and distributed networks |
 
 
 ## Example: Setting Up an MCP Server
