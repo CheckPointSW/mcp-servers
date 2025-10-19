@@ -335,7 +335,7 @@ function generateManifest(buildDir, packageJson, packageName) {
   const userConfig = generateUserConfig(packageName, cleanName);
   
   const manifest = {
-    dxt_version: "0.1", // Claude Desktop still expects this field name
+    manifest_version: "0.2", // Updated to meet MCPB CLI requirements
     name: cleanName,
     display_name: `Check Point ${displayName} MCP`,
     version: packageJson.version,
