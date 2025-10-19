@@ -30,7 +30,8 @@
     { "path": "./packages/gw-cli" },
     { "path": "./packages/gw-cli-connection-analysis" },
     { "path": "./packages/gaia" },
-    { "path": "./packages/spark-management" }
+    { "path": "./packages/spark-management" },
+    { "path": "./packages/documentation-tool" }
   ],
   "files": []
 }

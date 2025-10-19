@@ -1,0 +1,40 @@
+{
+  "name": "@chkp/documentation-mcp",
+  "version": "0.0.2",
+  "description": "Check Point Documentation Tool Service - API integration with Check Point Documentation Tool",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "documentation-mcp": "./dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CheckPointSW/mcp-servers.git",
+    "directory": "packages/documentation-tool"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "tsc && chmod +x ./dist/index.js && cp src/server-config.json dist/",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.11.1",
+    "axios": "^1.11.0",
+    "commander": "^11.1.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@chkp/mcp-utils": "*",
+    "@chkp/quantum-infra": "*",
+    "@types/node": "^18.15.11",
+    "dotenv": "^17.2.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.0.4"
+  }
+}
