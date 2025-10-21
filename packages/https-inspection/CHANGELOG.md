@@ -1,5 +1,11 @@
 # @chkp/https-inspection-mcp
 
+## 0.7.0
+
+### Minor Changes
+
+- ae97696: Updated implementation and features, Modified 1 file(s) (synced from internal repository)
+
 ## 0.6.0
 
 ### Minor Changes
