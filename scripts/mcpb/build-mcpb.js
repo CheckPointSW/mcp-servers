@@ -335,7 +335,7 @@ function generateManifest(buildDir, packageJson, packageName) {
   const userConfig = generateUserConfig(packageName, cleanName);
   
   const manifest = {
-    manifest_version: "0.2", // Updated to meet MCPB CLI requirements
+    dxt_version: "0.1", // Claude Desktop still expects this field name
     name: cleanName,
     display_name: `Check Point ${displayName} MCP`,
     version: packageJson.version,
@@ -419,10 +419,10 @@ function generateUserConfig(packageName, cleanName) {
             return;
           }
           
-          // Extract the option name from the flag (e.g., --api-key -> api_key)
+          // Extract the option name from the flag (e.g., --api-key -> API_KEY)
           const flagMatch = option.flag.match(/--([a-zA-Z0-9-]+)/);
           if (flagMatch) {
-            const configName = flagMatch[1].replace(/-/g, '_');
+            const configName = flagMatch[1].replace(/-/g, '_').toUpperCase();
             
             // Create user config entry for this option
             userConfig[configName] = {
@@ -432,16 +432,18 @@ function generateUserConfig(packageName, cleanName) {
               required: option.required || false
             };
             
-            // Add default value if provided
+            // Add default value if provided, otherwise use empty string for string types
             if (option.default !== undefined) {
               userConfig[configName].default = option.default;
+            } else if (getConfigType(option.type) === 'string') {
+              userConfig[configName].default = "";
             }
             
             // Mark passwords and keys as sensitive
-            if (configName.includes('password') || 
-                configName.includes('key') || 
-                configName.includes('token') || 
-                configName.includes('secret')) {
+            if (configName.toLowerCase().includes('password') || 
+                configName.toLowerCase().includes('key') || 
+                configName.toLowerCase().includes('token') || 
+                configName.toLowerCase().includes('secret')) {
               userConfig[configName].sensitive = true;
             }
           }
@@ -597,44 +599,26 @@ function generateEnvironmentVariables(packageName) {
         config.options.forEach(option => {
           // Only include options with env variables, and exclude verbose/debug
           if (option.env && !['VERBOSE', 'DEBUG'].includes(option.env)) {
-            // Convert CLI flag to user_config name (e.g., --api-key <key> -> api_key)
+            // Convert CLI flag to user_config name (e.g., --api-key <key> -> API_KEY)
             const flagMatch = option.flag.match(/--([a-zA-Z0-9-]+)/);
             if (flagMatch) {
-              const configName = flagMatch[1].replace(/-/g, '_');
+              const configName = flagMatch[1].replace(/-/g, '_').toUpperCase();
               envVars[option.env] = '${user_config.' + configName + '}';
             }
           }
         });
       }
     } else {
-      console.warn(`⚠️ No server-config.json found for ${packageName}, using default environment variables`);
-      
-      // Use default environment variables if no config is found
-      envVars.MANAGEMENT_HOST = "${user_config.management_host}";
-      envVars.MANAGEMENT_PORT = "${user_config.port}";
-      envVars.API_KEY = "${user_config.api_key}";
-      envVars.USERNAME = "${user_config.username}";
-      envVars.PASSWORD = "${user_config.password}";
-      envVars.S1C_URL = "${user_config.s1c_url}";
+      console.warn(`⚠️ No server-config.json found for ${packageName}`);
+      console.warn(`⚠️ Environment variables will not be set. The server must handle missing configuration gracefully.`);
+      // Return empty object - don't set hardcoded template strings that will be treated as literal values
+      return envVars;
     }
   } catch (error) {
     console.warn(`⚠️ Error reading server-config.json for ${packageName}: ${error.message}`);
-    console.warn('Using default environment variables');
-    
-    // Use default environment variables on error
-    envVars.MANAGEMENT_HOST = "${user_config.management_host}";
-    envVars.MANAGEMENT_PORT = "${user_config.port}";
-    envVars.API_KEY = "${user_config.api_key}";
-    envVars.USERNAME = "${user_config.username}";
-    envVars.PASSWORD = "${user_config.password}";
-    envVars.S1C_URL = "${user_config.s1c_url}";
-    
-    // Add package specific environment variables
-    if (packageName === 'management') {
-      envVars.VERIFY_SSL = "${user_config.verify_ssl}";
-    } else if (packageName === 'harmony-sase') {
-      envVars.REGION = "${user_config.region}";
-    }
+    console.warn(`⚠️ Environment variables will not be set. The server must handle missing configuration gracefully.`);
+    // Return empty object - don't set hardcoded template strings that will be treated as literal values
+    return envVars;
   }
   
   return envVars;
