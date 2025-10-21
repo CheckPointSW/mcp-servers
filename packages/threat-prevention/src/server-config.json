@@ -5,16 +5,19 @@
     {
       "flag": "--s1c-url <s1c url>",
       "description": "S1C URL",
+      "env": "S1C_URL",
       "type": "string"
     },
     {
       "flag": "--api-key <key>",
       "description": "API key",
+      "env": "API_KEY",
       "type": "string"
     },
     {
       "flag": "--cloud-infra-token <key>",
       "description": "Cloud Infra token",
+      "env": "CLOUD_INFRA_TOKEN",
       "type": "string"
     },
     {
