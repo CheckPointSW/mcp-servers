@@ -1,5 +1,11 @@
 # @chkp/management-logs-mcp
 
+## 0.6.0
+
+### Minor Changes
+
+- ae97696: Updated implementation and features, Modified 1 file(s) (synced from internal repository)
+
 ## 0.5.0
 
 ### Minor Changes
