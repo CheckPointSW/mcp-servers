@@ -1,5 +1,11 @@
 # @chkp/management-logs-mcp
 
+## 0.6.2
+
+### Patch Changes
+
+- a9750ef: Modified 1 file(s) (synced from internal repository)
+
 ## 0.6.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
   "name": "@chkp/quantum-gw-connection-analysis-mcp",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Model Context Protocol (MCP) server for Running Connection Analysis on a Check Point gateway.",
   "type": "module",
   "main": "dist/index.js",
