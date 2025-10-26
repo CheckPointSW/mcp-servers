@@ -25,7 +25,7 @@ This MCP server simplifies connection debugging by providing structured, context
 
 ## Demo
 
-[![Watch the connection analysis demo](https://img.youtube.com/vi/QKBcD_99W3s/0.jpg)](https://www.youtube.com/watch?v=QKBcD_99W3s)
+[![Watch the connection analysis demo](https://img.youtube.com/vi/-DuLzDJK9Yo/0.jpg)](https://www.youtube.com/watch?v=-DuLzDJK9Yo)
 *Note: Update the video link above with your actual connection analysis demo video.*
 
 ## Example Use Cases

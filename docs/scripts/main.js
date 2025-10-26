@@ -591,10 +591,6 @@ function createServerCard(server) {
             </div>
             
             <div class="server-actions">
-                <a href="${server.publicRepo}" target="_blank" class="btn btn-outline">
-                    <i class="fab fa-github"></i>
-                    View Source
-                </a>
                 <a href="${server.mcpbDownload}" download class="btn btn-secondary">
                     <i class="fas fa-download"></i>
                     Download MCPB
@@ -838,14 +834,15 @@ function addDynamicStyles() {
         }
 
         .server-actions .btn-secondary {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: transparent;
+            color: var(--gravitas-grey);
+            border: 2px solid var(--gravitas-grey);
         }
 
         .server-actions .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.2);
-            border-color: rgba(255, 255, 255, 0.4);
+            background: var(--gravitas-grey);
+            border-color: var(--gravitas-grey);
+            color: var(--clay);
         }
 
         .btn-outline {
@@ -856,7 +853,7 @@ function addDynamicStyles() {
 
         .btn-outline:hover {
             background: var(--brand-berry);
-            color: white;
+            color: var(--clay);
         }
 
         .server-links {
@@ -969,6 +966,19 @@ function addDynamicStyles() {
                 flex: 0 0 auto;
             }
         }
+
+        @media (prefers-color-scheme: dark) {
+            .server-actions .btn-secondary {
+                color: var(--clay);
+                border-color: rgba(242, 242, 242, 0.5);
+            }
+
+            .server-actions .btn-secondary:hover {
+                background: rgba(242, 242, 242, 0.1);
+                border-color: var(--clay);
+                color: var(--clay);
+            }
+        }
     `;
     document.head.appendChild(style);
 }
@@ -976,4 +986,244 @@ function addDynamicStyles() {
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
     addDynamicStyles();
+    initializeUseCases();
 });
+
+// Use Cases Video Library
+let videosData = [];
+
+async function loadVideosData() {
+    try {
+        // Try multiple paths to support both file:// and http:// protocols
+        let response;
+        const paths = [
+            'assets/demo-videos/videos.json',
+            './assets/demo-videos/videos.json',
+            '/assets/demo-videos/videos.json'
+        ];
+        
+        for (const path of paths) {
+            try {
+                response = await fetch(path);
+                if (response.ok) {
+                    console.log('Loaded videos from:', path);
+                    break;
+                }
+            } catch (e) {
+                continue;
+            }
+        }
+        
+        if (!response || !response.ok) {
+            throw new Error('Failed to load videos from any path');
+        }
+        
+        const data = await response.json();
+        console.log('Loaded videos:', data);
+        return data.videos || [];
+    } catch (error) {
+        console.error('Failed to load videos data:', error);
+        return [];
+    }
+}
+
+function createVideoCard(video) {
+    const card = document.createElement('div');
+    card.className = 'video-card';
+    
+    const videoThumbnail = document.createElement('div');
+    videoThumbnail.className = 'video-thumbnail';
+    videoThumbnail.innerHTML = `
+        <video preload="metadata" muted>
+            <source src="assets/demo-videos/${video.filename}#t=0.1" type="video/mp4">
+        </video>
+        <div class="video-play-overlay">
+            <div class="video-play-icon">
+                <i class="fas fa-play"></i>
+            </div>
+        </div>
+    `;
+    
+    videoThumbnail.addEventListener('click', () => openVideoPlayer(video));
+    
+    const cardContent = document.createElement('div');
+    cardContent.className = 'video-card-content';
+    
+    const title = document.createElement('h3');
+    title.className = 'video-card-title';
+    title.textContent = video.title;
+    
+    const description = document.createElement('p');
+    description.className = 'video-card-description';
+    description.textContent = video.description;
+    
+    const promptBtn = document.createElement('button');
+    promptBtn.className = 'btn btn-secondary btn-sm video-prompt-btn';
+    promptBtn.innerHTML = '<i class="fas fa-copy"></i> Show Prompt';
+    
+    const tooltip = document.createElement('div');
+    tooltip.className = 'prompt-tooltip';
+    tooltip.textContent = video.prompt;
+    
+    // Add event listeners for prompt button
+    promptBtn.addEventListener('mouseenter', () => {
+        tooltip.style.display = 'block';
+    });
+    
+    promptBtn.addEventListener('mouseleave', () => {
+        tooltip.style.display = 'none';
+    });
+    
+    promptBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(video.prompt).then(() => {
+            const originalHTML = promptBtn.innerHTML;
+            promptBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+            promptBtn.style.background = 'var(--brand-berry)';
+            promptBtn.style.borderColor = 'var(--brand-berry)';
+            promptBtn.style.color = 'white';
+            
+            setTimeout(() => {
+                promptBtn.innerHTML = originalHTML;
+                promptBtn.style.background = '';
+                promptBtn.style.borderColor = '';
+                promptBtn.style.color = '';
+            }, 2000);
+        }).catch(err => {
+            console.error('Failed to copy prompt:', err);
+        });
+    });
+    
+    cardContent.appendChild(title);
+    cardContent.appendChild(description);
+    cardContent.appendChild(promptBtn);
+    cardContent.appendChild(tooltip);
+    
+    card.appendChild(videoThumbnail);
+    card.appendChild(cardContent);
+    
+    return card;
+}
+
+function renderVideosGrid() {
+    const grid = document.getElementById('videosGrid');
+    if (!grid) return;
+    
+    grid.innerHTML = '';
+    
+    loadVideosData().then(videos => {
+        if (videos.length === 0) {
+            grid.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No videos available</p>';
+            return;
+        }
+        
+        videos.forEach(video => {
+            grid.appendChild(createVideoCard(video));
+        });
+    });
+}
+
+function openVideoPlayer(video) {
+    const modal = document.getElementById('videoPlayerModal');
+    const title = document.getElementById('videoPlayerTitle');
+    const videoPlayer = document.getElementById('videoPlayer');
+    const videoSource = document.getElementById('videoSource');
+    const description = document.getElementById('videoDescription');
+    const prompt = document.getElementById('videoPrompt');
+    
+    title.textContent = video.title;
+    videoSource.src = `assets/demo-videos/${video.filename}`;
+    videoPlayer.load();
+    description.textContent = video.description;
+    prompt.textContent = video.prompt;
+    
+    modal.style.display = 'flex';
+    
+    // Store current video for copy functionality
+    modal.dataset.currentPrompt = video.prompt;
+}
+
+function closeVideoPlayer() {
+    const modal = document.getElementById('videoPlayerModal');
+    const videoPlayer = document.getElementById('videoPlayer');
+    
+    videoPlayer.pause();
+    modal.style.display = 'none';
+}
+
+function copyPromptToClipboard() {
+    const modal = document.getElementById('videoPlayerModal');
+    const prompt = modal.dataset.currentPrompt;
+    
+    if (!prompt) return;
+    
+    navigator.clipboard.writeText(prompt).then(() => {
+        const btn = document.getElementById('copyPromptBtn');
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        btn.style.background = 'var(--success-color)';
+        
+        setTimeout(() => {
+            btn.innerHTML = originalHTML;
+            btn.style.background = '';
+        }, 2000);
+    }).catch(err => {
+        console.error('Failed to copy prompt:', err);
+        alert('Failed to copy prompt to clipboard');
+    });
+}
+
+function initializeUseCases() {
+    // Use Cases Modal buttons
+    const useCasesBtn = document.getElementById('useCasesBtn');
+    const useCasesModal = document.getElementById('useCasesModal');
+    const closeUseCasesBtn = document.getElementById('closeUseCasesBtn');
+    const closeUseCasesFooterBtn = document.getElementById('closeUseCasesFooterBtn');
+    
+    if (useCasesBtn) {
+        useCasesBtn.addEventListener('click', () => {
+            useCasesModal.style.display = 'flex';
+            renderVideosGrid();
+        });
+    }
+    
+    if (closeUseCasesBtn) {
+        closeUseCasesBtn.addEventListener('click', () => {
+            useCasesModal.style.display = 'none';
+        });
+    }
+    
+    if (closeUseCasesFooterBtn) {
+        closeUseCasesFooterBtn.addEventListener('click', () => {
+            useCasesModal.style.display = 'none';
+        });
+    }
+    
+    // Video Player Modal buttons
+    const closeVideoPlayerBtn = document.getElementById('closeVideoPlayerBtn');
+    const closeVideoPlayerFooterBtn = document.getElementById('closeVideoPlayerFooterBtn');
+    const copyPromptBtn = document.getElementById('copyPromptBtn');
+    
+    if (closeVideoPlayerBtn) {
+        closeVideoPlayerBtn.addEventListener('click', closeVideoPlayer);
+    }
+    
+    if (closeVideoPlayerFooterBtn) {
+        closeVideoPlayerFooterBtn.addEventListener('click', closeVideoPlayer);
+    }
+    
+    if (copyPromptBtn) {
+        copyPromptBtn.addEventListener('click', copyPromptToClipboard);
+    }
+    
+    // Close modals on outside click
+    window.addEventListener('click', (e) => {
+        if (e.target === useCasesModal) {
+            useCasesModal.style.display = 'none';
+        }
+        if (e.target === document.getElementById('videoPlayerModal')) {
+            closeVideoPlayer();
+        }
+    });
+}
+

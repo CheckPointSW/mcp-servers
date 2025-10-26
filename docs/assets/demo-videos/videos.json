@@ -1,0 +1,32 @@
+{
+  "videos": [
+    {
+      "id": "cve-investigation",
+      "title": "CVE Investigation",
+      "filename": "cve-investigation.mp4",
+      "description": "Read Documentation and SKs and investigate prtection posture",
+      "prompt": "1. I want to check how my system reacts to log4j. Using Documentation MCP check Check Point knowledge base regarding this attack and show the relevant SKs. 2. Using this knowledge, please use Threat Prevention MCP to check my system."
+    },
+    {
+      "id": "gw-dashboard",
+      "title": "Gateway Dashboard",
+      "filename": "gw-dashboard.mp4",
+      "description": "Create an interactive dashboard for your gateways",
+      "prompt": "Using the Management and GW CLI MCP servers, create an interactive dashboard of my gateways. For each Gateway, I want to see disk capacity, health reports, cpu usage and top active connections by ip and port."
+    },
+    {
+      "id": "mcp-drop-analysis",
+      "title": "MCP Drop Analysis",
+      "filename": "mcp-drop-analysis.mp4",
+      "description": "Create an interactive visualization of all the drops in my system in the last 24 hours",
+      "prompt": "Using Management Logs MCP Server, Create a visualization of all the drops in my system in the last 24 hours. The visualization needs to be interactive, able to pivot the information by interesting factors. If you see potential attacks and issue, make sure they can be derived from the visualization. You can use other MCP servers to build a complete picture as needed."
+    },
+    {
+      "id": "preemptive-actions",
+      "title": "Preemptive Actions",
+      "filename": "preemtive-actions.mp4",
+      "description": "Analyze Policy and Gateways and offer preemptive measures for any issues that needs supervision",
+      "prompt": "Use the Management and GW CLI MCP Servers to get information about my Policy and Gateways. Offer preemptive measures for any issues that needs supervision."
+    }
+  ]
+}
