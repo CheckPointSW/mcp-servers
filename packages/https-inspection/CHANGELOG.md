@@ -1,5 +1,11 @@
 # @chkp/https-inspection-mcp
 
+## 0.7.4
+
+### Patch Changes
+
+- 7e6241f: General improvements and updates (synced from internal repository)
+
 ## 0.7.2
 
 ### Patch Changes

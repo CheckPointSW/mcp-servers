@@ -1,5 +1,11 @@
 # @chkp/quantum-gw-cli-base
 
+## 0.4.4
+
+### Patch Changes
+
+- 7e6241f: General improvements and updates (synced from internal repository)
+
 ## 0.4.2
 
 ### Patch Changes
