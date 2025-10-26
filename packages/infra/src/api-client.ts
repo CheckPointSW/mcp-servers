@@ -149,7 +149,7 @@ export abstract class APIClientBase {
 
     if (this.needsLogin() && (!this.sid || this.isSessionExpired())) {
       try {
-        this.sid = await this.login();
+        await this.login();
       }
       catch (error: any) {
         // If the error is already a ClientResponse, just return it directly
@@ -190,7 +190,7 @@ export abstract class APIClientBase {
         
         // Re-login and retry the request
         try {
-          this.sid = await this.login();
+          await this.login();
         } catch (loginError: any) {
           if (loginError instanceof ClientResponse) {
             console.error(`Login retry failed with status ${loginError.status}:`, loginError.response);
@@ -242,6 +242,7 @@ export abstract class APIClientBase {
     if (loginResp.status !== 200 || !loginResp.response || !loginResp.response.sid) {
       throw loginResp;
     }
+    this.sid = loginResp.response.sid;
 
     this.sessionTimeout = loginResp.response["session-timeout"] || null;
     this.sessionStart = Date.now();
@@ -464,9 +465,9 @@ export class OnPremAPIClient extends APIClientBase {
       throw loginResp;
     }
 
+    this.sid = loginResp.response.sid;
     this.sessionTimeout = loginResp.response["session-timeout"] || null;
     this.sessionStart = Date.now();
-    this.sid = loginResp.response.sid;
 
     // Check if this is an MDS environment by calling get-session with the session UID
     if (loginResp.response.uid) {
