@@ -169,16 +169,52 @@ export abstract class APIClientBase {
       httpsAgent = new https.Agent({ rejectUnauthorized: false });
     }
 
-
-    return await this.makeRequest(
-        this.getHost(),
-        method,
-        uri,
-        data,
-        this.getHeaders(),
-        params,
-        httpsAgent
-    );
+    try {
+      return await this.makeRequest(
+          this.getHost(),
+          method,
+          uri,
+          data,
+          this.getHeaders(),
+          params,
+          httpsAgent
+      );
+    } catch (error: any) {
+      // If we get a 401 error with "session" in the message, the session has expired on the server side
+      // Reset the session and retry once
+      if ((error.message?.includes('401') || error.response?.status === 401) && 
+          error.message?.toLowerCase().includes('session')) {
+        console.error("Session expired (401), resetting session and retrying...");
+        this.sid = null;
+        this.sessionStart = null;
+        
+        // Re-login and retry the request
+        try {
+          this.sid = await this.login();
+        } catch (loginError: any) {
+          if (loginError instanceof ClientResponse) {
+            console.error(`Login retry failed with status ${loginError.status}:`, loginError.response);
+            return loginError;
+          }
+          console.error("Login retry failed with unexpected error:", loginError);
+          throw loginError;
+        }
+        
+        // Retry the original request with the new session
+        return await this.makeRequest(
+            this.getHost(),
+            method,
+            uri,
+            data,
+            this.getHeaders(),
+            params,
+            httpsAgent
+        );
+      }
+      
+      // For other errors, just re-throw the original error
+      throw error;
+    }
   }
 
   /**

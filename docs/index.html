@@ -45,7 +45,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
-    <link rel="manifest" href="assets/site.webmanifest">
+    <!-- <link rel="manifest" href="assets/site.webmanifest"> -->
     <link rel="canonical" href="https://checkpointsw.github.io/mcp-servers/">
     <link rel="alternate" href="https://www.checkpoint.com/" hreflang="x-default">
     
@@ -59,12 +59,7 @@
     <link rel="stylesheet" href="styles/main.css">
     <link rel="stylesheet" href="styles/responsive.css">
     
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Font Awesome for icons -->
+    <!-- Font Awesome for icons (TODO: Replace with Check Point brand icons) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     
     <!-- Structured Data -->
@@ -101,8 +96,7 @@
     <header class="header">
         <nav class="nav-container">
             <div class="nav-brand">
-                <i class="fas fa-shield-alt brand-icon"></i>
-                <span class="brand-text">Check Point MCP Servers</span>
+                <img src="assets/checkpoint-logo.svg" alt="Check Point" class="brand-logo">
             </div>
             <ul class="nav-menu">
                 <li><a href="#overview" class="nav-link">Overview</a></li>
@@ -156,6 +150,10 @@
                         <i class="fas fa-play"></i>
                         Watch Demo
                     </a>
+                    <button class="btn btn-outline" id="useCasesBtn">
+                        <i class="fas fa-video"></i>
+                        See Use Cases
+                    </button>
                 </div>
             </div>
             <div class="hero-visual">
@@ -270,9 +268,9 @@
             
             <div class="demo-container">
                 <div class="video-wrapper">
-                    <div class="video-placeholder" data-video-id="QKBcD_99W3s">
+                    <div class="video-placeholder" data-video-id="-DuLzDJK9Yo">
                         <div class="video-thumbnail">
-                            <img src="https://img.youtube.com/vi/QKBcD_99W3s/maxresdefault.jpg" alt="Check Point MCP Management Demo">
+                            <img src="https://img.youtube.com/vi/-DuLzDJK9Yo/maxresdefault.jpg" alt="Check Point MCP Management Demo">
                             <div class="play-button">
                                 <i class="fas fa-play"></i>
                             </div>
@@ -335,8 +333,7 @@
             <div class="footer-content">
                 <div class="footer-section">
                     <div class="footer-brand">
-                        <i class="fas fa-shield-alt brand-icon"></i>
-                        <span class="brand-text">Check Point MCP Servers</span>
+                        <img src="assets/checkpoint-logo.svg" alt="Check Point" class="brand-logo">
                     </div>
                     <p class="footer-description">
                         Empowering AI-driven security management through structured, machine-readable APIs.
@@ -439,7 +436,7 @@
                         <i class="fab fa-affiliates"></i>
                         Configure Claude Desktop
                     </button>
-                    <button id="saveToVSCodeBtn" class="btn btn-secondary">
+                    <button id="saveToVSCodeBtn" class="btn btn-primary">
                         <i class="fab fa-microsoft"></i>
                         Configure VS Code
                     </button>
@@ -450,11 +447,69 @@
     </div>
 
     <!-- Loading Overlay -->
+        <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay">
-        <div class="loading-content">
-            <div class="loading-spinner"></div>
-            <p>Loading server configuration...</p>
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Use Cases Modal -->
+    <div id="useCasesModal" class="modal">
+        <div class="modal-content use-cases-modal">
+            <div class="modal-header">
+                <h2>Use Case Examples</h2>
+                <button class="modal-close" id="closeUseCasesBtn">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="videos-grid" id="videosGrid">
+                    <!-- Video cards will be populated here -->
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button id="closeUseCasesFooterBtn" class="btn btn-outline">Close</button>
+            </div>
         </div>
+    </div>
+
+    <!-- Video Player Modal -->
+    <div id="videoPlayerModal" class="modal">
+        <div class="modal-content video-player-modal">
+            <div class="modal-header">
+                <h2 id="videoPlayerTitle">Video Title</h2>
+                <button class="modal-close" id="closeVideoPlayerBtn">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <video id="videoPlayer" controls controlsList="nodownload">
+                    <source id="videoSource" src="" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+                
+                <div class="video-info">
+                    <p id="videoDescription" class="video-description"></p>
+                    <div class="video-prompt">
+                        <h4>Sample Prompt:</h4>
+                        <div class="prompt-container">
+                            <pre id="videoPrompt" class="prompt-text"></pre>
+                            <button id="copyPromptBtn" class="btn btn-secondary btn-sm">
+                                <i class="fas fa-copy"></i>
+                                Copy Prompt
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button id="closeVideoPlayerFooterBtn" class="btn btn-outline">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
     </div>
 </body>
 </html>

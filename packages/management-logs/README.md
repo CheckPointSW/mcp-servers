@@ -19,7 +19,7 @@ While the Logs MCP work well on it's own, and will enable to read logs and deriv
 
 ## Demo
 
-[![Watch the demo](https://img.youtube.com/vi/QKBcD_99W3s/0.jpg)](https://www.youtube.com/watch?v=QKBcD_99W3s)
+[![Watch the demo](https://img.youtube.com/vi/-DuLzDJK9Yo/0.jpg)](https://www.youtube.com/watch?v=-DuLzDJK9Yo)
 
 ## Example Use Cases
 

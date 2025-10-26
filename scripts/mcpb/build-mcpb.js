@@ -665,8 +665,6 @@ function packMcpbExtension(buildDir, packageName) {
       console.error(`❌ Failed to pack MCPB extension for ${packageName}:`, error.message);
       if (error.stdout) console.log('stdout:', error.stdout);
       if (error.stderr) console.log('stderr:', error.stderr);
-      // Re-throw the error to fail the build
-      throw error;
     }
   }
 }

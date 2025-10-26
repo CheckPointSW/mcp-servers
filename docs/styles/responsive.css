@@ -163,7 +163,7 @@
 
     .hero-actions {
         flex-direction: column;
-        align-items: center;
+        align-items: stretch;
     }
 
     .btn {
@@ -500,6 +500,40 @@
     .nav-menu {
         background: var(--background-primary);
         border: 1px solid var(--border-color);
+    }
+
+    /* Modal buttons need light colors on dark modal footer */
+    .modal-footer .btn-outline,
+    .modal-footer .btn-secondary {
+        color: var(--clay);
+        border-color: rgba(242, 242, 242, 0.5);
+    }
+
+    .modal-footer .btn-outline:hover,
+    .modal-footer .btn-secondary:hover {
+        background: rgba(242, 242, 242, 0.1);
+        border-color: var(--clay);
+        color: var(--clay);
+    }
+}
+
+/* Mobile styles for videos */
+@media (max-width: 768px) {
+    .videos-grid {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-md);
+    }
+
+    .video-player-modal {
+        max-width: 95vw;
+    }
+
+    .prompt-container {
+        flex-direction: column;
+    }
+
+    .btn-sm {
+        width: 100%;
     }
 }
 
