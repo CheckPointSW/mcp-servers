@@ -1,5 +1,11 @@
 # @chkp/threat-prevention-mcp
 
+## 0.7.2
+
+### Patch Changes
+
+- a9750ef: Modified 1 file(s) (synced from internal repository)
+
 ## 0.7.0
 
 ### Minor Changes

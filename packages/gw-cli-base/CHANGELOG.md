@@ -1,5 +1,13 @@
 # @chkp/quantum-gw-cli-base
 
+## 0.4.2
+
+### Patch Changes
+
+- a9750ef: General improvements and updates (synced from internal repository)
+- Updated dependencies [a9750ef]
+  - @chkp/quantum-infra@0.8.0
+
 ## 0.4.0
 
 ### Minor Changes

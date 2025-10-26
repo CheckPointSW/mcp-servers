@@ -1,5 +1,11 @@
 # @chkp/quantum-gw-cli-mcp
 
+## 0.5.2
+
+### Patch Changes
+
+- a9750ef: Modified 1 file(s) (synced from internal repository)
+
 ## 0.5.0
 
 ### Minor Changes
