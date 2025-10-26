@@ -1,6 +1,6 @@
 {
   "name": "@chkp/quantum-gaia-mcp",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "bin": {
     "quantum-gaia-mcp": "dist/index.js"
   },

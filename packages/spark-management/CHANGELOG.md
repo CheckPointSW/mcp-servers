@@ -1,5 +1,11 @@
 # @chkp/spark-management-mcp
 
+## 0.1.5
+
+### Patch Changes
+
+- 7e6241f: General improvements and updates (synced from internal repository)
+
 ## 0.1.3
 
 ### Patch Changes
