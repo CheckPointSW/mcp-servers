@@ -1,10 +1,8 @@
 /**
  * Core parser    if (inlineLayerUids.size > 0 && apiManager) {
-        console.log(`Found ${inlineLayerUids.size} inline layers to fetch...`);
         
         for (const uid of inlineLayerUids) {
             try {
-                console.log(`Fetching inline layer: ${uid}`);
                 const inlineData = await fetchRulebaseByUid(uid, apiManager);eck Point rulebase JSON
  */
 
@@ -50,11 +48,9 @@ export async function parseRulebaseWithInlineLayers(jsonData: any, apiManager?: 
     let inlineLayersData: { [uid: string]: any } = {};
     
     if (inlineLayerUids.size > 0 && apiManager) {
-        console.log(`Found ${inlineLayerUids.size} inline layers to fetch...`);
         
         for (const uid of inlineLayerUids) {
             try {
-                console.log(`Fetching inline layer: ${uid}`);
                 const inlineData = await fetchRulebaseByUid(uid, apiManager);
                 inlineLayersData[uid] = inlineData;
                 
@@ -81,7 +77,6 @@ export async function parseRulebaseWithInlineLayers(jsonData: any, apiManager?: 
     if (expandGroups && apiManager) {
         const groupUids = collectGroupUids(jsonData, mergedObjectsDictionary);
         if (groupUids.size > 0) {
-            console.log(`Found ${groupUids.size} groups to expand...`);
             groupsData = await fetchGroupsRecursively(groupUids, apiManager);
         }
     }
