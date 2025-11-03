@@ -1,5 +1,11 @@
 # @chkp/quantum-gw-connection-analysis-mcp
 
+## 0.5.0
+
+### Minor Changes
+
+- 83e74f6: Updated implementation and features, Modified 1 file(s) (synced from internal repository)
+
 ## 0.4.4
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @chkp/documentation-mcp
 
+## 0.1.6
+
+### Patch Changes
+
+- 83e74f6: Updated configuration, Modified 1 file(s) (synced from internal repository)
+
 ## 0.1.4
 
 ### Patch Changes
