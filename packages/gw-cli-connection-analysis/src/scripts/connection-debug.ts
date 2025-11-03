@@ -241,7 +241,7 @@ export class StopConnectionDebugScript extends ConnectionDebugScript {
       );
       
       if (resultSuccess) {
-        const [taskSuccess, taskOutput] = await this.apiManager.getTaskResult(tasks.tasks[0]);
+        const [taskSuccess, taskOutput] = await this.apiManager.getTaskResult(this.targetGateway, tasks.tasks[0]);
         results.push(taskOutput);
         scriptsRun.push(scriptType);
       } else {

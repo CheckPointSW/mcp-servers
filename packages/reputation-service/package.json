@@ -1,6 +1,6 @@
 {
   "name": "@chkp/reputation-service-mcp",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "bin": {
     "reputation-service-mcp": "dist/index.js"
   },

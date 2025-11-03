@@ -40,7 +40,7 @@ const runApi = createApiRunner(serverModule);
 // HTTPS Inspection Tools
 
 server.tool(
-  'init',
+  'https-inspection__init',
   'Verify, login and initialize management connection. Use this tool on your first interaction with the server.',
   {},
   async (args: Record<string, unknown>, extra: any) => {
@@ -274,7 +274,7 @@ server.tool(
 
 
 server.tool(
-  'show_gateways_and_servers',
+  'https-inspection__show_gateways_and_servers',
   'Retrieve multiple gateway and server objects with optional filtering and pagination. Use this to get the currently installed policies only gateways.',
   {
     filter: z.string().optional(),
@@ -302,7 +302,7 @@ server.tool(
 );
 
 server.tool(
-  'show_objects',
+  'https-inspection__show_objects',
   'Retrieve multiple generic objects with filtering and pagination. Can use type (e.g host, service-tcp, network, address-range...) to get objects of a certain type.',
   {
       uids: z.array(z.string()).optional(),
@@ -340,7 +340,7 @@ server.tool(
 
 // Tool: show_object
 server.tool(
-  'show_object',
+  'https-inspection__show_object',
   'Retrieve a generic object by UID.',
   {
     uid: z.string(),

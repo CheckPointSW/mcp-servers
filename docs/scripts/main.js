@@ -1033,10 +1033,12 @@ function createVideoCard(video) {
     
     const videoThumbnail = document.createElement('div');
     videoThumbnail.className = 'video-thumbnail';
+    
+    // Get thumbnail filename (replace .mp4 with .png)
+    const thumbnailFilename = video.filename.replace('.mp4', '.png');
+    
     videoThumbnail.innerHTML = `
-        <video preload="metadata" muted>
-            <source src="assets/demo-videos/${video.filename}#t=0.1" type="video/mp4">
-        </video>
+        <img src="assets/demo-videos/${thumbnailFilename}" alt="${video.title}" class="video-thumbnail-img">
         <div class="video-play-overlay">
             <div class="video-play-icon">
                 <i class="fas fa-play"></i>
