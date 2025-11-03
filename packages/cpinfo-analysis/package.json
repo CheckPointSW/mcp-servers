@@ -1,6 +1,6 @@
 {
   "name": "@chkp/cpinfo-analysis-mcp",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "CPInfo analysis MCP server",
   "type": "module",
   "main": "dist/index.js",
