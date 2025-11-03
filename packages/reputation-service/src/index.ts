@@ -37,20 +37,20 @@ const serverModule = createServerModule(
 
 server.tool(
     'reputation_url',
-    'Get a reputation of a URL',
+    'Get a reputation of a URL or a domain',
     {
-        url: z.string(),
+        resource: z.string().describe('The URL or domain to check reputation for'),
     },
     async (args: Record<string, unknown>, extra: any) => {
-        if (typeof args.url !== 'string' || args.url.trim() === '') {
-            return { content: [{ type: 'text', text: JSON.stringify({ error: 'URL must be provided and cannot be empty' }, null, 2) }] };
+        if (typeof args.resource !== 'string' || args.resource.trim() === '') {
+            return { content: [{ type: 'text', text: JSON.stringify({ error: 'Resource must be provided and cannot be empty' }, null, 2) }] };
         }
 
         try {
             // Get settings from session context
             const settings = SessionContext.getSettings(serverModule, extra);
             const client = new ReputationClient(settings);
-            const result = await client.getReputation('url', args.url as string);
+            const result = await client.getReputation('url', args.resource as string);
             const verdict = getReputationVerdict(result.risk, result.confidence);
 
             return {

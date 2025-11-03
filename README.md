@@ -33,6 +33,7 @@ This monorepo is organized with each Check Point security domain as a separate M
   - **`/gaia`** - GAIA OS MCP server for network management and interface configuration
   - **`/documentation-tool`** - Check Point documentation assistant MCP server for product information and technical guidance
   - **`/spark-management`** - Spark Management MCP server for Quantum Spark appliance management
+  - **`/cpinfo-analysis`** - CPInfo Analysis MCP server for Check Point appliance diagnostic file analysis and troubleshooting
 
 ## Available MCP Servers
 
@@ -52,6 +53,7 @@ The following MCP servers are available in this repository:
 | [Gaia](./packages/gaia/) | `@chkp/quantum-gaia-mcp` | Network management and interface configuration for GAIA OS |
 | [Documentation Tool](./packages/documentation-tool/) | `@chkp/documentation-mcp` | Comprehensive Check Point documentation assistant providing instant access to product information, technical specifications, configuration guidance, and feature documentation across the entire Check Point security portfolio |
 | [Spark Management](./packages/spark-management/) | `@chkp/spark-management-mcp` | Manage and monitor Quantum Spark appliances for MSPs and distributed networks |
+| [Cpinfo analysis](./packages/cpinfo-analysis/) | `@chkp/cpinfo-analysis-mcp` | Analyze CPInfo diagnostic files for system health, performance metrics, network configuration, and troubleshooting insights |
 
 
 ## Example: Setting Up an MCP Server
