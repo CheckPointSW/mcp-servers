@@ -16,10 +16,10 @@
   "author": "Check Point Software Technologies",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.11.1",
+    "@modelcontextprotocol/sdk": "^1.0.4",
     "axios": "^1.12.1",
-    "commander": "^11.0.0",
-    "zod": "^3.22.4"
+    "commander": "^13.1.0",
+    "zod": "^3.24.4"
   },
   "devDependencies": {
     "@chkp/quantum-infra": "*",

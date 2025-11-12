@@ -1229,3 +1229,149 @@ function initializeUseCases() {
     });
 }
 
+// Floating Action Button (FAB) - Draggable functionality
+function initializeFAB() {
+    const fab = document.getElementById('contactFab');
+    if (!fab) return;
+    
+    let isDragging = false;
+    let startX, startY;
+    let offsetX, offsetY;
+    let hasMoved = false;
+    
+    // Load saved position from localStorage
+    const savedPosition = localStorage.getItem('fabPosition');
+    if (savedPosition) {
+        try {
+            const { right, bottom } = JSON.parse(savedPosition);
+            fab.style.right = right;
+            fab.style.bottom = bottom;
+        } catch (e) {
+            console.error('Failed to load FAB position:', e);
+        }
+    }
+    
+    function startDrag(e) {
+        // Prevent default to avoid text selection and page scrolling
+        e.preventDefault();
+        
+        isDragging = true;
+        hasMoved = false;
+        fab.style.cursor = 'grabbing';
+        fab.classList.add('dragging');
+        
+        // Get touch or mouse position
+        const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+        
+        // Get the FAB's current position
+        const rect = fab.getBoundingClientRect();
+        
+        // Calculate offset from click point to FAB's top-left corner
+        offsetX = clientX - rect.left;
+        offsetY = clientY - rect.top;
+        
+        startX = clientX;
+        startY = clientY;
+    }
+    
+    function drag(e) {
+        if (!isDragging) return;
+        
+        e.preventDefault();
+        
+        const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+        
+        // Check if moved significantly
+        const moveDistance = Math.sqrt(
+            Math.pow(clientX - startX, 2) + 
+            Math.pow(clientY - startY, 2)
+        );
+        
+        if (moveDistance > 5) {
+            hasMoved = true;
+        }
+        
+        // Calculate new position based on cursor position minus offset
+        const newLeft = clientX - offsetX;
+        const newTop = clientY - offsetY;
+        
+        // Convert to right/bottom positioning
+        const newRight = window.innerWidth - newLeft - fab.offsetWidth;
+        const newBottom = window.innerHeight - newTop - fab.offsetHeight;
+        
+        // Constrain to viewport with padding
+        const padding = 10;
+        const constrainedRight = Math.max(padding, Math.min(window.innerWidth - fab.offsetWidth - padding, newRight));
+        const constrainedBottom = Math.max(padding, Math.min(window.innerHeight - fab.offsetHeight - padding, newBottom));
+        
+        // Apply position directly
+        fab.style.right = `${constrainedRight}px`;
+        fab.style.bottom = `${constrainedBottom}px`;
+    }
+    
+    function endDrag(e) {
+        if (!isDragging) return;
+        
+        isDragging = false;
+        fab.style.cursor = 'grab';
+        fab.classList.remove('dragging');
+        
+        // If the FAB was moved significantly, prevent navigation
+        if (hasMoved) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Save position
+            const position = {
+                right: fab.style.right,
+                bottom: fab.style.bottom
+            };
+            localStorage.setItem('fabPosition', JSON.stringify(position));
+            
+            // Reset hasMoved after a short delay
+            setTimeout(() => {
+                hasMoved = false;
+            }, 100);
+        }
+    }
+    
+    // Prevent navigation if dragged
+    fab.addEventListener('click', (e) => {
+        if (hasMoved) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+    }, true);
+    
+    // Mouse events
+    fab.addEventListener('mousedown', startDrag);
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', endDrag);
+    
+    // Touch events
+    fab.addEventListener('touchstart', startDrag, { passive: false });
+    document.addEventListener('touchmove', drag, { passive: false });
+    document.addEventListener('touchend', endDrag, { passive: false });
+    
+    // Prevent context menu on long press
+    fab.addEventListener('contextmenu', (e) => {
+        if (isDragging || hasMoved) {
+            e.preventDefault();
+        }
+    });
+    
+    // Clean up on page unload
+    window.addEventListener('beforeunload', () => {
+        document.removeEventListener('mousemove', drag);
+        document.removeEventListener('mouseup', endDrag);
+        document.removeEventListener('touchmove', drag);
+        document.removeEventListener('touchend', endDrag);
+    });
+}
+
+// Initialize FAB when DOM is ready
+document.addEventListener('DOMContentLoaded', initializeFAB);
+
