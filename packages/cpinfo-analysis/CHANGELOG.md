@@ -1,5 +1,11 @@
 # @chkp/cpinfo-analysis-mcp
 
+## 0.1.1
+
+### Patch Changes
+
+- c94b9fe: Updated configuration, Modified 1 file(s) (synced from internal repository)
+
 ## 0.1.0
 
 ### Minor Changes

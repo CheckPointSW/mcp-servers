@@ -1,5 +1,11 @@
 # @chkp/management-logs-mcp
 
+## 0.7.1
+
+### Patch Changes
+
+- c94b9fe: Updated configuration, Modified 1 file(s) (synced from internal repository)
+
 ## 0.7.0
 
 ### Minor Changes

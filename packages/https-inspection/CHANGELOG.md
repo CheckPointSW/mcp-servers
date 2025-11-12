@@ -1,5 +1,11 @@
 # @chkp/https-inspection-mcp
 
+## 0.8.1
+
+### Patch Changes
+
+- c94b9fe: Updated configuration, Modified 1 file(s) (synced from internal repository)
+
 ## 0.8.0
 
 ### Minor Changes
