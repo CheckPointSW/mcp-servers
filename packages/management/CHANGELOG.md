@@ -1,5 +1,11 @@
 # @chkp/quantum-management-mcp
 
+## 0.9.1
+
+### Patch Changes
+
+- c94b9fe: Updated configuration, Modified 1 file(s) (synced from internal repository)
+
 ## 0.9.0
 
 ### Minor Changes

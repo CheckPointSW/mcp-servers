@@ -1,5 +1,11 @@
 # @chkp/threat-emulation-mcp
 
+## 0.1.6
+
+### Patch Changes
+
+- c94b9fe: Updated configuration, Modified 1 file(s) (synced from internal repository)
+
 ## 0.1.5
 
 ### Patch Changes

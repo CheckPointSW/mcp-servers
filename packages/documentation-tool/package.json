@@ -1,6 +1,6 @@
 {
   "name": "@chkp/documentation-mcp",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Check Point Documentation Tool Service - API integration with Check Point Documentation Tool",
   "type": "module",
   "main": "dist/index.js",

@@ -1,5 +1,11 @@
 # @chkp/harmony-sase-mcp
 
+## 0.4.6
+
+### Patch Changes
+
+- c94b9fe: Updated configuration, Modified 1 file(s) (synced from internal repository)
+
 ## 0.4.5
 
 ### Patch Changes
