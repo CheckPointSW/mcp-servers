@@ -56,8 +56,20 @@ jobs:
           # Create PR with helpful labels and instructions
           gh pr create --title "Update dependencies $(date +%Y-%m-%d)" \
                       --body "Dependency updates and security fixes. Review changes and create changesets if packages need republishing." \
-                      --label "dependencies" \
-                      --label "security"
+                      --label "dependencies"
+          
+          # Enable auto-merge with a delay for safety
+          echo "Waiting 2 minutes before enabling auto-merge..."
+          sleep 120
+          
+          # Get the PR number and enable auto-merge
+          PR_NUMBER=$(gh pr list --head "$BRANCH_NAME" --json number --jq '.[0].number')
+          if [ ! -z "$PR_NUMBER" ]; then
+            gh pr merge $PR_NUMBER --auto --squash --delete-branch
+            echo "Auto-merge enabled for dependency PR #$PR_NUMBER"
+          else
+            echo "Could not find PR to enable auto-merge"
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
