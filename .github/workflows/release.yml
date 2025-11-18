@@ -94,6 +94,27 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
 
+      # Auto-merge version PRs after a delay
+      - name: Auto-merge Version PR
+        if: steps.check_lockfile.outputs.lockfile_changed != 'true' && steps.changesets.outputs.hasChangesets == 'true' && steps.changesets.outputs.published != 'true'
+        run: |
+          echo "📋 Version PR was created, setting up auto-merge..."
+          
+          # Wait 5 minutes for any manual review
+          echo "⏳ Waiting 5 minutes before enabling auto-merge..."
+          sleep 300
+          
+          # Find and auto-merge the Version Packages PR
+          PR_NUMBER=$(gh pr list --search "Version Packages" --json number --jq '.[0].number')
+          if [ ! -z "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ]; then
+            gh pr merge $PR_NUMBER --auto --squash --delete-branch
+            echo "✅ Auto-merge enabled for Version Packages PR #$PR_NUMBER"
+          else
+            echo "❌ Could not find Version Packages PR to auto-merge"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       # NEW: Create MCPB Release (only when packages are actually published)
       - name: Create MCPB Release
         if: steps.check_lockfile.outputs.lockfile_changed != 'true' && steps.changesets.outputs.published == 'true'
