@@ -49,10 +49,21 @@ jobs:
           # Push the branch
           git push --set-upstream origin $BRANCH_NAME
           
-          # Create PR
-          gh pr create --title "Update package-lock.json" \
-                      --body "This PR updates the package-lock.json file to resolve dependency conflicts. Please merge this before publishing." \
-                      --label "dependencies"
+          # Create PR and store the number
+          PR_NUMBER=$(gh pr create --title "Update package-lock.json" \
+                      --body "This PR updates the package-lock.json file to resolve dependency conflicts." \
+                      --label "dependencies" \
+                      --json number --jq .number)
+          
+          echo "📋 Created PR #$PR_NUMBER"
+          
+          # Wait 2 minutes before enabling auto-merge
+          echo "⏳ Waiting 2 minutes before enabling auto-merge..."
+          sleep 120
+          
+          # Enable auto-merge
+          gh pr merge $PR_NUMBER --auto --squash --delete-branch
+          echo "✅ Auto-merge enabled for lockfile PR #$PR_NUMBER"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
