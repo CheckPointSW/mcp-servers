@@ -1,6 +1,6 @@
 {
   "name": "@chkp/threat-emulation-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "bin": {
     "threat-emulation-mcp": "dist/index.js"
   },
