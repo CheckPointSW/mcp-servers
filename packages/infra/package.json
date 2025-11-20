@@ -1,6 +1,6 @@
 {
   "name": "@chkp/quantum-infra",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Shared infrastructure for Check Point Quantum Management MCP servers",
   "repository": {
     "type": "git",
