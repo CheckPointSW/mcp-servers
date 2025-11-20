@@ -1,6 +1,6 @@
 {
   "name": "@chkp/threat-prevention-mcp",
-  "version": "0.8.1",
+  "version": "1.0.0",
   "description": "Threat Prevention MCP server for Check Point products",
   "type": "module",
   "main": "dist/index.js",
@@ -9,7 +9,7 @@
     "threat-prevention-mcp": "./dist/index.js"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "scripts": {
     "clean": "rimraf dist",
@@ -28,7 +28,7 @@
   "devDependencies": {
     "@chkp/mcp-utils": "*",
     "@chkp/quantum-infra": "*",
-    "@types/node": "^18.15.11",
+    "@types/node": "^20.0.0",
     "typescript": "^5.0.4"
   },
   "repository": {

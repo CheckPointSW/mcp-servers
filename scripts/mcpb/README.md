@@ -26,7 +26,7 @@ npm run build:mcpb management https-inspection
 
 ## Requirements
 
-- Node.js >= 18.0.0
+- Node.js >= 20.0.0
 - esbuild (installed automatically if needed)
 - @anthropic-ai/mcpb (optional, for final packaging)
 

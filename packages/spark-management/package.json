@@ -1,6 +1,6 @@
 {
   "name": "@chkp/spark-management-mcp",
-  "version": "0.1.6",
+  "version": "1.0.0",
   "description": "MCP server for Spark Management",
   "type": "module",
   "main": "dist/index.js",
@@ -15,7 +15,7 @@
   },
   "license": "MIT",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "scripts": {
     "clean": "rimraf dist",
@@ -34,7 +34,7 @@
   "devDependencies": {
     "@chkp/quantum-infra": "*",
     "@chkp/mcp-utils": "*",
-    "@types/node": "^18.15.11",
+    "@types/node": "^20.0.0",
     "typescript": "^5.0.4"
   }
 }

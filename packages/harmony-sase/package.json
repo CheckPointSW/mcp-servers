@@ -1,6 +1,6 @@
 {
   "name": "@chkp/harmony-sase-mcp",
-  "version": "0.4.6",
+  "version": "1.0.0",
   "description": "Harmony SASE MCP server for Check Point products",
   "type": "module",
   "main": "dist/index.js",
@@ -14,7 +14,7 @@
     "directory": "packages/harmony-sase"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "scripts": {
     "clean": "rimraf dist",
@@ -34,7 +34,7 @@
   "devDependencies": {
     "@chkp/harmony-infra": "*",
     "@chkp/mcp-utils": "*",
-    "@types/node": "^18.15.11",
+    "@types/node": "^20.0.0",
     "typescript": "^5.0.4"
   }
 }

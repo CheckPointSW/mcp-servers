@@ -194,7 +194,7 @@ async function bundlePackage(packageName) {
       entryPoints: [entryPoint],
       bundle: true,
       platform: 'node',
-      target: 'node18',
+      target: 'node20',
       format: 'cjs', // Use CommonJS instead of ESM to avoid dynamic require issues
       outfile: outputFile,
       external: externalDeps, // Only external npm packages, not internal @chkp packages
@@ -370,7 +370,7 @@ function generateManifest(buildDir, packageJson, packageName) {
       claude_desktop: ">=0.11.6",
       platforms: ["darwin", "win32", "linux"],
       runtimes: {
-        node: ">=18.0.0"
+        node: ">=20.0.0"
       }
     }
   };

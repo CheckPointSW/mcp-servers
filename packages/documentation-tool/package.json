@@ -1,6 +1,6 @@
 {
   "name": "@chkp/documentation-mcp",
-  "version": "0.1.7",
+  "version": "1.0.0",
   "description": "Check Point Documentation Tool Service - API integration with Check Point Documentation Tool",
   "type": "module",
   "main": "dist/index.js",
@@ -15,7 +15,7 @@
   },
   "license": "MIT",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "scripts": {
     "clean": "rimraf dist",
@@ -34,7 +34,7 @@
   "devDependencies": {
     "@chkp/mcp-utils": "*",
     "@chkp/quantum-infra": "*",
-    "@types/node": "^18.15.11",
+    "@types/node": "^20.0.0",
     "dotenv": "^17.2.2",
     "tsx": "^4.20.5",
     "typescript": "^5.0.4"
