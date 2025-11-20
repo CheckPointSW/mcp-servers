@@ -115,7 +115,7 @@ Cached readers are automatically evicted after the TTL elapses with no tool acti
 
 ### Prerequisites
 
-Install Node.js 18+ from [nodejs.org](https://nodejs.org/en/download/) if required, then verify with `node -v`.
+Install Node.js 20+ from [nodejs.org](https://nodejs.org/en/download/) if required, then verify with `node -v`.
 
 ### Supported Clients
 
@@ -275,7 +275,7 @@ This approach gives you full control over page size while ensuring accurate navi
 
 ### Prerequisites
 
-- Node.js 18+  
+- Node.js 20+  
 - npm 10+  
 
 ### Setup

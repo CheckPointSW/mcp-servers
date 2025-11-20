@@ -86,8 +86,8 @@ Download and install the latest version of [Node.js](https://nodejs.org/en/downl
 You can check your installed version by running:
 
 ```bash
-node -v      # Should print "v18" or higher
-nvm current  # Should print "v18" or higher
+node -v      # Should print "v20" or higher
+nvm current  # Should print "v20" or higher
 ```
 
 ### Supported Clients
@@ -191,7 +191,7 @@ Add the configuration as Claude Desktop App.
 
 ### Prerequisites
 
-- Node.js 18+  
+- Node.js 20+  
 - npm 10+  
 
 ### Setup

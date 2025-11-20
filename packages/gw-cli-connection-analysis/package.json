@@ -1,6 +1,6 @@
 {
   "name": "@chkp/quantum-gw-connection-analysis-mcp",
-  "version": "0.5.1",
+  "version": "1.0.0",
   "description": "Model Context Protocol (MCP) server for Running Connection Analysis on a Check Point gateway.",
   "type": "module",
   "main": "dist/index.js",
@@ -25,16 +25,17 @@
     "@chkp/quantum-gw-cli-base": "*",
     "@chkp/quantum-infra": "*",
     "@chkp/mcp-utils": "*",
-    "@jest/globals": "^30.0.0",
+    "@jest/globals": "^30.2.0",
     "@types/jest": "^30.0.0",
     "eslint": "^8.0.0",
-    "jest": "^30.0.0",
+    "jest": "^30.2.0",
+    "rimraf": "^6.0.1",
     "ts-jest": "^29.4.0",
     "ts-node": "^10.0.0",
     "typescript": "^5.0.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "files": [
     "dist",

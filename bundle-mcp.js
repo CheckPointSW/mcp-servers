@@ -173,7 +173,7 @@ await build({
   entryPoints: [resolve(cwd, 'src/index.ts')],  // Main entry point
   bundle: true,                                 // Enable bundling
   platform: 'node',                           // Target Node.js environment
-  target: 'node18',                           // Compatible with Node.js 18+
+  target: 'node20',                           // Compatible with Node.js 20+
   format: 'esm',                              // ES modules format
   outfile: resolve(cwd, 'dist/index.js'),     // Output bundled file
   // Don't set external globally - let our plugin decide everything
