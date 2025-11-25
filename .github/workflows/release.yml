@@ -19,7 +19,7 @@ jobs:
           
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
       - run: npm install
@@ -49,21 +49,10 @@ jobs:
           # Push the branch
           git push --set-upstream origin $BRANCH_NAME
           
-          # Create PR and store the number
-          PR_NUMBER=$(gh pr create --title "Update package-lock.json" \
-                      --body "This PR updates the package-lock.json file to resolve dependency conflicts." \
-                      --label "dependencies" \
-                      --json number --jq .number)
-          
-          echo "📋 Created PR #$PR_NUMBER"
-          
-          # Wait 2 minutes before enabling auto-merge
-          echo "⏳ Waiting 2 minutes before enabling auto-merge..."
-          sleep 120
-          
-          # Enable auto-merge
-          gh pr merge $PR_NUMBER --auto --squash --delete-branch
-          echo "✅ Auto-merge enabled for lockfile PR #$PR_NUMBER"
+          # Create PR
+          gh pr create --title "Update package-lock.json" \
+                      --body "This PR updates the package-lock.json file to resolve dependency conflicts. Please merge this before publishing." \
+                      --label "dependencies"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
@@ -104,27 +93,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
-
-      # Auto-merge version PRs after a delay
-      - name: Auto-merge Version PR
-        if: steps.check_lockfile.outputs.lockfile_changed != 'true' && steps.changesets.outputs.hasChangesets == 'true' && steps.changesets.outputs.published != 'true'
-        run: |
-          echo "📋 Version PR was created, setting up auto-merge..."
-          
-          # Wait 5 minutes for any manual review
-          echo "⏳ Waiting 5 minutes before enabling auto-merge..."
-          sleep 300
-          
-          # Find and auto-merge the Version Packages PR
-          PR_NUMBER=$(gh pr list --search "Version Packages" --json number --jq '.[0].number')
-          if [ ! -z "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ]; then
-            gh pr merge $PR_NUMBER --auto --squash --delete-branch
-            echo "✅ Auto-merge enabled for Version Packages PR #$PR_NUMBER"
-          else
-            echo "❌ Could not find Version Packages PR to auto-merge"
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # NEW: Create MCPB Release (only when packages are actually published)
       - name: Create MCPB Release
