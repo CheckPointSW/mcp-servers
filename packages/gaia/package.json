@@ -22,7 +22,7 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@modelcontextprotocol/sdk": "^1.24.0",
     "axios": "^1.12.1",
     "commander": "^13.1.0",
     "zod": "^3.24.4"
