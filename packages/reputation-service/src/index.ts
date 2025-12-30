@@ -1,28 +1,19 @@
 #!/usr/bin/env node
 
 import { z } from 'zod';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { ReputationClient, ReputationSettings } from './lib/reputation-client.js';
 import { isValidFileHash, isValidIp, getReputationVerdict } from './lib/common-utils.js';
 import { 
   launchMCPServer, 
   createServerModule,
-  SessionContext
+  SessionContext,
+  createMcpServer
 } from '@chkp/mcp-utils';
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
 
-const pkg = JSON.parse(
-    readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../package.json'), 'utf-8')
-);
-process.env.CP_MCP_MAIN_PKG = `${pkg.name} v${pkg.version}`;
-
-const server = new McpServer({
-    name: 'Check Point Reputation Service',
-    description:
-        "Check Point security reputation about IP, URL, File hashes - Get their current verdict",
-    version: '1.0.0'
+const { server, pkg } = createMcpServer(import.meta.url, {
+  description: "Check Point security reputation about IP, URL, File hashes - Get their current verdict"
 });
 
 // Create a multi-user server module

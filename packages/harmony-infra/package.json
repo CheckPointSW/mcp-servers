@@ -18,7 +18,7 @@
   "license": "MIT",
   "dependencies": {
     "@chkp/mcp-utils": "*",
-    "@modelcontextprotocol/sdk": "^1.24.0",
+    "@modelcontextprotocol/sdk": "^1.11.1",
     "axios": "^1.12.1",
     "commander": "^11.1.0",
     "zod": "^3.22.4"

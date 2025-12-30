@@ -1,40 +1,30 @@
 #!/usr/bin/env node
 // Harmony SASE MCP server implementation
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod";
 import {
   Settings,
   APIManagerForHarmonySASE
 } from "@chkp/harmony-infra";
-import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { 
   launchMCPServer,
   createServerModule,
-  createApiRunner
+  createApiRunner,
+  createMcpServer
 } from "@chkp/mcp-utils";
 
 const API_V2_1 = "2.1";
 const API_V2_1_NETWORKS = `/rest/v${API_V2_1}/networks`;
 const API_V2_1_APPLICATIONS = `/rest/v${API_V2_1}/applications`;
 
-// Create a new MCP server instance
-const server = new McpServer({
-  name: "harmony_sase",
-  version: "1.0.0", // Added missing version parameter
+// Create a new MCP server instance with package information
+const { server, pkg } = createMcpServer(import.meta.url, {
   description:
     "MCP server to run commands on a Check Point Harmony SASE. " +
     "Use this to list networks topology, network regions, network gateways, " +
-    "network applications, and deep dive to any of those entities using its ID.",
+    "network applications, and deep dive to any of those entities using its ID."
 });
-
-// Get package information for version display
-const pkg = JSON.parse(
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../package.json'), 'utf-8')
-);
-
-process.env.CP_MCP_MAIN_PKG = `${pkg.name} v${pkg.version}`;
 
 // Create a multi-user server module
 const serverModule = createServerModule(
@@ -49,7 +39,7 @@ const runApi = createApiRunner(serverModule);
 // --- Harmony SASE API Tools ---
 
 // Networks
-server.tool("list_networks", "List all Harmony SASE networks", {}, async (args, extra) => {
+server.tool("list_networks", "List all Harmony SASE networks", z.object({}).strict(), async (args, extra) => {
   console.error("Running list_networks");
   const result = await runApi("GET", API_V2_1_NETWORKS, {}, extra);
   console.error("result", result);
@@ -116,7 +106,7 @@ server.tool(
 server.tool(
   "list_network_regions",
   "List all available Harmony SASE network regions",
-  {},
+  z.object({}).strict(),
   async (args, extra) => {
     console.error("Running list_network_regions");
     const result = await runApi("GET", `${API_V2_1_NETWORKS}/regions`, {}, extra);
@@ -160,7 +150,7 @@ server.tool(
 );
 
 // Applications
-server.tool("list_applications", "List all applications", {}, async (args, extra) => {
+server.tool("list_applications", "List all applications", z.object({}).strict(), async (args, extra) => {
   console.error("Running list_applications");
   const result = await runApi("GET", API_V2_1_APPLICATIONS, {}, extra);
 

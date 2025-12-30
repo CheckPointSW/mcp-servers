@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   launchMCPServer,
   createServerModule,
-  createApiRunner
+  createApiRunner,
+  createMcpServer
 } from "@chkp/mcp-utils";
-import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { CpInfoAPIManager } from "./api-manager.js";
@@ -18,23 +17,15 @@ import { logger } from "./logger.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const pkg = JSON.parse(
-  readFileSync(join(__dirname, "../package.json"), "utf-8")
-);
+const { server, pkg } = createMcpServer(import.meta.url, {
+  description: "Semantic CPInfo analysis server"
+});
 
 // Log startup info
 logger.info("CPInfo MCP Server starting up");
 logger.info(`Version: ${pkg.version}`);
 logger.info(`Log file: ${logger.getLogFilePath()}`);
 logger.info(`Working directory: ${process.cwd()}`);
-
-process.env.CP_MCP_MAIN_PKG = `${pkg.name} v${pkg.version}`;
-
-const server = new McpServer({
-  name: "cpinfo-analysis",
-  description: "Semantic CPInfo analysis server",
-  version: pkg.version || "1.0.0"
-});
 
 const serverModule = createServerModule(
   server,

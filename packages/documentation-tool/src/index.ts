@@ -1,33 +1,21 @@
 #!/usr/bin/env node
 
 import { z } from 'zod';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
     launchMCPServer,
     createServerModule,
     createApiRunner,
+    createMcpServer
 } from '@chkp/mcp-utils';
-import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { DocumentationToolAPIManager } from './documentation-api-manager.js';
 import { DocumentationToolSettings } from './settings.js';
 
-const pkg = JSON.parse(
-    readFileSync(
-        join(dirname(fileURLToPath(import.meta.url)), '../package.json'),
-        'utf-8'
-    )
-);
-
-process.env.CP_MCP_MAIN_PKG = `${pkg.name} v${pkg.version}`;
-
-// Create a new MCP server instance
-const server = new McpServer({
+const { server, pkg } = createMcpServer(import.meta.url, {
     name: 'checkpoint-documentation',
     description:
         'Comprehensive Check Point documentation assistant providing instant access to product information, technical specifications, configuration guidance, and feature documentation across the entire Check Point security portfolio.',
-    version: '1.0.0',
 });
 
 // Create a multi-user server module
@@ -111,7 +99,7 @@ server.tool(
                 - For troubleshooting or configuration questions, specify the exact product involved.`
             ),
     },
-    async ({ text, product }, extra) => {
+    async ({ text, product }: any, extra: any) => {
         try {
             const result = await runApi(
                 'post',

@@ -126,6 +126,19 @@ class ConfigurationManager {
             }
             
             const config = await response.json();
+            
+            // Add telemetry option (it's added by launcher but not in server-config.json)
+            if (!config.options || !Array.isArray(config.options)) {
+                config.options = [];
+            }
+            config.options.push({
+                flag: '--no-telemetry',
+                description: 'Disable anonymous usage telemetry',
+                env: 'TELEMETRY_DISABLED',
+                type: 'boolean',
+                required: false
+            });
+            
             this.serverConfig = config;
             this.configCache.set(cacheKey, config);
             
@@ -142,6 +155,19 @@ class ConfigurationManager {
                 }
                 
                 const config = await altResponse.json();
+                
+                // Add telemetry option (it's added by launcher but not in server-config.json)
+                if (!config.options || !Array.isArray(config.options)) {
+                    config.options = [];
+                }
+                config.options.push({
+                    flag: '--no-telemetry',
+                    description: 'Disable anonymous usage telemetry',
+                    env: 'TELEMETRY_DISABLED',
+                    type: 'boolean',
+                    required: false
+                });
+                
                 this.serverConfig = config;
                 this.configCache.set(cacheKey, config);
                 
@@ -164,6 +190,13 @@ class ConfigurationManager {
                     description: "API key for authentication",
                     env: "API_KEY",
                     type: "string",
+                    required: false
+                },
+                {
+                    flag: "--no-telemetry",
+                    description: "Disable anonymous usage telemetry",
+                    env: "TELEMETRY_DISABLED",
+                    type: "boolean",
                     required: false
                 }
             ]
@@ -219,8 +252,64 @@ class ConfigurationManager {
 
         console.log('Found', options.length, 'configuration options for', this.currentServer?.name, ':', options);
         
+        // Filter out hidden options
+        options = options.filter(opt => !opt.hidden);
+        
+        // Add deployment scenarios guide for servers with on-prem/Smart-1 Cloud options
+        let html = '';
+        const serversWithDeploymentGuide = [
+            'Management',
+            'Management Logs',
+            'Threat-Prevention',
+            'HTTPS-Inspection',
+            'GW CLI',
+            'GW CLI Connection Analysis'
+        ];
+        
+        const packagesWithDeploymentGuide = [
+            '@chkp/quantum-management-mcp',
+            '@chkp/management-logs-mcp',
+            '@chkp/threat-prevention-mcp',
+            '@chkp/https-inspection-mcp',
+            '@chkp/quantum-gw-cli-mcp',
+            '@chkp/quantum-gw-connection-analysis-mcp'
+        ];
+        
+        if (serversWithDeploymentGuide.includes(this.currentServer.name) || 
+            packagesWithDeploymentGuide.includes(this.currentServer.package)) {
+            html += `
+                <div class="deployment-scenarios" style="background: var(--background-secondary); border: 2px solid var(--brand-berry); border-radius: var(--radius-lg); padding: var(--spacing-lg); margin-bottom: var(--spacing-xl);">
+                    <h4 style="margin: 0 0 var(--spacing-md) 0; color: var(--brand-berry);">
+                        <i class="fas fa-info-circle"></i> Configuration Guide
+                    </h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md); margin-bottom: var(--spacing-md);">
+                        <div style="background: var(--background-primary); padding: var(--spacing-md); border-radius: var(--radius-md); border-left: 4px solid #3b82f6;">
+                            <h5 style="margin: 0 0 var(--spacing-sm) 0; color: #3b82f6;">🖥️ On-Premises Setup</h5>
+                            <ul style="margin: 0; padding-left: var(--spacing-lg); font-size: 0.9rem;">
+                                <li><strong>API Key</strong> (required)</li>
+                                <li><strong>Management Host</strong> (required)</li>
+                                <li><strong>Management Port</strong> (optional, default 443)</li>
+                                <li><strong>Username/Password</strong> (optional, if API key not sufficient)</li>
+                            </ul>
+                        </div>
+                        <div style="background: var(--background-primary); padding: var(--spacing-md); border-radius: var(--radius-md); border-left: 4px solid #10b981;">
+                            <h5 style="margin: 0 0 var(--spacing-sm) 0; color: #10b981;">☁️ Smart-1 Cloud Setup</h5>
+                            <ul style="margin: 0; padding-left: var(--spacing-lg); font-size: 0.9rem;">
+                                <li><strong>Smart-1 Cloud URL</strong> (required)</li>
+                                <li><strong>API Key</strong> (required)</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary);">
+                        <i class="fas fa-lightbulb"></i> <strong>Tip:</strong> Fill in fields based on your deployment type. Empty fields will not be included in the configuration.
+                    </p>
+                </div>
+            `;
+        }
+        
         // Show all available options
-        configFields.innerHTML = options.map(field => this.createFieldHTML(field)).join('');
+        html += options.map(field => this.createFieldHTML(field)).join('');
+        configFields.innerHTML = html;
 
         this.updatePreview();
     }
@@ -282,14 +371,15 @@ class ConfigurationManager {
     }
 
     getFieldHelp(envVar, option) {
-        // Common help descriptions for known environment variables
+        // Enhanced help descriptions for known environment variables with usage scenarios
         const commonDescriptions = {
-            'API_KEY': 'Generate this from your Check Point management interface or cloud portal',
-            'MANAGEMENT_HOST': 'IP address or hostname of your management server',
-            'MANAGEMENT_PORT': 'Port number for API access (typically 443)',
-            'USERNAME': 'Username for authentication',
-            'PASSWORD': 'Password for authentication',
-            'DOMAIN': 'Management domain name',
+            'S1C_URL': '🌐 Smart-1 Cloud URL - Required ONLY for Smart-1 Cloud deployments. Leave empty for on-premises management. Example: https://cloudinfra-gw-us.portal.checkpoint.com',
+            'API_KEY': '🔑 API Key - Required for both on-premises and Smart-1 Cloud. Generate from: SmartConsole → Manage & Settings → Blades → Management API → Add',
+            'USERNAME': '👤 Username - Required ONLY for on-premises management when using username/password authentication. Leave empty if using API key only',
+            'PASSWORD': '🔒 Password - Required ONLY for on-premises management when using username/password authentication. Leave empty if using API key only',
+            'MANAGEMENT_HOST': '🖥️ Management Server Host - Required ONLY for on-premises. IP address or hostname of your management server. Leave empty for Smart-1 Cloud',
+            'MANAGEMENT_PORT': '🔌 Management API Port - Required ONLY for on-premises. Typically 443. Leave empty for Smart-1 Cloud',
+            'DOMAIN': 'Management domain name (leave empty for default)',
             'BASE_URL': 'Base URL for the API endpoint'
         };
         
@@ -712,6 +802,9 @@ Note: Make sure to keep your API keys and credentials secure.
                         <p><strong>Step 3:</strong> Restart ${platformName}</p>
                         <p style="color: var(--text-secondary); font-size: 0.9rem;">
                             💡 The script will automatically backup your existing configuration and add the new server.
+                            <br>
+                            <strong>Note:</strong> Requires Node.js (<a href="https://nodejs.org/" target="_blank" style="color: var(--brand-berry);">download here</a> if needed). 
+                            The MCP server will be automatically downloaded when first used via <code>npx</code> - no manual installation required.
                         </p>
                     </div>
                     
@@ -914,7 +1007,8 @@ if (require.main === module) {
                                 </ol>
                                 <div class="info-box">
                                     <i class="fas fa-info-circle"></i>
-                                    <strong>Requirements:</strong> Node.js must be installed. Download from <a href="https://nodejs.org/" target="_blank">nodejs.org</a>
+                                    <strong>Requirements:</strong> Node.js must be installed. Download from <a href="https://nodejs.org/" target="_blank">nodejs.org</a> if needed.
+                                    The MCP server will be automatically downloaded when first used via <code>npx</code> - no manual installation required.
                                 </div>
                             </div>
                         </div>

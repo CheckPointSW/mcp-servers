@@ -1,9 +1,11 @@
 import { basename } from "path";
 import { z } from "zod";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CpInfoService } from "./cpinfo-service.js";
 import { CpInfoAdvancedIndex } from "./cpinfo-index.js";
 import { CpInfoReader } from "./cpinfo-reader.js";
+import {
+  CPMcpServer
+} from "@chkp/mcp-utils";
 import {
   BasicCache,
   CoreDumpCache,
@@ -493,7 +495,7 @@ function buildNetworkSummary(cache: NetworkCache | null, page: number, sectionsP
   return lines;
 }
 
-export function registerCpinfoTools(server: McpServer, service: CpInfoService): number {
+export function registerCpinfoTools(server: CPMcpServer, service: CpInfoService): number {
   const debugToolsActive = debugToolsEnabled();
   let registeredTools = 0;
 

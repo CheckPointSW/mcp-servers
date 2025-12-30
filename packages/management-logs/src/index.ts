@@ -1,27 +1,18 @@
 #!/usr/bin/env node
 
 import { z } from 'zod';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Settings, APIManagerForAPIKey } from '@chkp/quantum-infra';
 import { 
   launchMCPServer, 
   createServerModule,
   createApiRunner,
-  SessionContext
+  SessionContext,
+  createMcpServer
 } from '@chkp/mcp-utils';
-import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-const pkg = JSON.parse(
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../package.json'), 'utf-8')
-);
-
-process.env.CP_MCP_MAIN_PKG = `${pkg.name} v${pkg.version}`;
-
-const server = new McpServer({
-  name: 'management-logs',
-  version: '1.0.0',
+const { server, pkg } = createMcpServer(import.meta.url, {
   description: 'MCP server to interact with Management Logs objects on Check Point Products.'
 });
 
@@ -39,7 +30,7 @@ const runApi = createApiRunner(serverModule);
 server.tool(
   'management-logs__init',
   'Verify, login and initialize management connection. Use this tool on your first interaction with the server.',
-  {},
+  z.object({}).strict(),
   async (args: Record<string, unknown>, extra: any) => {
     try {
       // Get API manager for this session

@@ -1,6 +1,6 @@
 {
   "name": "@chkp/harmony-sase-mcp",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Harmony SASE MCP server for Check Point products",
   "type": "module",
   "main": "dist/index.js",
@@ -26,9 +26,10 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.24.0",
+    "@modelcontextprotocol/sdk": "^1.11.1",
     "axios": "^1.12.1",
     "commander": "^13.1.0",
+    "node-machine-id": "^1.1.12",
     "zod": "^3.24.4"
   },
   "devDependencies": {

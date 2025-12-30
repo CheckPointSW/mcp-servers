@@ -18,7 +18,8 @@
       "flag": "--cloud-infra-token <key>",
       "description": "Cloud Infra token",
       "env": "CLOUD_INFRA_TOKEN",
-      "type": "string"
+      "type": "string",
+      "hidden": true
     },
     {
       "flag": "--username <username>",

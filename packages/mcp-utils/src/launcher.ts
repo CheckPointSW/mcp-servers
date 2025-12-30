@@ -5,6 +5,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import fs from 'fs';
 import http from 'http';
 import { randomUUID } from 'crypto';
+import { ToolPolicyCallback } from './tool-policy.js';
 
 export interface CliOption {
   flag: string;
@@ -30,6 +31,7 @@ export interface ServerModule {
   apiManagerFactory: any; // APIManagerFactory instance for multi-user support
   sessionManager: any; // SessionManager instance for session lifecycle management
   pkg: { version: string };
+  toolPolicyCallback?: ToolPolicyCallback; // Optional tool policy callback
 }
 
 export type TransportType = 'stdio' | 'http';
@@ -77,9 +79,24 @@ export async function launchMCPServer(
   const debugDefault = process.env.DEBUG === 'true' || false;
   program.option('--debug', 'Enable debug mode', debugDefault);
 
+  // Add telemetry options
+  const telemetryEnabledDefault = process.env.TELEMETRY_DISABLED === 'true' ? false : true;
+  program.option('--no-telemetry', 'Disable anonymous usage telemetry', telemetryEnabledDefault);
+  
+  const telemetryUrlDefault = process.env.TELEMETRY_URL || 'https://metrics.security.ai.checkpoint.com/api/v1/metrics/collect';
+  program.option('--telemetry-url <url>', 'URL for telemetry server', telemetryUrlDefault);
+
   // Parse arguments
   program.parse(process.argv);
   const options = program.opts();
+  
+  // Set telemetry environment variables from CLI options
+  if (options.telemetry === false) {
+    process.env.TELEMETRY_DISABLED = 'true';
+  }
+  if (options.telemetryUrl) {
+    process.env.TELEMETRY_URL = options.telemetryUrl;
+  }
   
   // Initialize settings from CLI args
   if (!serverModule.settingsManager) {
@@ -87,6 +104,13 @@ export async function launchMCPServer(
   }
   
   const settings = serverModule.settingsManager.createFromArgs(options);
+  
+  // Apply tool policy if a callback was provided
+  // This must happen after all tools are registered but before connecting
+  if (typeof serverModule.server.applyToolPolicy === 'function') {
+    console.error('[launchMCPServer] Applying tool policy before connecting');
+    serverModule.server.applyToolPolicy();
+  }
   
   // Determine transport type from options or environment variable
   const transportType = (options.transport || process.env.MCP_TRANSPORT_TYPE || 'stdio').toLowerCase() === 'http' ? 'http' : 'stdio';

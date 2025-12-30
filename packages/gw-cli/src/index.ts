@@ -1,14 +1,13 @@
 #!/usr/bin/env node
 
 import { z } from 'zod';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Settings, APIManagerForAPIKey } from '@chkp/quantum-infra';
 import { 
   launchMCPServer, 
   createServerModule,
-  createApiRunner
+  createApiRunner,
+  createMcpServer
 } from '@chkp/mcp-utils';
-import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -17,18 +16,8 @@ import * as Scripts from './scripts/index.js';
 // Import all script classes
 import { runScript } from '@chkp/quantum-gw-cli-base';
 
-const pkg = JSON.parse(
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../package.json'), 'utf-8')
-);
-
-process.env.CP_MCP_MAIN_PKG = `${pkg.name} v${pkg.version}`;
-
-
-// Create a new MCP server instance
-const server = new McpServer({
-  name: 'gw-cli',
-  description: 'MCP server to run CLI commands on a Check Point gateway',
-  version: '0.0.1'
+const { server, pkg } = createMcpServer(import.meta.url, {
+  description: 'MCP server to run CLI commands on a Check Point gateway'
 });
 
 // Create a multi-user server module

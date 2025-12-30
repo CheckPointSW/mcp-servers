@@ -1,14 +1,12 @@
 #!/usr/bin/env node
 
 import { z } from 'zod';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { 
   launchMCPServer, 
   createServerModule, 
-  SessionContext
+  createMcpServer
 } from '@chkp/mcp-utils';
 import { sanitizeData } from '@chkp/quantum-infra';
-import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { Settings } from './settings.js';
@@ -38,16 +36,9 @@ async function getApiManagerWithDialog(
   };
 }
 
-const pkg = JSON.parse(
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../package.json'), 'utf-8')
-);
-
-process.env.CP_MCP_MAIN_PKG = `${pkg.name} v${pkg.version}`;
-
-const server = new McpServer(
+const { server, pkg } = createMcpServer(
+  import.meta.url,
   {
-    name: 'quantum-gaia',
-    version: '1.0.0',
     description: `Check Point GAIA MCP Server - Provides networking, network management and interface configuration tools for GAIA OS.
 
 **Gateway Connection (all tools):**

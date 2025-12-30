@@ -80,6 +80,8 @@ Server: [Returns BGP peers data immediately]
 
 ## Configuration Options
 
+> **📊 Anonymous Usage Statistics:** Check Point collects anonymous usage statistics to help improve this MCP server.  To opt out, set `TELEMETRY_DISABLED=true` or use `--no-telemetry` flag.
+
 ### Prerequisites
 
 Download and install the latest version of [Node.js](https://nodejs.org/en/download/) if you don't already have it installed.  
@@ -224,3 +226,9 @@ node FULL_PATH_TO_SERVER/packages/gaia/dist/index.js
 2. **Only use client implementations you trust.** Malicious or untrusted clients could misuse your credentials or access data improperly.  
 3. **Network management data is exposed to the model.** Ensure that you only use models and providers that comply with your organization's policies for handling sensitive network configuration data.
 4. **Secure your MCP client.** The interactive authentication dialog will prompt for credentials through your MCP client interface - ensure your client environment is secure.
+
+## 📊 Telemetry and Privacy
+
+**Anonymous Usage Statistics:** Check Point collects anonymous usage statistics to improve this MCP server. Only tool usage patterns and anonymous identifiers are collected—no credentials, policies, or sensitive data.
+
+**Opt-Out:** Set `TELEMETRY_DISABLED=true` environment variable or use the `--no-telemetry` flag to disable telemetry collection.

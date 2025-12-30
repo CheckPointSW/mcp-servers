@@ -1,6 +1,6 @@
 {
   "name": "@chkp/quantum-gw-connection-analysis-mcp",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Model Context Protocol (MCP) server for Running Connection Analysis on a Check Point gateway.",
   "type": "module",
   "main": "dist/index.js",
@@ -16,9 +16,10 @@
   "author": "Check Point Software Technologies",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.24.0",
+    "@modelcontextprotocol/sdk": "^1.11.1",
     "axios": "^1.12.1",
-    "commander": "^13.1.0",
+    "commander": "^11.1.0",
+    "node-machine-id": "^1.1.12",
     "zod": "^3.24.4"
   },
   "devDependencies": {
