@@ -51,6 +51,8 @@ MCP simplifies interactions with Spark Management data in a structured, modular,
 
 ## Configuration Options
 
+> **📊 Anonymous Usage Statistics:** Check Point collects anonymous usage statistics to help improve this MCP server.  To opt out, set `TELEMETRY_DISABLED=true` or use `--no-telemetry` flag.
+
 This server supports configuration via command-line arguments for connecting to Check Point's Spark Management Platform:
 
 ### Required Parameters
@@ -273,4 +275,10 @@ The Spark Management MCP server provides the following tools:
 
 1. **Authentication keys and credentials are never shared with the model.** They are used only by the MCP server to authenticate with your Check Point management system.  
 2. **Only use client implementations you trust.** Malicious or untrusted clients could misuse your credentials or access data improperly.  
-3. **Management data is exposed to the model.** Ensure that you only use models and providers that comply with your organization’s policies for handling sensitive data and PII.
+3. **Management data is exposed to the model.** Ensure that you only use models and providers that comply with your organization's policies for handling sensitive data and PII.
+
+## 📊 Telemetry and Privacy
+
+**Anonymous Usage Statistics:** Check Point collects anonymous usage statistics to improve this MCP server. Only tool usage patterns and anonymous identifiers are collected—no credentials, policies, or sensitive data.
+
+**Opt-Out:** Set `TELEMETRY_DISABLED=true` environment variable or use the `--no-telemetry` flag to disable telemetry collection.

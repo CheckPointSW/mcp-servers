@@ -1,15 +1,14 @@
 #!/usr/bin/env node
 
 import { z } from 'zod';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Settings, APIManagerForAPIKey } from '@chkp/quantum-infra';
 import { 
   launchMCPServer, 
   createServerModule,
   SessionContext,
-  createApiRunner
+  createApiRunner,
+  createMcpServer
 } from '@chkp/mcp-utils';
-import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { 
@@ -19,16 +18,8 @@ import {
   ZeroHitsUtil
 } from './rulebase-parser/index.js';
 
-const pkg = JSON.parse(
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../package.json'), 'utf-8')
-);
-
-process.env.CP_MCP_MAIN_PKG = `${pkg.name} v${pkg.version}`;
-
-const server = new McpServer({ name: 'Check Point Quantum Management' ,
-    description:
-        "MCP server to run commands on a Check Point Management. Use this to view policies and objects for Access, NAT and VPN.",
-  version: '1.0.0'
+const { server, pkg } = createMcpServer(import.meta.url, {
+  description: "MCP server to run commands on a Check Point Management. Use this to view policies and objects for Access, NAT and VPN."
 });
 
 // Create a multi-user server module
@@ -141,7 +132,7 @@ server.prompt(
 server.tool(
   'management__init',
   'Verify, login and initialize management connection. Use this tool on your first interaction with the server.',
-  {},
+  z.object({}).strict(),
   async (args: Record<string, unknown>, extra: any) => {
     try {
       // Get API manager for this session
@@ -708,7 +699,7 @@ server.tool(
 server.tool(
   'show_domains',
   'Retrieve all domains available in the management server.',
-  {},
+  z.object({}).strict(),
   async (args: Record<string, unknown>, extra: any) => {
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-domains', {});

@@ -1,0 +1,27 @@
+{
+  "name": "argos-erm",
+  "description": "Check Point Argos ERM MCP Server for External Risk Management",
+  "options": [
+    {
+      "flag": "--argos-host <host>",
+      "description": "Argos ERM server hostname or IP address",
+      "env": "ARGOS_HOST",
+      "required": true,
+      "type": "string"
+    },
+    {
+      "flag": "--argos-api-key <key>",
+      "description": "Argos ERM API key for authentication",
+      "env": "ARGOS_API_KEY",
+      "required": true,
+      "type": "string"
+    },
+    {
+      "flag": "--argos-customer-id <id>",
+      "description": "Argos ERM customer ID",
+      "env": "ARGOS_CUSTOMER_ID",
+      "required": true,
+      "type": "string"
+    }
+  ]
+}

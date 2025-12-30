@@ -34,6 +34,7 @@ This monorepo is organized with each Check Point security domain as a separate M
   - **`/documentation-tool`** - Check Point documentation assistant MCP server for product information and technical guidance
   - **`/spark-management`** - Spark Management MCP server for Quantum Spark appliance management
   - **`/cpinfo-analysis`** - CPInfo Analysis MCP server for Check Point appliance diagnostic file analysis and troubleshooting
+  - **`/argos-erm`** - Argos ERM MCP server for external risk management and threat intelligence
 
 ## Available MCP Servers
 
@@ -54,6 +55,7 @@ The following MCP servers are available in this repository:
 | [Documentation Tool](./packages/documentation-tool/) | `@chkp/documentation-mcp` | Comprehensive Check Point documentation assistant providing instant access to product information, technical specifications, configuration guidance, and feature documentation across the entire Check Point security portfolio |
 | [Spark Management](./packages/spark-management/) | `@chkp/spark-management-mcp` | Manage and monitor Quantum Spark appliances for MSPs and distributed networks |
 | [Cpinfo analysis](./packages/cpinfo-analysis/) | `@chkp/cpinfo-analysis-mcp` | Analyze CPInfo diagnostic files for system health, performance metrics, network configuration, and troubleshooting insights |
+| [Argos erm](./packages/argos-erm/) | `@chkp/argos-erm-mcp` | External risk management, threat intelligence, and security posture analytics |
 
 
 ## Example: Setting Up an MCP Server
@@ -155,4 +157,10 @@ npx nx run-many --target=lint
 
 1. **Authentication keys and credentials are never shared with the model.** They are used only by the MCP server to authenticate with your Check Point management system.  
 2. **Only use client implementations you trust.** Malicious or untrusted clients could misuse your credentials or access data improperly.  
-3. **Queried Data will be exposed to the model.** Ensure that you only use models and providers that comply with your organization’s policies for handling sensitive data and PII.
+3. **Queried Data will be exposed to the model.** Ensure that you only use models and providers that comply with your organization's policies for handling sensitive data and PII.
+
+## 📊 Telemetry and Privacy
+
+Check Point collects anonymous usage statistics to improve MCP servers. Only tool usage patterns and anonymous identifiers are collected—no credentials, policies, or sensitive data.
+
+**Opt-Out:** Set `TELEMETRY_DISABLED=true` environment variable or use the `--no-telemetry` flag to disable telemetry collection.

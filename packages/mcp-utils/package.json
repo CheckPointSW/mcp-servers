@@ -18,8 +18,9 @@
     "dev": "tsc --watch"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.24.0",
-    "commander": "^13.1.0"
+    "@modelcontextprotocol/sdk": "^1.11.1",
+    "commander": "^13.1.0",
+    "node-machine-id": "^1.1.12"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",

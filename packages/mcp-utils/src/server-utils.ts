@@ -7,6 +7,7 @@ import { ServerModule } from './launcher.js';
 import { SessionContext } from './session-context.js';
 import { SessionManager } from './session-manager.js';
 import { SettingsManager } from './settings-manager.js';
+import { ToolPolicyCallback } from './tool-policy.js';
 
 /**
  * Gets a header value in a case-insensitive way
@@ -40,6 +41,7 @@ export function createApiRunner(serverModule: ServerModule):
  * @param Settings The Settings class (with fromArgs and fromHeaders static methods)
  * @param pkg Package info object with version
  * @param apiManagerClass API Manager class to use for API calls
+ * @param toolPolicyCallback Optional callback to filter which tools are available
  * @returns A ServerModule with multi-user support
  */
 
@@ -47,7 +49,8 @@ export function createServerModule(
     server: any,
     Settings: any,
     pkg: { version: string; },
-    apiManagerClass: any
+    apiManagerClass: any,
+    toolPolicyCallback?: ToolPolicyCallback
 ): ServerModule {
     // Create the settings manager
     const settingsManager = new SettingsManager(Settings);
@@ -58,6 +61,12 @@ export function createServerModule(
     // Create the session manager
     const sessionManager = new SessionManager();
 
+    // Set tool policy on the server if provided
+    if (toolPolicyCallback && typeof server.setToolPolicy === 'function') {
+        console.error('[createServerModule] Setting tool policy callback on server');
+        server.setToolPolicy(toolPolicyCallback);
+    }
+
     // Create the session event manager
     // Create and return the server module
     return {
@@ -66,6 +75,7 @@ export function createServerModule(
         settingsManager,
         apiManagerFactory,
         sessionManager,
-        pkg
+        pkg,
+        toolPolicyCallback
     };
 }

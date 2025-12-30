@@ -327,6 +327,73 @@
         </div>
     </section>
 
+    <!-- Customer Testimonials Section -->
+    <section class="testimonials">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Trusted by Industry Leaders</h2>
+                <p class="section-subtitle">
+                    Organizations worldwide are transforming their security operations with Check Point MCP Servers
+                </p>
+            </div>
+            
+            <div class="testimonials-grid">
+                <div class="testimonial-card featured">
+                    <div class="testimonial-header">
+                        <div class="testimonial-icon">
+                            <i class="fas fa-quote-left"></i>
+                        </div>
+                        <div class="testimonial-meta">
+                            <h4>Tier-1 Global Telecom Operator</h4>
+                            <p>Firewall Installation Division</p>
+                        </div>
+                    </div>
+                    <div class="testimonial-content">
+                        <p class="testimonial-text">
+                            "Our Firewall Installation Division implemented the MCP framework to automate post-deployment firewall reporting. 
+                            A process that previously required about <strong>four hours per deployment</strong>, totaling nearly 
+                            <strong>400 expert hours annually</strong>, is now a standardized, one-click workflow embedded directly 
+                            into our managed service operations. This transformation has <strong>saved hundreds of hours each year</strong>, 
+                            reduced human error, and accelerated delivery across our enterprise customer base."
+                        </p>
+                    </div>
+                    <div class="testimonial-metrics">
+                        <div class="metric">
+                            <div class="metric-value">400+</div>
+                            <div class="metric-label">Hours Saved/Year</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">75%</div>
+                            <div class="metric-label">Time Reduction</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">1-Click</div>
+                            <div class="metric-label">Automated Workflow</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="testimonial-card">
+                    <div class="testimonial-header">
+                        <div class="testimonial-icon">
+                            <i class="fas fa-quote-left"></i>
+                        </div>
+                        <div class="testimonial-meta">
+                            <h4>IT Service Provider</h4>
+                            <p>Operations Team</p>
+                        </div>
+                    </div>
+                    <div class="testimonial-content">
+                        <p class="testimonial-text">
+                            "Great job on your MCP implementation – it works remarkably well and <strong>elevates</strong> our operations team 
+                            and the resulting use cases <strong>to another level</strong>."
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Footer -->
     <footer class="footer">
         <div class="container">
@@ -345,6 +412,7 @@
                     <ul class="footer-links">
                         <li><a href="https://github.com/CheckPointSW/mcp-servers" target="_blank">GitHub Repository</a></li>
                         <li><a href="#servers">Download Servers</a></li>
+                        <li><a href="#" id="vscodeExtensionLink">VS Code Extension Guide</a></li>
                     </ul>
                 </div>
                 
@@ -521,5 +589,56 @@
        aria-label="We'd love your Feedback!">
         <i class="fas fa-comment"></i>
     </a>
+
+    <!-- VS Code Extension Modal -->
+    <div id="vscodeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>VS Code Extension Guide</h2>
+                <button class="modal-close" aria-label="Close modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="vscode-modal-content">
+                    <div class="vscode-intro">
+                        <h3>Use MCPs with VS Code</h3>
+                        <p>
+                            Integrate Check Point MCP servers with GitHub Copilot in VS Code for easier discovery, installation, and more secure operations.
+                        </p>
+                    </div>
+                    
+                    <div class="vscode-setup">
+                        <h3>Getting Started</h3>
+                        <div class="setup-steps">
+                            <div class="setup-step">
+                                <div class="step-number">1</div>
+                                <div class="step-content">
+                                    <h4>Install GitHub Copilot Chat</h4>
+                                    <p>Install the GitHub Copilot Chat extension from the VS Code marketplace</p>
+                                    <a href="vscode:extension/GitHub.copilot-chat" class="btn btn-outline btn-sm">
+                                        <i class="fas fa-download"></i> Install Extension
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            <div class="setup-step">
+                                <div class="step-number">2</div>
+                                <div class="step-content">
+                                    <h4>Configure MCP Servers</h4>
+                                    <p>Use the configuration tool below to set up your Check Point MCP servers in VS Code settings</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="closeVscodeModalBtn">Close</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

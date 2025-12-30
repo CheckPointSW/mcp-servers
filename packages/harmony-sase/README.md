@@ -80,6 +80,8 @@ This MCP server provides the following tools:
 
 ## Configuration
 
+> **📊 Anonymous Usage Statistics:** Check Point collects anonymous usage statistics to help improve this MCP server.  To opt out, set `TELEMETRY_DISABLED=true` or use `--no-telemetry` flag.
+
 ### Prerequisites
 
 You need access to a Check Point Harmony SASE environment with API credentials.
@@ -356,3 +358,9 @@ API keys and credentials are never shared with the model
 Only use client implementations you trust
 
 Ensure that you only use models and providers that comply with your organization's policies for handling sensitive infrastructure data and PII.
+
+## 📊 Telemetry and Privacy
+
+**Anonymous Usage Statistics:** Check Point collects anonymous usage statistics to improve this MCP server. Only tool usage patterns and anonymous identifiers are collected—no credentials, policies, or sensitive data.
+
+**Opt-Out:** Set `TELEMETRY_DISABLED=true` environment variable or use the `--no-telemetry` flag to disable telemetry collection.

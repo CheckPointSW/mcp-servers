@@ -43,6 +43,8 @@ Log data volumes can be very large. Running extensive queries may impact the per
 
 ## Configuration Options
 
+> **📊 Anonymous Usage Statistics:** Check Point collects anonymous usage statistics to help improve this MCP server.  To opt out, set `TELEMETRY_DISABLED=true` or use `--no-telemetry` flag.
+
 This server supports two main modes of authentication:
 
 ### 1. Smart-1 Cloud (API Key)
@@ -262,4 +264,10 @@ node FULL_PATH_TO_SERVER/packages/management-logs/dist/index.js --s1c-url|--mana
 
 1. **Authentication keys and credentials are never shared with the model.** They are used only by the MCP server to authenticate with your Check Point management system.  
 2. **Only use client implementations you trust.** Malicious or untrusted clients could misuse your credentials or access data improperly.  
-3. **Management data is exposed to the model.** Ensure that you only use models and providers that comply with your organization’s policies for handling sensitive data and PII.
+3. **Management data is exposed to the model.** Ensure that you only use models and providers that comply with your organization's policies for handling sensitive data and PII.
+
+## 📊 Telemetry and Privacy
+
+**Anonymous Usage Statistics:** Check Point collects anonymous usage statistics to improve this MCP server. Only tool usage patterns and anonymous identifiers are collected—no credentials, policies, or sensitive data.
+
+**Opt-Out:** Set `TELEMETRY_DISABLED=true` environment variable or use the `--no-telemetry` flag to disable telemetry collection.

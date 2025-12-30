@@ -411,9 +411,21 @@ function generateUserConfig(packageName, cleanName) {
     if (configPath && fs.existsSync(configPath)) {
       const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
       
+      // Add telemetry option (it's added by launcher but not in server-config.json)
+      const telemetryOption = {
+        flag: '--no-telemetry',
+        description: 'Disable anonymous usage telemetry',
+        env: 'TELEMETRY_DISABLED',
+        type: 'boolean',
+        default: false,
+        required: false
+      };
+      
+      const options = config.options ? [...config.options, telemetryOption] : [telemetryOption];
+      
       // Extract user configuration from server config options
-      if (config.options && Array.isArray(config.options)) {
-        config.options.forEach(option => {
+      if (Array.isArray(options)) {
+        options.forEach(option => {
           // Skip verbose and debug options
           if (option.flag === '--verbose' || option.flag === '--debug') {
             return;

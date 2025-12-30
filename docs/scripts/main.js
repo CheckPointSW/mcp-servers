@@ -987,6 +987,7 @@ function addDynamicStyles() {
 document.addEventListener('DOMContentLoaded', function() {
     addDynamicStyles();
     initializeUseCases();
+    initializeVSCodeModal();
 });
 
 // Use Cases Video Library
@@ -1375,3 +1376,36 @@ function initializeFAB() {
 // Initialize FAB when DOM is ready
 document.addEventListener('DOMContentLoaded', initializeFAB);
 
+// VS Code Extension Modal
+function initializeVSCodeModal() {
+    const vscodeLink = document.getElementById('vscodeExtensionLink');
+    const vscodeModal = document.getElementById('vscodeModal');
+    const closeVscodeBtn = document.getElementById('closeVscodeModalBtn');
+    const modalClose = vscodeModal?.querySelector('.modal-close');
+    
+    if (vscodeLink && vscodeModal) {
+        vscodeLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            vscodeModal.style.display = 'flex';
+        });
+        
+        if (closeVscodeBtn) {
+            closeVscodeBtn.addEventListener('click', () => {
+                vscodeModal.style.display = 'none';
+            });
+        }
+        
+        if (modalClose) {
+            modalClose.addEventListener('click', () => {
+                vscodeModal.style.display = 'none';
+            });
+        }
+        
+        // Close on outside click
+        window.addEventListener('click', (e) => {
+            if (e.target === vscodeModal) {
+                vscodeModal.style.display = 'none';
+            }
+        });
+    }
+}

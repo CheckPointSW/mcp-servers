@@ -1,27 +1,18 @@
 #!/usr/bin/env node
 
 import { z } from 'zod';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Settings, APIManagerForAPIKey } from '@chkp/quantum-infra';
-import { 
-  launchMCPServer, 
+import {
+  launchMCPServer,
   createServerModule,
   createApiRunner,
-  SessionContext
+  SessionContext,
+  createMcpServer
 } from '@chkp/mcp-utils';
-import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-const pkg = JSON.parse(
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../package.json'), 'utf-8')
-);
-
-process.env.CP_MCP_MAIN_PKG = `${pkg.name} v${pkg.version}`;
-
-const server = new McpServer({
-  name: 'https-inspection',
-  version: '1.0.0',
+const { server, pkg } = createMcpServer(import.meta.url, {
   description: 'MCP server to interact with HTTPS Inspection objects on Check Point Gateways.'
 });
 
@@ -42,7 +33,7 @@ const runApi = createApiRunner(serverModule);
 server.tool(
   'https-inspection__init',
   'Verify, login and initialize management connection. Use this tool on your first interaction with the server.',
-  {},
+  z.object({}).strict(),
   async (args: Record<string, unknown>, extra: any) => {
     try {
       // Get API manager for this session

@@ -1,27 +1,20 @@
 #!/usr/bin/env node
 
 import { z } from 'zod';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { ThreatEmulationClient, ThreatEmulationSettings } from './lib/threat-emulation-client.js';
 import { calculateMD5 } from './lib/common-utils.js';
-import { readFileSync, statSync } from 'fs';
+import { statSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
 import { 
   launchMCPServer, 
   createServerModule,
-  SessionContext
+  SessionContext,
+  createMcpServer
 } from '@chkp/mcp-utils';
 
-const pkg = JSON.parse(
-    readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../package.json'), 'utf-8')
-);
-process.env.CP_MCP_MAIN_PKG = `${pkg.name} v${pkg.version}`;
-
-const server = new McpServer({
-    name: 'Check Point Threat Emulation',
-    description: 'Check Point Threat Emulation and Anti-Virus scanning service for files',
-    version: '0.0.1'
+const { server, pkg } = createMcpServer(import.meta.url, {
+  description: 'Check Point Threat Emulation and Anti-Virus scanning service for files'
 });
 
 // Create a multi-user server module
@@ -366,7 +359,7 @@ server.tool(
 server.tool(
     'get_quota',
     'Get API quota and usage information',
-    {},
+    z.object({}).strict(),
     async (extra: any) => {
         try {
             const settings = SessionContext.getSettings(serverModule, extra);

@@ -1,29 +1,19 @@
 #!/usr/bin/env node
 
 import { z } from 'zod';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { 
   launchMCPServer, 
   createServerModule, 
-  createApiRunner
+  createApiRunner,
+  createMcpServer
 } from '@chkp/mcp-utils';
-import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { SMPAPIManager } from './api-manager.js';
 import { Settings } from './settings.js';
 
-const pkg = JSON.parse(
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../package.json'), 'utf-8')
-);
-
-process.env.CP_MCP_MAIN_PKG = `${pkg.name} v${pkg.version}`;
-
-// Create a new MCP server instance
-const server = new McpServer({
-  name: 'spark-management',
-  description: 'MCP Assistant server for Spark Management',
-  version: '1.0.0'
+const { server, pkg } = createMcpServer(import.meta.url, {
+  description: 'MCP Assistant server for Spark Management'
 });
 
 // Create a multi-user server module
@@ -679,7 +669,7 @@ server.tool(
 server.tool(
   "get_settings",
   "Get portal settings from Spark Management",
-  {},
+  z.object({}).strict(),
   async (args, extra) => {
     try {
       const result = await runApi("GET", 'portal/settings', {}, extra);

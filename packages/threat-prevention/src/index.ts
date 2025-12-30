@@ -1,26 +1,17 @@
 #!/usr/bin/env node
 import { z } from 'zod';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Settings, APIManagerForAPIKey } from '@chkp/quantum-infra';
-import { 
-  launchMCPServer, 
+import {
+  launchMCPServer,
   createServerModule,
   createApiRunner,
-  SessionContext
+  SessionContext,
+  createMcpServer
 } from '@chkp/mcp-utils';
-import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-const pkg = JSON.parse(
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../package.json'), 'utf-8')
-);
-
-process.env.CP_MCP_MAIN_PKG = `${pkg.name} v${pkg.version}`;
-
-const server = new McpServer({
-  name: 'threat-prevention',
-  version: '1.0.0',
+const { server, pkg } = createMcpServer(import.meta.url, {
   description: 'MCP server to interact with Threat Prevention objects on Check Point Gateways.'
 });
 
@@ -39,7 +30,7 @@ const runApi = createApiRunner(serverModule);
 server.tool(
   'threat-prevention__init',
   'Verify, login and initialize management connection. Use this tool on your first interaction with the server.',
-  {},
+  z.object({}).strict(),
   async (args: Record<string, unknown>, extra: any) => {
     try {
       // Get API manager for this session
@@ -95,7 +86,7 @@ server.tool(
     domains_to_process: z.array(z.string()).optional(),
     domain: z.string().optional(),
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }, extra) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
@@ -118,7 +109,7 @@ server.tool(
     details_level: z.string().optional(),
     domain: z.string().optional(),
   },
-  async ({ name = '', uid = '', details_level, domain }, extra) => {
+  async ({ name = '', uid = '', details_level, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = {};
     if (name) params.name = name;
@@ -140,7 +131,7 @@ server.tool(
     details_level: z.string().optional(),
     domain: z.string().optional(),
   },
-  async ({ name = '', uid = '', details_level, domain }, extra) => {
+  async ({ name = '', uid = '', details_level, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = {};
     if (name) params.name = name;
@@ -159,7 +150,7 @@ server.tool(
   {
     domain: z.string().optional(),
   },
-  async ({ domain }, extra) => {
+  async ({ domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-ips-status', {}, domainParam);
@@ -180,7 +171,7 @@ server.tool(
     domains_to_process: z.array(z.string()).optional(),
     domain: z.string().optional(),
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }, extra) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
@@ -205,7 +196,7 @@ server.tool(
     details_level: z.enum(['uid', 'standard', 'full']).optional(),
     domain: z.string().optional(),
   },
-  async ({ uid, name, rule_number, layer, details_level, domain }, extra) => {
+  async ({ uid, name, rule_number, layer, details_level, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const body: Record<string, any> = {};
     if (uid) body.uid = uid;
@@ -233,7 +224,7 @@ server.tool(
     domains_to_process: z.array(z.string()).optional(),
     domain: z.string().optional(),
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }, extra) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
@@ -253,7 +244,7 @@ server.tool(
   {
     domain: z.string().optional(),
   },
-  async ({ domain }, extra) => {
+  async ({ domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-ips-update-schedule', {}, domainParam);
@@ -274,7 +265,7 @@ server.tool(
     domains_to_process: z.array(z.string()).optional(),
     domain: z.string().optional(),
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }, extra) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
@@ -300,7 +291,7 @@ server.tool(
     domains_to_process: z.array(z.string()).optional(),
     domain: z.string().optional(),
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }, extra) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
@@ -323,7 +314,7 @@ server.tool(
     details_level: z.string().optional(),
     domain: z.string().optional(),
   },
-  async ({ name = '', uid = '', details_level, domain }, extra) => {
+  async ({ name = '', uid = '', details_level, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = {};
     if (name) params.name = name;
@@ -348,7 +339,7 @@ server.tool(
     domains_to_process: z.array(z.string()).optional(),
     domain: z.string().optional(),
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }, extra) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
@@ -374,7 +365,7 @@ server.tool(
     domains_to_process: z.array(z.string()).optional(),
     domain: z.string().optional(),
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }, extra) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
@@ -415,7 +406,7 @@ server.tool(
     details_level: z.enum(['uid', 'standard', 'full']).optional(),
     domain: z.string().optional(),
   },
-  async ({ name, uid, filter, filter_settings, limit, offset, order, package: pkg, use_object_dictionary, dereference_group_members, show_membership, details_level, domain }, extra) => {
+  async ({ name, uid, filter, filter_settings, limit, offset, order, package: pkg, use_object_dictionary, dereference_group_members, show_membership, details_level, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const body: Record<string, any> = {};
     if (name) body.name = name;
@@ -459,7 +450,7 @@ server.tool(
     details_level: z.string().optional(),
     domain: z.string().optional(),
   },
-  async ({ name = '', uid = '', details_level, domain }, extra) => {
+  async ({ name = '', uid = '', details_level, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = {};
     if (name) params.name = name;
@@ -484,7 +475,7 @@ server.tool(
     details_level: z.enum(['uid', 'standard', 'full']).optional(),
     domain: z.string().optional(),
   },
-  async ({ name, uid, show_capture_packets_and_track, show_ips_additional_properties, show_profiles, details_level, domain }, extra) => {
+  async ({ name, uid, show_capture_packets_and_track, show_ips_additional_properties, show_profiles, details_level, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const body: Record<string, any> = {};
     if (name) body.name = name;
@@ -531,7 +522,7 @@ server.tool(
     details_level: z.enum(['uid', 'standard', 'full']).optional(),
     domain: z.string().optional(),
   },
-  async ({ name, uid, rule_uid, rule_name, rule_number, filter, filter_settings, limit, offset, order, package: pkg, use_object_dictionary, dereference_group_members, show_membership, details_level, domain }, extra) => {
+  async ({ name, uid, rule_uid, rule_name, rule_number, filter, filter_settings, limit, offset, order, package: pkg, use_object_dictionary, dereference_group_members, show_membership, details_level, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const body: Record<string, any> = {};
     if (name) body.name = name;
@@ -575,7 +566,7 @@ server.tool(
   {
     domain: z.string().optional(),
   },
-  async ({ domain }, extra) => {
+  async ({ domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params = { body: {} };
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
@@ -594,7 +585,7 @@ server.tool(
     details_level: z.enum(['uid', 'standard', 'full']).optional(),
     domain: z.string().optional(),
   },
-  async ({ name, uid, details_level, domain }, extra) => {
+  async ({ name, uid, details_level, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const body: Record<string, any> = {};
     if (name) body.name = name;
@@ -617,7 +608,7 @@ server.tool(
     details_level: z.string().optional(),
     domain: z.string().optional(),
   },
-  async ({ name = '', uid = '', details_level, domain }, extra) => {
+  async ({ name = '', uid = '', details_level, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = {};
     if (name) params.name = name;
@@ -723,7 +714,7 @@ server.tool(
     gateway: z.string().optional().describe('The gateway to check for protection. Leave empty to check all gateways.'),
     domain: z.string().optional(),
   },
-  async ({ cve, gateway, domain }, extra) => {
+  async ({ cve, gateway, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     

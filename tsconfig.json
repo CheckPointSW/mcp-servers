@@ -32,7 +32,8 @@
     { "path": "./packages/gaia" },
     { "path": "./packages/spark-management" },
     { "path": "./packages/documentation-tool" },
-    { "path": "./packages/cpinfo-analysis" }
+    { "path": "./packages/cpinfo-analysis" },
+    { "path": "./packages/argos-erm" }
   ],
   "files": []
 }
