@@ -1,5 +1,13 @@
 # @chkp/quantum-gw-cli-base
 
+## 1.0.2
+
+### Patch Changes
+
+- 3870c17: Updated configuration, Modified 1 file(s) (synced from internal repository)
+- Updated dependencies [3870c17]
+  - @chkp/quantum-infra@1.0.2
+
 ## 1.0.1
 
 ### Patch Changes

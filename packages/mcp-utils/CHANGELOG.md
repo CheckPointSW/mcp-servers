@@ -1,5 +1,11 @@
 # @chkp/mcp-utils
 
+## 1.1.0
+
+### Minor Changes
+
+- 3870c17: Updated implementation and features, Updated configuration, Added 4 new file(s), Modified 4 file(s) (synced from internal repository)
+
 ## 1.0.1
 
 ### Patch Changes

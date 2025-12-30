@@ -1,6 +1,6 @@
 {
   "name": "@chkp/quantum-gw-cli-base",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Base classes and utilities for Check Point Gateway CLI MCP servers",
   "type": "module",
   "main": "dist/index.js",
