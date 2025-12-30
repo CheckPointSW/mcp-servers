@@ -1,6 +1,6 @@
 {
   "name": "@chkp/harmony-sase-mcp",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Harmony SASE MCP server for Check Point products",
   "type": "module",
   "main": "dist/index.js",
