@@ -55,7 +55,7 @@ The following MCP servers are available in this repository:
 | [Documentation Tool](./packages/documentation-tool/) | `@chkp/documentation-mcp` | Comprehensive Check Point documentation assistant providing instant access to product information, technical specifications, configuration guidance, and feature documentation across the entire Check Point security portfolio |
 | [Spark Management](./packages/spark-management/) | `@chkp/spark-management-mcp` | Manage and monitor Quantum Spark appliances for MSPs and distributed networks |
 | [Cpinfo analysis](./packages/cpinfo-analysis/) | `@chkp/cpinfo-analysis-mcp` | Analyze CPInfo diagnostic files for system health, performance metrics, network configuration, and troubleshooting insights |
-| [Argos erm](./packages/argos-erm/) | `@chkp/argos-erm-mcp` | External risk management, threat intelligence, and security posture analytics |
+| [Argos erm](./packages/argos-erm/) | `@chkp/argos-erm-mcp` | Monitor and investigate security threats across alerts, IOCs, assets, vulnerabilities, credential exposure, threat intelligence, and organizational risk assessment |
 
 
 ## Example: Setting Up an MCP Server

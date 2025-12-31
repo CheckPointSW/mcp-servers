@@ -94,23 +94,21 @@ class ConfigurationManager {
             return;
         }
 
-        // Map server package names to actual folder names in the repository
-        const packageToFolderMap = {
-            '@chkp/quantum-management-mcp': 'management',
-            '@chkp/management-logs-mcp': 'management-logs',
-            '@chkp/threat-prevention-mcp': 'threat-prevention',
-            '@chkp/https-inspection-mcp': 'https-inspection',
-            '@chkp/harmony-sase-mcp': 'harmony-sase',
-            '@chkp/reputation-service-mcp': 'reputation-service',
-            '@chkp/quantum-gw-cli-mcp': 'gw-cli',
-            '@chkp/quantum-gw-connection-analysis-mcp': 'gw-cli-connection-analysis',
-            '@chkp/threat-emulation-mcp': 'threat-emulation',
-            '@chkp/quantum-gaia-mcp': 'gaia'
-        };
-
-        const folderName = packageToFolderMap[server.package];
+        // Dynamically determine folder name from server's repoPath
+        // The server object from main.js already has the repoPath from README parsing
+        let folderName = null;
+        
+        if (server.repoPath) {
+            // Extract folder name from repoPath (e.g., "./packages/management/" -> "management")
+            folderName = server.repoPath
+                .replace('./packages/', '')
+                .replace('./', '')
+                .replace(/\/$/, '');
+        }
+        
         if (!folderName) {
-            console.error('Unknown package:', server.package);
+            console.error('Unable to determine folder path for package:', server.package);
+            console.error('Server repoPath:', server.repoPath);
             this.serverConfig = this.getMinimalFallbackConfig(server);
             return;
         }
@@ -180,6 +178,20 @@ class ConfigurationManager {
     }
 
     getMinimalFallbackConfig(server) {
+        // ⚠️ WARNING: This fallback should NEVER be called in production!
+        // If you see this, it means the server-config.json file couldn't be loaded.
+        console.error('🚨🚨🚨 FALLBACK CONFIG USED - THIS SHOULD NOT HAPPEN! 🚨🚨🚨');
+        console.error('Server:', server.name);
+        console.error('Package:', server.package);
+        console.error('RepoPath:', server.repoPath);
+        console.error('This means server-config.json failed to load from GitHub!');
+        console.error('Stack trace:', new Error().stack);
+        
+        // Show visible alert in browser
+        if (typeof alert !== 'undefined') {
+            alert(`⚠️ Configuration Error!\n\nFailed to load proper configuration for ${server.name}.\nFalling back to minimal config (api-key only).\n\nCheck browser console for details.`);
+        }
+        
         // Minimal fallback only when actual config files are not available
         return {
             name: server.name,
