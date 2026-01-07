@@ -86,7 +86,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.11.4",
+    "@modelcontextprotocol/sdk": "^1.25.2",
     "axios": "^1.12.1",
     "body-parser": "^1.20.2",
     "commander": "^13.1.0",
