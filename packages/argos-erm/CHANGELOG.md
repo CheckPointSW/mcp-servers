@@ -1,5 +1,11 @@
 # @chkp/argos-erm-mcp
 
+## 0.3.0
+
+### Minor Changes
+
+- cdf1530: Updated implementation and features, Modified 1 file(s) (synced from internal repository)
+
 ## 0.2.0
 
 ### Minor Changes
