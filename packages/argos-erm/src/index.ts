@@ -342,7 +342,7 @@ PURPOSE:
 WORKFLOW:
 1. Call this function first
 2. Show user available options
-3. Use returned type/subtype values in get_alerts()
+3. Use returned type values in get_alerts()
 
 COMMON USER REQUESTS:
 - "What alert types can I filter by?"
@@ -402,7 +402,7 @@ COMMON USER REQUESTS:
     to_created_date: z.string().optional().describe('End date for alert search (format: YYYY-MM-DD).'),
     severities: z.union([z.string(), z.array(z.string())]).optional().describe('Alert severity levels to include. Options: \'low\', \'medium\', \'high\', \'very_high\'. Can be single string or list: [\'high\', \'very_high\']'),
     statuses: z.union([z.string(), z.array(z.string())]).optional().describe('Alert status to filter by. Options: \'open\', \'closed\', \'acknowledged\'. Can be single string or list: [\'open\', \'acknowledged\']'),
-    types: z.union([z.string(), z.array(z.string())]).optional().describe('Alert types to include. Get available options from get_alert_metadata(). The metadata shows the hierarchical structure of categories, types, and subtypes. Can be single string or list of type/subtype values. Examples: \'refund_fraud\', [\'phishing_email\', \'phishing_kit\'], \'ransomware\', [\'compromised_employee_credentials\']'),
+    types: z.union([z.string(), z.array(z.string())]).optional().describe('Alert types to include. Get available options from get_alert_metadata(). The metadata shows the hierarchical structure of categories, types, and subtypes. Can be single string or list of type values. Examples: \'refund_fraud\', [\'phishing_email\', \'phishing_kit\'], \'ransomware\', [\'compromised_employee_credentials\']'),
     limit: z.number().default(10).describe('Number of alerts to return (minimum 10, default 10).'),
     offset: z.number().default(0).describe('Skip this many alerts for pagination (default 0).')
   },
