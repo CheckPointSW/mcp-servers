@@ -23,10 +23,23 @@ jobs:
       - run: npm install
       
       # Fix security vulnerabilities
-      - run: npm audit fix
+      - name: Run npm audit fix
+        id: audit_fix
+        continue-on-error: true
+        run: npm audit fix
       
       # Update dependencies within semver ranges
       - run: npm update
+      
+      # Check for remaining vulnerabilities and capture report
+      - name: Check for remaining vulnerabilities
+        id: audit_check
+        continue-on-error: true
+        run: |
+          npm audit --json > audit-report.json
+          echo "AUDIT_REPORT<<EOF" >> $GITHUB_OUTPUT
+          npm audit >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
       
       # Check if package-lock.json has changed
       - name: Check for package-lock.json changes
@@ -53,9 +66,30 @@ jobs:
           # Push the branch
           git push --set-upstream origin $BRANCH_NAME
           
+          # Create PR body with audit info
+          PR_BODY="## Dependency Updates
+          
+          Automated dependency updates and security fixes.
+          
+          ### Security Audit Status
+          "
+          
+          if [ "${{ steps.audit_fix.outcome }}" = "failure" ]; then
+            PR_BODY+="⚠️ Some vulnerabilities could not be auto-fixed and require manual review.
+            
+          Run \`npm audit\` locally to see details, or check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for full audit report.
+          "
+          fi
+          
+          PR_BODY+="
+          ### Next Steps
+          - Review changes in package-lock.json
+          - Run tests to ensure nothing broke
+          - Create changesets if packages need republishing"
+          
           # Create PR with helpful labels and instructions
           gh pr create --title "Update dependencies $(date +%Y-%m-%d)" \
-                      --body "Dependency updates and security fixes. Review changes and create changesets if packages need republishing." \
+                      --body "$PR_BODY" \
                       --label "dependencies" \
                       --label "security"
         env:
