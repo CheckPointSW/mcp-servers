@@ -31,15 +31,36 @@ jobs:
       # Update dependencies within semver ranges
       - run: npm update
       
-      # Check for remaining vulnerabilities and capture report
+      # Check for remaining vulnerabilities and fail on high/critical
       - name: Check for remaining vulnerabilities
         id: audit_check
-        continue-on-error: true
         run: |
+          # Get audit results as JSON
           npm audit --json > audit-report.json
-          echo "AUDIT_REPORT<<EOF" >> $GITHUB_OUTPUT
-          npm audit >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          
+          # Extract vulnerability counts by severity
+          CRITICAL=$(jq '.metadata.vulnerabilities.critical // 0' audit-report.json)
+          HIGH=$(jq '.metadata.vulnerabilities.high // 0' audit-report.json)
+          MODERATE=$(jq '.metadata.vulnerabilities.moderate // 0' audit-report.json)
+          LOW=$(jq '.metadata.vulnerabilities.low // 0' audit-report.json)
+          
+          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "high=$HIGH" >> $GITHUB_OUTPUT
+          echo "moderate=$MODERATE" >> $GITHUB_OUTPUT
+          echo "low=$LOW" >> $GITHUB_OUTPUT
+          
+          # Fail if there are critical or high severity vulnerabilities
+          if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+            echo "::error::Found $CRITICAL critical and $HIGH high severity vulnerabilities"
+            npm audit
+            exit 1
+          fi
+          
+          # Warn about moderate/low but don't fail
+          if [ "$MODERATE" -gt 0 ] || [ "$LOW" -gt 0 ]; then
+            echo "::warning::Found $MODERATE moderate and $LOW low severity vulnerabilities"
+            npm audit
+          fi
       
       # Check if package-lock.json has changed
       - name: Check for package-lock.json changes
@@ -74,10 +95,13 @@ jobs:
           ### Security Audit Status
           "
           
-          if [ "${{ steps.audit_fix.outcome }}" = "failure" ]; then
-            PR_BODY+="⚠️ Some vulnerabilities could not be auto-fixed and require manual review.
+          if [ "${{ steps.audit_check.outputs.moderate }}" -gt 0 ] || [ "${{ steps.audit_check.outputs.low }}" -gt 0 ]; then
+            PR_BODY+="⚠️ Some low/moderate vulnerabilities remain (Critical: ${{ steps.audit_check.outputs.critical }}, High: ${{ steps.audit_check.outputs.high }}, Moderate: ${{ steps.audit_check.outputs.moderate }}, Low: ${{ steps.audit_check.outputs.low }})
             
-          Run \`npm audit\` locally to see details, or check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for full audit report.
+          These are acceptable risk levels. Run \`npm audit\` locally to review details.
+          "
+          else
+            PR_BODY+="✅ No vulnerabilities found
           "
           fi
           
