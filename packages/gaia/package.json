@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
-    "axios": "^1.12.1",
+    "axios": "^1.13.5",
     "commander": "^11.1.0",
     "node-machine-id": "^1.1.12",
     "zod": "^3.24.4"
