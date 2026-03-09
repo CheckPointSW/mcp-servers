@@ -33,7 +33,8 @@
     { "path": "./packages/spark-management" },
     { "path": "./packages/documentation-tool" },
     { "path": "./packages/cpinfo-analysis" },
-    { "path": "./packages/argos-erm" }
+    { "path": "./packages/argos-erm" },
+    { "path": "./packages/policy-insights" }
   ],
   "files": []
 }

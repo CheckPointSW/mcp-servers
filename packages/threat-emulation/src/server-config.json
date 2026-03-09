@@ -5,7 +5,8 @@
     {
       "flag": "--api-key <key>",
       "description": "API key for the Threat Emulation Service",
-      "env": "API_KEY"
+      "env": "API_KEY",
+      "help": "API key for the Check Point Threat Emulation cloud service. Contact your Check Point account representative or support team to obtain one"
     }
   ]
 }

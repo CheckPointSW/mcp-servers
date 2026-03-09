@@ -235,7 +235,7 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.object({ ASC: z.string().optional(), DESC: z.string().optional() })).optional(),
     details_level: z.string().optional().default('standard'),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
     domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -244,7 +244,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : 'standard';
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
     
     const params: Record<string, any> = { limit, offset };
@@ -273,7 +273,7 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -281,7 +281,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
@@ -302,7 +302,7 @@ server.tool(
       offset: z.number().optional().default(0),
       order: z.array(z.string()).optional(),
       details_level: z.string().optional(),
-      domains_to_process: z.array(z.string()).optional(),
+      domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
       type: z.string().optional(),
       domain: z.string().optional(),
   },
@@ -313,7 +313,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     const type = typeof args.type === 'string' ? args.type : undefined;
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
     const params: Record<string, any> = { limit, offset };

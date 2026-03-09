@@ -6,7 +6,8 @@
       "flag": "--api-key <key>",
       "description": "API key for the Reputation Service",
       "env": "API_KEY",
-      "type": "string"
+      "type": "string",
+      "help": "API key for the Check Point Reputation Service. To obtain a trial key, contact TCAPI_SUPPORT@checkpoint.com. Note: a daily quota applies — exceeding it returns HTTP 429"
     }
   ]
 }

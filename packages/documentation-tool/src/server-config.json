@@ -7,20 +7,33 @@
       "description": "Client ID for authentication with Documentation Tool",
       "env": "CLIENT_ID",
       "required": true,
-      "type": "string"
+      "type": "string",
+      "help": "Client ID for Check Point Documentation Tool authentication. To obtain: log in to the Infinity Portal → API Keys → New → New User API Key → copy the generated Client ID"
     },
     {
       "flag": "--secret-key <secret-key>",
       "description": "Secret Key for authentication with Documentation Tool",
       "env": "SECRET_KEY",
       "required": true,
-      "type": "string"
+      "type": "string",
+      "help": "Secret Key for Check Point Documentation Tool authentication. Generated alongside the Client ID — copy and store it securely at creation time as it will not be shown again"
+    },
+    {
+      "flag": "--auth-url <url>",
+      "description": "Authentication URL from the API key creation dialog",
+      "env": "AUTH_URL",
+      "required": true,
+      "type": "string",
+      "help": "Paste the Authentication URL shown when creating your API key (e.g. https://cloudinfra-gw.portal.checkpoint.com/auth/external). The path suffix is stripped automatically so you can copy it directly from the portal"
     },
     {
       "flag": "--region <region>",
-      "description": "Documentation Tool region: EU, US, STG, or Local",
+      "description": "Documentation Tool region: EU, US, STG, or LOCAL",
       "env": "REGION",
-      "type": "string"
+      "required": false,
+      "hidden": true,
+      "type": "string",
+      "help": "Alternative to --auth-url. Region code for your deployment: EU, US, STG, or LOCAL. Use this if you know your region and prefer not to copy the full authentication URL"
     }
   ]
 }

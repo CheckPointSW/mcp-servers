@@ -221,6 +221,13 @@ class ConfigurationManager {
         document.getElementById('modalServerPackage').textContent = server.package;
         document.getElementById('modalServerDescription').textContent = server.description;
         document.getElementById('modalServerIcon').className = server.icon;
+
+        // Set README link from the server's repo path
+        const readmeLink = document.getElementById('modalReadmeLink');
+        if (readmeLink && server.repoPath) {
+            const folder = server.repoPath.replace('./packages/', '').replace('./', '').replace(/\/$/, '');
+            readmeLink.href = `https://github.com/CheckPointSW/mcp-servers/blob/main/packages/${folder}/README.md`;
+        }
     }
 
     updateConfigFields() {
@@ -383,22 +390,9 @@ class ConfigurationManager {
     }
 
     getFieldHelp(envVar, option) {
-        // Enhanced help descriptions for known environment variables with usage scenarios
-        const commonDescriptions = {
-            'S1C_URL': '🌐 Smart-1 Cloud URL - Required ONLY for Smart-1 Cloud deployments. Leave empty for on-premises management. Example: https://cloudinfra-gw-us.portal.checkpoint.com',
-            'API_KEY': '🔑 API Key - Required for both on-premises and Smart-1 Cloud. Generate from: SmartConsole → Manage & Settings → Blades → Management API → Add',
-            'USERNAME': '👤 Username - Required ONLY for on-premises management when using username/password authentication. Leave empty if using API key only',
-            'PASSWORD': '🔒 Password - Required ONLY for on-premises management when using username/password authentication. Leave empty if using API key only',
-            'MANAGEMENT_HOST': '🖥️ Management Server Host - Required ONLY for on-premises. IP address or hostname of your management server. Leave empty for Smart-1 Cloud',
-            'MANAGEMENT_PORT': '🔌 Management API Port - Required ONLY for on-premises. Typically 443. Leave empty for Smart-1 Cloud',
-            'DOMAIN': 'Management domain name (leave empty for default)',
-            'BASE_URL': 'Base URL for the API endpoint'
-        };
-        
-        // Use help from the option first, then common descriptions, then generate from env var
-        return option.help || 
-               option.example || 
-               commonDescriptions[envVar] || 
+        // Use help from the option (defined in server-config.json), then fall back to a generic label
+        return option.help ||
+               option.example ||
                `Configuration value for ${envVar.toLowerCase().replace(/_/g, ' ')}`;
     }
 

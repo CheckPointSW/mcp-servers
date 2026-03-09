@@ -8,7 +8,7 @@ export class SettingsManager {
   private settingsClass: any;
   
   // Global debug state that persists across all sessions and instances
-  private static globalDebugState: string | string[] | boolean | undefined = undefined;
+  public static globalDebugState: string | string[] | boolean | undefined = undefined;
 
   /**
    * Creates a new SettingsManager
@@ -122,19 +122,38 @@ export class SettingsManager {
    * @returns Settings instance
    */
   createFromHeaders(headers: Record<string, string | string[]>, sessionId?: string): any {
+    const verbose = SettingsManager.globalDebugState;
+
+    if (verbose) {
+      console.error('[SettingsManager.createFromHeaders] Verbose: Starting with sessionId:', sessionId || '(default)');
+      console.error('[SettingsManager.createFromHeaders] Verbose: Incoming headers count:', Object.keys(headers).length);
+    }
+
     // Print headers if debug is enabled globally
     if (SettingsManager.globalDebugState) {
       console.error('=== createFromHeaders Debug Info ===');
       console.error('Incoming headers:');
       console.error(JSON.stringify(headers, null, 2));
     }
-    
+
+    // Early check - if headers is empty or has no meaningful values
+    if (verbose && (!headers || Object.keys(headers).length === 0)) {
+      console.error('[SettingsManager.createFromHeaders] Verbose: WARNING - Headers object is empty or undefined');
+    }
+
     // Convert headers with underscores to hyphens
     const normalizedHeaders: Record<string, string | string[]> = {};
 
     for (const [key, value] of Object.entries(headers)) {
       const normalizedKey = key.includes('_') ? key.replace(/_/g, '-') : key;
       normalizedHeaders[normalizedKey] = value;
+      if (verbose) {
+        console.error(`[SettingsManager.createFromHeaders] Verbose: Header normalized: "${key}" -> "${normalizedKey}"`);
+      }
+    }
+
+    if (verbose) {
+      console.error('[SettingsManager.createFromHeaders] Verbose: Normalized headers count:', Object.keys(normalizedHeaders).length);
     }
 
     if (SettingsManager.globalDebugState) {
@@ -143,20 +162,30 @@ export class SettingsManager {
     }
 
     const debugHeader = normalizedHeaders['debug'] || normalizedHeaders['Debug'] || normalizedHeaders['DEBUG'];
-    
+
     // Use header debug if present, otherwise preserve global debug state
     const debugSource = { debug: debugHeader !== undefined ? debugHeader : SettingsManager.globalDebugState };
 
+    if (verbose) {
+      console.error('[SettingsManager.createFromHeaders] Verbose: Calling settingsClass.fromHeaders');
+    }
     const settings = this.settingsClass.fromHeaders(normalizedHeaders);
+    if (verbose) {
+      console.error('[SettingsManager.createFromHeaders] Verbose: Settings object created');
+    }
+
     this.injectDebug(settings, debugSource);
-    
+
     // Print final settings if debug is enabled
     if (SettingsManager.globalDebugState) {
-      console.error('Final settings object:');
+      console.error('Final settings object for session:', sessionId || '(default)');
       this.printSettingsDebug(settings);
       console.error('=== End createFromHeaders Debug Info ===');
     }
-    
+
+    if (verbose) {
+      console.error('[SettingsManager.createFromHeaders] Verbose: Storing settings for session:', sessionId || '(default)');
+    }
     this.setSettings(settings, sessionId);
     return settings;
   }

@@ -7,7 +7,8 @@
       "description": "Enable verbose output",
       "env": "VERBOSE",
       "required": false,
-      "type": "boolean"
+      "type": "boolean",
+      "help": "Enable verbose logging output. No external credentials needed — this server uses interactive dialog-based authentication. When you call a tool, it will prompt you for the gateway IP, username, and password. Credentials are cached for 15 minutes per gateway session"
     }
   ]
 }

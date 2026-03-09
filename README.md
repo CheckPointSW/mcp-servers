@@ -35,6 +35,7 @@ This monorepo is organized with each Check Point security domain as a separate M
   - **`/spark-management`** - Spark Management MCP server for Quantum Spark appliance management
   - **`/cpinfo-analysis`** - CPInfo Analysis MCP server for Check Point appliance diagnostic file analysis and troubleshooting
   - **`/argos-erm`** - Argos ERM MCP server for external risk management and threat intelligence
+  - **`/policy-insights`** - Policy Insights MCP server
 
 ## Available MCP Servers
 
@@ -56,6 +57,7 @@ The following MCP servers are available in this repository:
 | [Spark Management](./packages/spark-management/) | `@chkp/spark-management-mcp` | Manage and monitor Quantum Spark appliances for MSPs and distributed networks |
 | [Cpinfo analysis](./packages/cpinfo-analysis/) | `@chkp/cpinfo-analysis-mcp` | Analyze CPInfo diagnostic files for system health, performance metrics, network configuration, and troubleshooting insights |
 | [Argos ERM](./packages/argos-erm/) | `@chkp/argos-erm-mcp` | Monitor and investigate security threats across alerts, IOCs, assets, vulnerabilities, credential exposure, threat intelligence, and organizational risk assessment |
+| [Policy Insights](./packages/policy-insights/) | `@chkp/policy-insights-mcp` | Query policy insights to tighten Access Control policies |
 
 
 ## Example: Setting Up an MCP Server

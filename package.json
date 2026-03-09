@@ -57,6 +57,7 @@
     "nx:build:management": "npx nx build @chkp/quantum-management-mcp",
     "nx:build:management-logs": "npx nx build @chkp/management-logs-mcp",
     "nx:build:mcp-utils": "npx nx build @chkp/mcp-utils",
+    "nx:build:policy-insights": "npx nx build @chkp/policy-insights-mcp",
     "nx:build:reputation-service": "npx nx build @chkp/reputation-service-mcp",
     "nx:build:threat-prevention": "npx nx build @chkp/threat-prevention-mcp",
     "nx:build:documentation-tool": "npx nx build @chkp/documentation-mcp",
@@ -74,6 +75,7 @@
     "nx:dev:management": "npx nx run @chkp/quantum-management-mcp:dev",
     "nx:dev:management-logs": "npx nx run @chkp/management-logs-mcp:dev",
     "nx:dev:mcp-utils": "npx nx run @chkp/mcp-utils:dev",
+    "nx:dev:policy-insights": "npx nx run @chkp/policy-insights-mcp:dev",
     "nx:dev:reputation-service": "npx nx run @chkp/reputation-service-mcp:dev",
     "nx:dev:threat-prevention": "npx nx run @chkp/threat-prevention-mcp:dev",
     "nx:dev:threat-emulation": "npx nx run @chkp/threat-emulation-mcp:dev",
@@ -129,6 +131,28 @@
   "overrides": {
     "tmp": ">=0.2.4",
     "glob": "^11.1.0",
-    "rimraf": "^6.0.1"
+    "rimraf": "^6.0.1",
+    "rollup": ">=4.59.0",
+    "@eslint/eslintrc": {
+      "minimatch": "^3.1.4"
+    },
+    "@humanwhocodes/config-array": {
+      "minimatch": "^3.1.4"
+    },
+    "eslint": {
+      "minimatch": "^3.1.4"
+    },
+    "test-exclude": {
+      "minimatch": "^3.1.4"
+    },
+    "nx": {
+      "minimatch": "^9.0.7"
+    },
+    "@nx/devkit": {
+      "minimatch": "^9.0.7"
+    },
+    "@nx/jest": {
+      "minimatch": "^9.0.7"
+    }
   }
 }

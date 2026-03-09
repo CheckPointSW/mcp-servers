@@ -57,10 +57,17 @@ This server supports configuration via command-line arguments for connecting to 
 
 ### Required Parameters
 
+- `--client-id`: Your API client ID for authentication
 - `--secret-key`: Your API secret key for authentication
-- `--client-id`: Your API client ID for authentication  
-- `--region`: The region code (EU, US, STG, LOCAL - default: EU)
-- `--infinity-portal-url`: The Infinity Portal URL endpoint
+
+### Specifying Your Region / Portal URL
+
+You need to tell the server which Check Point cloud region your account is on. Use **one** of these options:
+
+- `--infinity-portal-url <url>` — Paste the **Authentication URL** shown in Step 4 of the API key creation dialog (e.g. `https://cloudinfra-gw.portal.checkpoint.com/auth/external`). The `/auth/external` path suffix is stripped automatically so the URL can be copied directly from the portal. This is the recommended approach because it removes any ambiguity about which region to use.
+- `--region <code>` — Short region code: `EU`, `US`, `STG`, or `LOCAL`. Defaults to `EU`. Use this for backwards-compatible configurations that already have `REGION` set.
+
+> **Note:** When `--infinity-portal-url` is provided, the region is inferred automatically from the URL. You do not need to set both.
 
 ---
 
@@ -105,17 +112,18 @@ It is expected to work with any MCP client that supports the Model Context Proto
   "mcpServers": {
     "checkpoint-spark-management": {
       "command": "npx",
-      "args": [
-        "@chkp/spark-management-mcp",
-        "--secret-key", "your-secret-key",
-        "--client-id", "your-client-id", 
-        "--region", "EU",
-        "--infinity-portal-url", "your-infinity-portal-url"
-      ]
+      "args": ["@chkp/spark-management-mcp"],
+      "env": {
+          "CLIENT_ID": "your-client-id",
+          "SECRET_KEY": "your-secret-key",
+          "INFINITY_PORTAL_URL": "YOUR_AUTH_URL"
+      }
     }
   }
 }
 ```
+
+> **Tip:** Copy the Authentication URL directly from the API key creation dialog (Step 4 above). The `/auth/external` path is stripped automatically — no need to edit the URL.
 
 ### Configuring the Claude Desktop App
 
@@ -149,19 +157,18 @@ Add the server configuration:
   "mcpServers": {
     "checkpoint-spark-management": {
       "command": "npx",
-      "args": [
-        "@chkp/spark-management-mcp",
-        "--secret-key", "your-secret-key",
-        "--client-id", "your-client-id",
-        "--region", "EU", 
-        "--infinity-portal-url", "your-infinity-portal-url"
-      ]
+      "args": ["@chkp/spark-management-mcp"],
+      "env": {
+          "CLIENT_ID": "your-client-id",
+          "SECRET_KEY": "your-secret-key",
+          "INFINITY_PORTAL_URL": "YOUR_AUTH_URL"
+      }
     }
   }
 }
 ```
 
-### VSCode 
+### VSCode
 
 Enter VSCode settings and type "mcp" in the search bar.
 You should see the option to edit the configuration file.
@@ -175,13 +182,12 @@ Add this configuration:
     "servers": {
       "checkpoint-spark-management": {
         "command": "npx",
-        "args": [
-          "@chkp/spark-management-mcp",
-          "--secret-key", "your-secret-key",
-          "--client-id", "your-client-id",
-          "--region", "EU",
-          "--infinity-portal-url", "your-infinity-portal-url"
-        ]
+        "args": ["@chkp/spark-management-mcp"],
+        "env": {
+            "CLIENT_ID": "your-client-id",
+            "SECRET_KEY": "your-secret-key",
+            "INFINITY_PORTAL_URL": "YOUR_AUTH_URL"
+        }
       }
     }
   },
@@ -230,11 +236,17 @@ You can run the server locally for development using [MCP Inspector](https://mod
 
 ```bash
 # Run the server with required parameters
+# Option A: use the Authentication URL from the API key creation dialog
 node /path/to/mcp-servers-internal/packages/spark-management/dist/index.js \
-  --secret-key "your-secret-key" \
   --client-id "your-client-id" \
-  --region "STG" \
-  --infinity-portal-url "your-infinity-portal-url"
+  --secret-key "your-secret-key" \
+  --infinity-portal-url "YOUR_AUTH_URL"
+
+# Option B: use a region code (EU / US / STG / LOCAL)
+node /path/to/mcp-servers-internal/packages/spark-management/dist/index.js \
+  --client-id "your-client-id" \
+  --secret-key "your-secret-key" \
+  --region "EU"
 ```
 
 ### Available Tools
