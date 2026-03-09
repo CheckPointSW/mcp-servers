@@ -1,0 +1,56 @@
+{
+  "name": "MCP for Policy Insights",
+  "description": "Policy Insights analyzes Access Control policies and network traffic to identify opportunities for optimization. It examines traffic patterns and policy configurations, and suggests modifications to improve your security posture.\\\\n\\\\n## Key Benefits\\\\n- Reduces attack surface by making rules more restrictive and eliminating unnecessary traffic permissions\\\\n- Simplifies access control policies for easier management and auditing. Policy Insights automatically generates intelligent insights to streamline network security. It helps narrow down allowed traffic, remove unused objects and rules, and reduce potential threats, simplifying policy management.",
+  "options": [
+    {
+      "flag": "--s1c-url <s1c url>",
+      "description": "S1C URL",
+      "env": "S1C_URL",
+      "type": "string",
+      "help": "Smart-1 Cloud URL. Required for Smart-1 Cloud deployments, leave empty for on-premises. Found in your Smart-1 Cloud portal under your tenant settings. Example: https://cloudinfra-gw-us.portal.checkpoint.com/your-tenant-id/web_api"
+    },
+    {
+      "flag": "--api-key <key>",
+      "description": "API key",
+      "env": "API_KEY",
+      "type": "string",
+      "help": "API Key for authentication. Required for both on-premises and Smart-1 Cloud. Generate from SmartConsole: Manage & Settings → Blades → Management API → Add API Key"
+    },
+    {
+      "flag": "--cloud-infra-token <key>",
+      "description": "Cloud Infra token",
+      "env": "CLOUD_INFRA_TOKEN",
+      "type": "string",
+      "hidden": true
+    },
+    {
+      "flag": "--username <username>",
+      "description": "Username for on-prem authentication",
+      "env": "USERNAME",
+      "type": "string",
+      "help": "Username for on-premises authentication. Required only when using username/password login instead of an API key. Leave empty for Smart-1 Cloud"
+    },
+    {
+      "flag": "--password <password>",
+      "description": "Password for on-prem authentication",
+      "env": "PASSWORD",
+      "type": "string",
+      "help": "Password for on-premises authentication. Required only when using username/password login instead of an API key. Leave empty for Smart-1 Cloud"
+    },
+    {
+      "flag": "--management-host <host>",
+      "description": "Management host (for on-prem)",
+      "env": "MANAGEMENT_HOST",
+      "type": "string",
+      "help": "Hostname or IP address of your on-premises management server. Required only for on-premises deployments, leave empty for Smart-1 Cloud"
+    },
+    {
+      "flag": "--management-port <port>",
+      "description": "Port for on-prem API",
+      "env": "MANAGEMENT_PORT",
+      "default": "443",
+      "type": "string",
+      "help": "API port of your on-premises management server. Default is 443. Leave empty for Smart-1 Cloud"
+    }
+  ]
+}

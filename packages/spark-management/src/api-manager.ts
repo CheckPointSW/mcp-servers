@@ -31,7 +31,7 @@ export class SMPAPIManager {
       
       this.apiManager = APIManagerForBearerToken.create({
         bearerToken: token,
-        infinityPortalUrl: this.settings.infinityPortalUrl
+        infinityPortalUrl: this.settings.getCloudInfraGateway()
       });
     }
     

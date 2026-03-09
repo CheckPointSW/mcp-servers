@@ -7,27 +7,31 @@
       "description": "API key for authentication",
       "env": "API_KEY",
       "required": true,
-      "type": "string"
+      "type": "string",
+      "help": "Harmony SASE API key. Generate from the Harmony SASE portal: Settings → API support → Generate API Key"
     },
     {
       "flag": "--management-host <host>",
       "description": "Management host or IP for on-prem management",
       "env": "MANAGEMENT_HOST",
       "required": true,
-      "type": "string"
+      "type": "string",
+      "help": "Your Harmony SASE management API URL (e.g., https://api.your-management-host.com/api). Found in the Harmony SASE portal under API settings"
     },
     {
       "flag": "--management-port <port>",
       "description": "Port for management",
       "env": "MANAGEMENT_PORT",
       "default": 443,
-      "type": "number"
+      "type": "number",
+      "help": "Port for the Harmony SASE management API. Default is 443"
     },
     {
       "flag": "--origin <origin>",
       "description": "Origin header for Harmony SASE",
       "env": "ORIGIN",
-      "type": "string"
+      "type": "string",
+      "help": "Your tenant origin domain (e.g., https://your.origin-domain.com). Found in your Harmony SASE tenant settings"
     }
   ]
 }

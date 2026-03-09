@@ -2,7 +2,6 @@ import { getHeaderValue } from '@chkp/mcp-utils';
 import { Settings as BaseSettings } from '@chkp/quantum-infra';
 
 export class Settings extends BaseSettings {
-  public infinityPortalUrl: string = '';
 
   constructor({
     clientId = process.env.CLIENT_ID,
@@ -13,20 +12,31 @@ export class Settings extends BaseSettings {
   }: {
     clientId?: string;
     secretKey?: string;
+    /**
+     * The Infinity Portal URL for Spark Management.
+     * Accepts either the base URL (e.g. https://cloudinfra-gw.portal.checkpoint.com)
+     * or the full auth URL copied from the API key creation dialog
+     * (e.g. https://cloudinfra-gw.portal.checkpoint.com/auth/external).
+     * The path suffix is stripped automatically so either form works.
+     * When provided, the region is inferred from the URL and the --region flag
+     * becomes redundant.
+     */
     infinityPortalUrl?: string;
     region?: string;
     [key: string]: any;
   } = {}) {
-    // Don't set s1cUrl to avoid base class validation requiring API key
+    // Pass infinityPortalUrl as gatewayUrl to the base class, which will:
+    //  1. Strip any /auth/external (or similar) path suffix
+    //  2. Infer and update the region from the URL when possible
+    // If infinityPortalUrl is not provided, the base class falls back to region.
     super({
       clientId,
       secretKey,
       region: region as any,
+      gatewayUrl: infinityPortalUrl,
       ...baseArgs
     });
-    
-    this.infinityPortalUrl = infinityPortalUrl || '';
-    
+
     // Additional validation for Spark Management specific fields
     this.validateSMPSettings();
   }
@@ -41,12 +51,15 @@ export class Settings extends BaseSettings {
     if (!this.secretKey) {
       throw new Error('Secret key is required (via --secret-key or SECRET_KEY env var)');
     }
-    if (!this.infinityPortalUrl) {
-      throw new Error('Infinity Portal URL is required (via --infinity-portal-url or INFINITY_PORTAL_URL env var)');
-    }
   }
 
   static override fromArgs(options: any): Settings {
+    if (!options.infinityPortalUrl && !options.region) {
+      throw new Error(
+        'Provide either --infinity-portal-url (Authentication URL from the API key creation dialog) ' +
+        'or --region (EU, US, STG, or LOCAL)'
+      );
+    }
     return new Settings({
       clientId: options.clientId,
       secretKey: options.secretKey,
@@ -60,7 +73,7 @@ export class Settings extends BaseSettings {
     const secretKey = getHeaderValue(headers, 'SECRET-KEY');
     const infinityPortalUrl = getHeaderValue(headers, 'INFINITY-PORTAL-URL');
     const region = getHeaderValue(headers, 'REGION');
-    
+
     return new Settings({
       clientId,
       secretKey,

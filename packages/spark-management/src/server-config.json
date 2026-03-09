@@ -7,29 +7,33 @@
       "description": "Client ID for Spark Management authentication",
       "env": "CLIENT_ID",
       "required": true,
-      "type": "string"
+      "type": "string",
+      "help": "Client ID for Quantum Spark Management authentication. To obtain: open the Quantum Spark Management portal → API Keys → New → New account API key → fill in details and click Create → copy the Client ID shown"
     },
     {
       "flag": "--secret-key <secretKey>",
       "description": "Secret key for Spark Management authentication",
       "env": "SECRET_KEY",
       "required": true,
-      "type": "string"
+      "type": "string",
+      "help": "Secret Key for Quantum Spark Management authentication. Generated alongside the Client ID — copy and store it securely at creation time as it will not be shown again"
     },
     {
       "flag": "--infinity-portal-url <url>",
-      "description": "Infinity Portal base URL (e.g., https://portal.checkpoint.com)",
+      "description": "Authentication URL from the API key creation dialog",
       "env": "INFINITY_PORTAL_URL",
       "required": true,
-      "type": "string"
+      "type": "string",
+      "help": "Paste the Authentication URL shown in the API key creation dialog (e.g. https://cloudinfra-gw.portal.checkpoint.com/auth/external). The path suffix is stripped automatically so you can copy it directly from the portal"
     },
     {
       "flag": "--region <region>",
       "description": "Region for cloud infrastructure (EU, US, STG, LOCAL)",
       "env": "REGION",
       "required": false,
+      "hidden": true,
       "type": "string",
-      "default": "EU"
+      "help": "Alternative to --infinity-portal-url. Region code for your deployment: EU, US, STG, or LOCAL. Use this if you know your region and prefer not to copy the full authentication URL"
     }
   ]
 }

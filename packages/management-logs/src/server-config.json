@@ -6,13 +6,15 @@
       "flag": "--s1c-url <s1c url>",
       "description": "S1C URL",
       "env": "S1C_URL",
-      "type": "string"
+      "type": "string",
+      "help": "Smart-1 Cloud URL. Required for Smart-1 Cloud deployments, leave empty for on-premises. Found in your Smart-1 Cloud portal under your tenant settings. Example: https://cloudinfra-gw-us.portal.checkpoint.com/your-tenant-id/web_api"
     },
     {
       "flag": "--api-key <key>",
       "description": "API key",
       "env": "API_KEY",
-      "type": "string"
+      "type": "string",
+      "help": "API Key for authentication. Required for both on-premises and Smart-1 Cloud. Generate from SmartConsole: Manage & Settings → Blades → Management API → Add API Key"
     },
     {
       "flag": "--cloud-infra-token <key>",
@@ -25,26 +27,30 @@
       "flag": "--username <username>",
       "description": "Username for on-prem authentication",
       "env": "USERNAME",
-      "type": "string"
+      "type": "string",
+      "help": "Username for on-premises authentication. Required only when using username/password login instead of an API key. Leave empty for Smart-1 Cloud"
     },
     {
       "flag": "--password <password>",
       "description": "Password for on-prem authentication",
       "env": "PASSWORD",
-      "type": "string"
+      "type": "string",
+      "help": "Password for on-premises authentication. Required only when using username/password login instead of an API key. Leave empty for Smart-1 Cloud"
     },
     {
       "flag": "--management-host <host>",
       "description": "Management host (for on-prem)",
       "env": "MANAGEMENT_HOST",
-      "type": "string"
+      "type": "string",
+      "help": "Hostname or IP address of your on-premises management server. Required only for on-premises deployments, leave empty for Smart-1 Cloud"
     },
     {
       "flag": "--management-port <port>",
       "description": "Port for on-prem API",
       "env": "MANAGEMENT_PORT",
       "default": "443",
-      "type": "string"
+      "type": "string",
+      "help": "API port of your on-premises management server. Default is 443. Leave empty for Smart-1 Cloud"
     }
   ]
 }

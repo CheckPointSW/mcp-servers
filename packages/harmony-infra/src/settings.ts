@@ -83,7 +83,7 @@ export class Settings {
    */
   static fromHeaders(headers: Record<string, string | string[]>): Settings {
     return new Settings({
-      managementHost: getHeaderValue(headers, 'MANAGEMENT_HOST'),
+      managementHost: getHeaderValue(headers, 'MANAGEMENT-HOST'),
       origin: getHeaderValue(headers, 'ORIGIN'),
       apiKey: getHeaderValue(headers, 'API-KEY')
     });

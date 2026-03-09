@@ -73,29 +73,39 @@ export class CPMcpServer extends McpServer {
   tool(...args: any[]): any {
     // The last argument is always the callback
     const callback = args[args.length - 1];
-    
+
     if (typeof callback === 'function') {
       // Extract tool name from first argument
       const toolName = args[0];
-      
+
       // Wrap the callback to add telemetry
       const wrappedCallback = async (...callbackArgs: any[]) => {
         // Extract extra context for telemetry (contains client IP info)
-        const extra = callbackArgs[1]; // second argument is typically 'extra' context
-        
+        // SDK bug workaround: For tools with no parameters, SDK passes extra context as first argument
+        let extra = callbackArgs[1]; // second argument is typically 'extra' context
+        if (!extra && callbackArgs[0]?.sessionId) {
+          // Workaround: MCP SDK v1.25.2 bug - for empty-param tools, extra is in first arg
+          extra = callbackArgs[0];
+        }
+
         // Track the tool call (non-blocking)
         trackToolCall(this.mcpName, toolName, this.mcpVersion, extra).catch(() => {
           // Ignore telemetry errors
         });
-        
-        // Execute the original callback
+
+        // Execute the original callback with normalized arguments
+        // Workaround for MCP SDK v1.25.2 bug: For tools with no params, SDK passes extra as first arg
+        // We need to normalize this to (args, extra) format that tool handlers expect
+        if (callbackArgs.length === 1 && callbackArgs[0]?.sessionId) {
+          return callback({}, callbackArgs[0]);
+        }
         return callback(...callbackArgs);
       };
-      
+
       // Replace the callback in args
       args[args.length - 1] = wrappedCallback;
     }
-    
+
     // Call the parent tool method with wrapped callback
     // @ts-ignore - TypeScript doesn't like spread with any[], but it works at runtime
     return super.tool(...args);

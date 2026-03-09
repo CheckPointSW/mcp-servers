@@ -6,6 +6,7 @@ import fs from 'fs';
 import http from 'http';
 import { randomUUID } from 'crypto';
 import { ToolPolicyCallback } from './tool-policy.js';
+import { SettingsManager } from './settings-manager.js';
 
 export interface CliOption {
   flag: string;
@@ -22,7 +23,7 @@ export interface ServerConfig {
 }
 
 export interface ServerModule {
-  server: any; // The MCP server instance
+  server: any; // The MCP server instance (used for stdio transport)
   Settings: {
     fromArgs(options: any): any;
     fromHeaders(headers: Record<string, string | string[]>): any;
@@ -32,6 +33,7 @@ export interface ServerModule {
   sessionManager: any; // SessionManager instance for session lifecycle management
   pkg: { version: string };
   toolPolicyCallback?: ToolPolicyCallback; // Optional tool policy callback
+  createServerInstance?: () => any; // Factory function to create new server instances for HTTP sessions
 }
 
 export type TransportType = 'stdio' | 'http';
@@ -58,7 +60,7 @@ export async function launchMCPServer(
   // Dynamically add options from config
   config.options.forEach(option => {
     const envValue = option.env ? process.env[option.env] : undefined;
-    const defaultValue = option.default || envValue;
+    const defaultValue = envValue || option.default;
     
     if (option.type === 'boolean') {
       const boolDefault = envValue === 'true' || option.default === 'true';
@@ -166,6 +168,9 @@ async function launchHTTPServer(
 ): Promise<void> {
   // Map to store transports by session ID
   const transports: Record<string, StreamableHTTPServerTransport> = {};
+
+  // Map to store per-session server instances (if using server factory)
+  const serverInstances: Record<string, any> = {};
   
   // Create HTTP server
   const server = http.createServer(async (req, res) => {
@@ -201,62 +206,98 @@ async function launchHTTPServer(
           
           if (sessionId && transports[sessionId]) {
             // Reuse existing transport for the session
+            const verbose = SettingsManager.globalDebugState;
+            if (verbose) {
+              console.error('[launchHTTPServer] Verbose: Reusing existing transport for session:', sessionId);
+            }
             transport = transports[sessionId];
-            
+
             // Initialize settings from headers
             if (!serverModule.settingsManager) {
               throw new Error('ServerModule must have a settingsManager. Create it with createServerModule.');
             }
-            
-            serverModule.settingsManager.createFromHeaders(headersToEnvVars(req.headers, config), sessionId);
+
+            if (verbose) {
+              console.error('[launchHTTPServer] Verbose: Converting headers for existing session');
+            }
+            const envHeaders = headersToEnvVars(req.headers, config);
+            if (verbose) {
+              console.error('[launchHTTPServer] Verbose: Creating settings from headers for existing session');
+            }
+            serverModule.settingsManager.createFromHeaders(envHeaders, sessionId);
           } else if (!sessionId && body && body.method === 'initialize') {
             // New initialization request
             transport = new StreamableHTTPServerTransport({
               sessionIdGenerator: () => randomUUID(),
               onsessioninitialized: (sid: string) => {
+                const verbose = SettingsManager.globalDebugState;
+                if (verbose) {
+                  console.error('[launchHTTPServer] Verbose: New session initialized:', sid);
+                }
                 // Store the transport by session ID
                 transports[sid] = transport;
-                
+
+                if (verbose) {
+                  console.error('[launchHTTPServer] Verbose: Converting headers for new session');
+                  console.error('[launchHTTPServer] Verbose: Raw request headers:', Object.keys(req.headers));
+                }
                 // Create session in the session manager
                 const headers = headersToEnvVars(req.headers, config);
+                if (verbose) {
+                  console.error('[launchHTTPServer] Verbose: Converted headers count:', Object.keys(headers).length);
+                }
+
                 const metadata = {
                   userAgent: req.headers['user-agent'],
                   origin: req.headers.origin || req.headers.referer,
                   remoteAddress: req.socket.remoteAddress,
                   initialPath: req.url
                 };
-                
+
+                if (verbose) {
+                  console.error('[launchHTTPServer] Verbose: Creating session in session manager');
+                }
                 serverModule.sessionManager.createSession(sid, metadata);
-                
+
                 // Set up the session-specific settings
+                if (verbose) {
+                  console.error('[launchHTTPServer] Verbose: Creating settings from headers for new session');
+                }
                 serverModule.settingsManager.createFromHeaders(headers, sid);
-                
+                if (verbose) {
+                  console.error('[launchHTTPServer] Verbose: Session initialization complete');
+                }
+
               }
             });
-            
+
             // Clean up transport when closed
             (transport as any).onclose = () => {
               const sid = (transport as any).sessionId;
               if (sid) {
                 delete transports[sid];
-                
+
+                // Clean up per-session server instance if exists
+                if (serverInstances[sid]) {
+                  delete serverInstances[sid];
+                }
+
                 // Clean up session-specific resources
                 serverModule.settingsManager.clearSession(sid);
                 serverModule.apiManagerFactory.clearSession(sid);
-                
+
                 // Remove the session from session manager (this will also clean up SessionContext data)
                 serverModule.sessionManager.removeSession(sid);
-                
+
               }
             };
-            
+
             // Initialize settings from headers will be done in the onsessioninitialized callback
             // once we know the session ID
             if (!serverModule.settingsManager) {
               throw new Error('ServerModule must have a settingsManager. Create it with createServerModule.');
             }
-            
-            // Connect to the MCP server - only needed for new transports
+
             // Configure the transport to include session information in the extra context
             // Cast to any as the type definition may not include this property
             (transport as any).extraContext = (msg: any) => {
@@ -266,8 +307,31 @@ async function launchHTTPServer(
                 transport
               };
             };
-            
-            await serverModule.server.connect(transport)
+
+            // Create a per-session server instance if factory is available
+            let serverToConnect: any;
+            if (serverModule.createServerInstance) {
+              // Use per-session server instance (recommended for HTTP multi-user)
+              const sessionServer = serverModule.createServerInstance();
+              serverToConnect = sessionServer;
+
+              // Store the server instance for this session
+              // We'll store it after we know the session ID in a deferred manner
+              const originalOnSessionInit = (transport as any).onsessioninitialized;
+              (transport as any).onsessioninitialized = (sid: string) => {
+                serverInstances[sid] = sessionServer;
+                if (originalOnSessionInit) {
+                  originalOnSessionInit(sid);
+                }
+              };
+            } else {
+              // Fall back to shared server instance (not recommended for multi-user)
+              serverToConnect = serverModule.server;
+              console.error('Warning: Using shared server instance. Consider providing createServerInstance for better multi-user support.');
+            }
+
+            // Connect to the MCP server - only needed for new transports
+            await serverToConnect.connect(transport)
               .catch((error: Error) => {
                 console.error('Error connecting to HTTP transport:', error);
               });
@@ -371,25 +435,52 @@ async function launchHTTPServer(
  * @returns Headers converted to environment variable format
  */
 function headersToEnvVars(
-  headers: http.IncomingHttpHeaders, 
+  headers: http.IncomingHttpHeaders,
   config?: ServerConfig
 ): Record<string, string | string[]> {
+  const verbose = SettingsManager.globalDebugState;
+
+  if (verbose) {
+    console.error('[headersToEnvVars] Verbose: Converting headers to env vars');
+    console.error('[headersToEnvVars] Verbose: Input headers count:', Object.keys(headers).length);
+    console.error('[headersToEnvVars] Verbose: Input header keys:', Object.keys(headers));
+
+    // Early check - if headers is empty
+    if (!headers || Object.keys(headers).length === 0) {
+      console.error('[headersToEnvVars] Verbose: WARNING - Headers object is empty');
+    }
+  }
+
+  if (!headers || Object.keys(headers).length === 0) {
+    return {};
+  }
+
   const result: Record<string, string | string[]> = {};
-  
+
   // First, convert all headers to uppercase with underscores
   for (const [name, value] of Object.entries(headers)) {
     if (value !== undefined) {
       // Convert header names to environment variable format (UPPER_CASE)
       const envName = name.toUpperCase().replace(/-/g, '_');
       result[envName] = value;
+      if (verbose) {
+        console.error(`[headersToEnvVars] Verbose: Basic mapping: "${name}" -> "${envName}"`);
+      }
     }
   }
-  
+
+  if (verbose) {
+    console.error('[headersToEnvVars] Verbose: After basic mapping, result keys:', Object.keys(result));
+  }
+
   // If we have a config, try to map header values to the environment variables defined in the config
   if (config && config.options) {
+    if (verbose) {
+      console.error('[headersToEnvVars] Verbose: Config provided, building header-to-env mapping');
+    }
     // Create a map of lowercase header name -> env var name
     const headerToEnvMap: Record<string, string> = {};
-    
+
     // Build a mapping from header keys to environment variable names based on config
     for (const option of config.options) {
       if (option.env) {
@@ -398,27 +489,56 @@ function headersToEnvVars(
           .split(' ')[0]                   // Extract just the flag part (e.g., --api-key from --api-key <key>)
           .replace(/^--?/, '')             // Remove leading -- or -
           .replace(/-/g, '_');             // Convert dashes to underscores
-          
+
         headerToEnvMap[flagName.toLowerCase()] = option.env;
-        
+        if (verbose) {
+          console.error(`[headersToEnvVars] Verbose: Mapping: "${flagName.toLowerCase()}" -> "${option.env}"`);
+        }
+
         // Also map the env name to itself (in case header is already in env var format)
         headerToEnvMap[option.env.toLowerCase()] = option.env;
       }
     }
-    
+
+    if (verbose) {
+      console.error('[headersToEnvVars] Verbose: headerToEnvMap:', headerToEnvMap);
+    }
+
     // Look for headers that match our config options
+    let mappedCount = 0;
     for (const [headerName, headerValue] of Object.entries(headers)) {
       if (headerValue !== undefined) {
         const normalizedHeaderName = headerName.toLowerCase().replace(/-/g, '_');
         const envVarName = headerToEnvMap[normalizedHeaderName];
-        
+
         if (envVarName) {
           // We found a matching environment variable in the config
           result[envVarName] = headerValue;
+          mappedCount++;
+          if (verbose) {
+            console.error(`[headersToEnvVars] Verbose: Config mapping: "${headerName}" -> "${envVarName}"`);
+          }
         }
       }
     }
+
+    if (verbose) {
+      console.error(`[headersToEnvVars] Verbose: Mapped ${mappedCount} headers using config`);
+    }
+  } else if (verbose) {
+    console.error('[headersToEnvVars] Verbose: No config provided, skipping config-based mapping');
   }
-  
+
+  if (verbose) {
+    console.error('[headersToEnvVars] Verbose: Final result keys:', Object.keys(result));
+    console.error('[headersToEnvVars] Verbose: Final result (sanitized):',
+      Object.fromEntries(
+        Object.entries(result).map(([k, v]) =>
+          [k, (k.toLowerCase().includes('key') || k.toLowerCase().includes('token') || k.toLowerCase().includes('password')) ? '***' : v]
+        )
+      )
+    );
+  }
+
   return result;
 }

@@ -2,6 +2,7 @@
 import {APIClientBase, SmartOneCloudAPIClient, OnPremAPIClient, BearerTokenAPIClient, TokenType} from './api-client.js';
 
 import {sanitizeData} from "./string-utils.js";
+import { SettingsManager } from '@chkp/mcp-utils';
 
 /**
  * Base class for API managers
@@ -14,7 +15,16 @@ export abstract class APIManagerBase {
   // Storage for domain-specific API clients in MDS environments
   private domainClients: Map<string, APIClientBase> = new Map(); // domain -> client
   private gatewayDomainMap: Map<string, string> = new Map(); // gateway -> domain
-  private domains: Array<{ name: string; type: string }> | null = null;
+  private domains: Array<{
+    name: string;
+    type: string;
+    servers?: Array<{
+      name?: string;
+      'ipv4-address'?: string;
+      'ipv6-address'?: string;
+      active?: boolean
+    }>
+  }> | null = null;
 
   constructor(protected readonly client: APIClientBase) {}
 
@@ -44,10 +54,10 @@ export abstract class APIManagerBase {
    */
   async callApi(method: string, uri: string, data: Record<string, any>, domain?: string): Promise<Record<string, any>> {
     const sanitizedData = sanitizeData(data);
-    
+
     // If domain is specified, use domain-specific routing logic similar to runScript
     const apiClient = domain ? await this.getDomainApiClientByDomain(domain) : this.client;
-    
+
     // Use the default client for non-domain-specific calls
     const clientResponse = await apiClient.callApi(
       method,
@@ -59,6 +69,42 @@ export abstract class APIManagerBase {
   }
 
   /**
+   * Get the result of a management API task (similar to getTaskResult but for management tasks)
+   */
+  async getManagementTaskResult(
+    taskId: string,
+    domain?: string,
+    maxRetries: number = 5
+  ): Promise<any> {
+    let retries = 0;
+    const timeouts = [500, 500, 1000, 2000, 5000]; // Retry intervals in milliseconds
+
+    while (retries < maxRetries) {
+      const taskParams = { 'task-id': taskId };
+      const taskResp = await this.callApi('POST', 'show-task', taskParams, domain);
+
+      const tasks = taskResp?.tasks || [];
+      if (tasks.length > 0) {
+        const taskStatus = tasks[0].status;
+
+        if (taskStatus === 'succeeded' || taskStatus === 'failed') {
+          return { response: taskResp };
+        }
+      }
+
+      // Task still in progress, wait and retry
+      const timeout = timeouts[Math.min(retries, timeouts.length - 1)];
+      await new Promise(resolve => setTimeout(resolve, timeout));
+      retries++;
+    }
+
+    // Task did not complete in time, return last response
+    const taskParams = { 'task-id': taskId };
+    const taskResp = await this.callApi('POST', 'show-task', taskParams, domain);
+    return { response: taskResp };
+  }
+
+  /**
    * Check if the current environment is MDS
    */
   async isMds(): Promise<boolean> {
@@ -66,24 +112,47 @@ export abstract class APIManagerBase {
   }
 
   /**
-   * Get domains from show-domains API
+   * Get domains from show-domains API with full details including server information
    */
-  async getDomains(): Promise<Array<{ name: string; type: string }>> {
+  async getDomains(): Promise<Array<{
+    name: string;
+    type: string;
+    servers?: Array<{
+      name?: string;
+      'ipv4-address'?: string;
+      'ipv6-address'?: string;
+      active?: boolean
+    }>
+  }>> {
     // Return cached domains if available
     if (this.domains !== null) {
       return this.domains;
     }
 
-    const response = await this.callApi('post', 'show-domains', {});
+    // Fetch domains with full details to get server information (active/standby MDS IPs)
+    const response = await this.callApi('post', 'show-domains', {
+      'details-level': 'full'
+    });
 
-    // Extract domain names and types from the response
-    const domains: Array<{ name: string; type: string }> = [];
+    // Extract domain names, types, and server information from the response
+    const domains: Array<{
+      name: string;
+      type: string;
+      servers?: Array<{
+        name?: string;
+        'ipv4-address'?: string;
+        'ipv6-address'?: string;
+        active?: boolean
+      }>
+    }> = [];
+
     if (response.objects) {
       for (const obj of response.objects) {
         if (obj.name && obj.type) {
           domains.push({
             name: obj.name,
-            type: obj.type
+            type: obj.type,
+            servers: obj.servers || []
           });
         }
       }
@@ -157,6 +226,8 @@ export abstract class APIManagerBase {
 
   /**
    * Get the appropriate API client for a specific domain, handling MDS domain routing
+   * This method handles multi-MDS environments where domains may be distributed across
+   * different MDS servers with active/standby configurations.
    */
   async getDomainApiClientByDomain(domainName: string): Promise<APIClientBase> {
     // 1. Check if the main API client is MDS, if not return it directly
@@ -171,15 +242,62 @@ export abstract class APIManagerBase {
       return existingDomainClient;
     }
 
-    // 3. Need to login to the domain and create a new client
-    const domainSid = await this.loginToDomain(domainName);
-    
-    // Create a new client with the domain SID
+    // 3. Check if the domain exists on the current MDS server (active or standby)
+    const isOnCurrentMDS = await this.isDomainOnCurrentMDS(domainName);
+
+    if (isOnCurrentMDS) {
+      // Domain is present on current MDS (either active or standby)
+      // We can use the current connection to login to the domain
+      const domainSid = await this.loginToDomain(domainName);
+      const domainClient = this.createClientWithSid(domainSid);
+      this.domainClients.set(domainName, domainClient);
+      return domainClient;
+    }
+
+    // 4. Domain is NOT on current MDS - need to connect to a different MDS server
+    const targetMDSIP = await this.getMDSServerForDomain(domainName);
+
+    if (!targetMDSIP) {
+      throw new Error(
+        `Domain '${domainName}' not found or has no available MDS servers. ` +
+        `Make sure the domain exists and you have access to it.`
+      );
+    }
+
+    // Extract port from current client if available
+    const currentHost = this.client.getHost();
+    const portMatch = currentHost.match(/:(\d+)/);
+    const port = portMatch ? portMatch[1] : '443';
+
+    // 5. Create a new API client for the target MDS server
+    const newMDSClient = this.createClientForMDS(targetMDSIP, port);
+
+    // Copy debug setting to the new client
+    if ('debug' in newMDSClient) {
+      (newMDSClient as any).debug = this._debug;
+    }
+
+    // 6. Login to the target MDS server
+    await newMDSClient.login();
+
+    // 7. Login to the specific domain on the target MDS
+    const loginResponse = await newMDSClient.callApi('post', 'login-to-domain', {
+      'domain': domainName
+    }, undefined);
+
+    if (!loginResponse.response.sid) {
+      throw new Error(
+        `Failed to login to domain '${domainName}' on MDS server ${targetMDSIP}`
+      );
+    }
+
+    // 8. Create a client with the domain SID
+    const domainSid = loginResponse.response.sid;
     const domainClient = this.createClientWithSid(domainSid);
-    
-    // 4. Store the domain client
+
+    // Store the domain client for reuse
     this.domainClients.set(domainName, domainClient);
-    
+
     return domainClient;
   }
 
@@ -224,6 +342,94 @@ export abstract class APIManagerBase {
       return APIClientBase.createWithSid.call(SmartOneCloudAPIClient, this.client, sid);
     } else {
       throw new Error('Unknown client type');
+    }
+  }
+
+  /**
+   * Check if a domain exists on the current MDS server (either active or standby)
+   */
+  private async isDomainOnCurrentMDS(domainName: string): Promise<boolean> {
+    const domains = await this.getDomains();
+    const domain = domains.find(d => d.name === domainName);
+
+    if (!domain?.servers || domain.servers.length === 0) {
+      return false;
+    }
+
+    // Extract the IP/host from the current client's host URL
+    const currentHost = this.client.getHost();
+
+    // Check if any of the domain's servers match the current MDS host (IPv4 or IPv6)
+    return domain.servers.some(server => {
+      const ipv4 = server['ipv4-address'];
+      const ipv6 = server['ipv6-address'];
+      return (ipv4 && currentHost.includes(ipv4)) || (ipv6 && currentHost.includes(ipv6));
+    });
+  }
+
+  /**
+   * Get the appropriate MDS server IP for a domain
+   * Prefers the active server, but returns any available server
+   * Returns IPv4 if available, otherwise IPv6
+   */
+  private async getMDSServerForDomain(domainName: string): Promise<string | null> {
+    const domains = await this.getDomains();
+    const domain = domains.find(d => d.name === domainName);
+
+    if (!domain?.servers || domain.servers.length === 0) {
+      return null;
+    }
+
+    // Prefer the active server with IPv4, then active with IPv6
+    const activeServer = domain.servers.find(s => s.active === true);
+    if (activeServer) {
+      // Prefer IPv4 over IPv6 for backward compatibility
+      if (activeServer['ipv4-address']) {
+        return activeServer['ipv4-address'];
+      }
+      if (activeServer['ipv6-address']) {
+        return activeServer['ipv6-address'];
+      }
+    }
+
+    // Fallback to any available server (prefer IPv4 over IPv6)
+    const ipv4Server = domain.servers.find(s => s['ipv4-address']);
+    if (ipv4Server?.['ipv4-address']) {
+      return ipv4Server['ipv4-address'];
+    }
+
+    const ipv6Server = domain.servers.find(s => s['ipv6-address']);
+    return ipv6Server?.['ipv6-address'] || null;
+  }
+
+  /**
+   * Create a new API client for a different MDS server
+   * Handles both IPv4 and IPv6 addresses
+   * Only supports OnPremAPIClient for multi-MDS scenarios
+   */
+  private createClientForMDS(mdsIP: string, port: string = '443'): APIClientBase {
+    if (this.client instanceof OnPremAPIClient) {
+      // Access the private properties through type casting
+      const currentClient = this.client as any;
+
+      // Format IPv6 addresses properly for URL usage (wrap in brackets if needed)
+      const formattedHost = mdsIP.includes(':') && !mdsIP.startsWith('[')
+        ? `[${mdsIP}]`
+        : mdsIP;
+
+      // Create a new OnPremAPIClient with the same credentials but different host
+      return new OnPremAPIClient(
+        currentClient.authToken || undefined,
+        formattedHost,
+        port,
+        currentClient.username,
+        currentClient.password
+      );
+    } else if (this.client instanceof SmartOneCloudAPIClient) {
+      // SmartOneCloud doesn't support multi-MDS in the same way
+      throw new Error('Multi-MDS routing is not supported for SmartOneCloud environments');
+    } else {
+      throw new Error('Unknown client type for MDS routing');
     }
   }
 
@@ -306,7 +512,7 @@ export abstract class APIManagerBase {
  * API manager for authentication (API key or username/password)
  */
 export class APIManagerForAPIKey extends APIManagerBase {
-  static override create(args: { 
+  static override create(args: {
     apiKey?: string;
     username?: string;
     password?: string;
@@ -315,8 +521,37 @@ export class APIManagerForAPIKey extends APIManagerBase {
     s1cUrl?: string;
     cloudInfraToken?: string;
   }): APIManagerForAPIKey {
+    const verbose = SettingsManager.globalDebugState;
+
+    if (verbose) {
+      console.error('[APIManagerForAPIKey.create] Verbose: Creating API manager');
+      console.error('[APIManagerForAPIKey.create] Verbose: Args received:', {
+        apiKey: args.apiKey ? '***' : undefined,
+        username: args.username ? '***' : undefined,
+        password: args.password ? '***' : undefined,
+        managementHost: args.managementHost,
+        managementPort: args.managementPort,
+        s1cUrl: args.s1cUrl,
+        cloudInfraToken: args.cloudInfraToken ? '***' : undefined
+      });
+    }
+
+    // Early validation - check if args is effectively empty
+    const hasAnyValue = args.apiKey || args.username || args.password ||
+                        args.s1cUrl || args.managementHost || args.cloudInfraToken;
+    if (!hasAnyValue) {
+      if (verbose) {
+        console.error('[APIManagerForAPIKey.create] Verbose: ERROR - Args object is effectively empty, no values provided');
+        console.error('[APIManagerForAPIKey.create] Verbose: All args keys:', Object.keys(args));
+      }
+      throw new Error('No authentication or connection parameters provided. Args object is empty or contains only undefined values.');
+    }
+
     // For on-prem management - supports both API key and username/password
     if (args.managementHost) {
+      if (verbose) {
+        console.error('[APIManagerForAPIKey.create] Verbose: Using on-prem management with host:', args.managementHost);
+      }
       // Create an OnPremAPIClient with username/password support
       const onPremClient = new OnPremAPIClient(
         args.apiKey,
@@ -328,22 +563,41 @@ export class APIManagerForAPIKey extends APIManagerBase {
       return new this(onPremClient);
     }
 
+    if (verbose) {
+      console.error('[APIManagerForAPIKey.create] Verbose: managementHost not provided, checking s1cUrl');
+    }
     if (!args.s1cUrl) {
+      if (verbose) {
+        console.error('[APIManagerForAPIKey.create] Verbose: ERROR - Neither managementHost nor s1cUrl provided');
+      }
       throw new Error('Either management host or S1C URL must be provided');
+    }
+
+    if (verbose) {
+      console.error('[APIManagerForAPIKey.create] Verbose: Using S1C with URL:', args.s1cUrl);
     }
 
     let keyType: TokenType;
     let key: string;
 
     if (args.cloudInfraToken) {
+      if (verbose) {
+        console.error('[APIManagerForAPIKey.create] Verbose: Using cloud infra token');
+      }
       keyType = TokenType.CI_TOKEN;
       key = args.cloudInfraToken;
     }
     else if (args.apiKey) {
+      if (verbose) {
+        console.error('[APIManagerForAPIKey.create] Verbose: Using API key');
+      }
       keyType = TokenType.API_KEY;
       key = args.apiKey;
     }
     else {
+      if (verbose) {
+        console.error('[APIManagerForAPIKey.create] Verbose: ERROR - No API key or cloud infra token provided');
+      }
       throw new Error('API key or cloud infrastructure token is required');
     }
 

@@ -1,0 +1,49 @@
+{
+  "name": "@chkp/policy-insights-mcp",
+  "version": "0.0.1",
+  "bin": {
+    "policy-insights-mcp": "dist/index.js"
+  },
+  "description": "Official MCP server for Check Point Policy Insights",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CheckPointSW/mcp-servers.git",
+    "directory": "packages/policy-insights"
+  },
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "npm run build:bundle && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
+    "build:bundle": "node ../../bundle-mcp.js",
+    "build:tsc": "npx tsc && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "commander": "^13.1.0",
+    "axios": "^1.13.5",
+    "node-machine-id": "^1.1.12",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@chkp/mcp-utils": "*",
+    "@chkp/quantum-infra": "*",
+    "@types/node": "^22.15.2",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "prettier": "^3.6.2",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [],
+  "author": ""
+}

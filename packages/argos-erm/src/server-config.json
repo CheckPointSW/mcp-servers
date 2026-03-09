@@ -7,21 +7,24 @@
       "description": "Argos instance URL - example: https://<your_instance>.cyberint.io/",
       "env": "ARGOS_SERVER_URL",
       "required": true,
-      "type": "string"
+      "type": "string",
+      "help": "Your Argos ERM instance URL. Format: https://<your_instance>.cyberint.io/. Found in your Argos ERM portal under account settings"
     },
     {
       "flag": "--argos-integration-token <token>",
       "description": "Argos ERM API key for authentication",
       "env": "ARGOS_INTEGRATION_TOKEN",
       "required": true,
-      "type": "string"
+      "type": "string",
+      "help": "API authentication token for your Argos ERM instance. Generate from your Argos ERM portal under Integrations or API settings"
     },
     {
       "flag": "--argos-customer-id <id>",
       "description": "Argos ERM customer ID",
       "env": "ARGOS_CUSTOMER_ID",
       "required": true,
-      "type": "string"
+      "type": "string",
+      "help": "Your Argos ERM customer ID. Required for all API calls. Found in your Argos ERM portal under account or tenant settings"
     }
   ]
 }

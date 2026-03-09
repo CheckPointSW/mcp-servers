@@ -63,7 +63,8 @@ Set the following environment variables:
 
 - `CLIENT_ID`: Client ID for authentication with Check Point Documentation Tool (required)
 - `SECRET_KEY`: Secret Key for authentication with Check Point Documentation Tool (required)
-- `REGION`: Documentation Tool region - EU, US, STG, or Local (default: EU)
+- `AUTH_URL`: Authentication URL copied from the API key creation dialog (e.g. `https://cloudinfra-gw.portal.checkpoint.com/auth/external`). Recommended — the path suffix is stripped automatically so you can paste it directly. When set, `REGION` is inferred and does not need to be set separately.
+- `REGION`: Short region code — `EU`, `US`, `STG`, or `LOCAL` (default: `EU`). Use this instead of `AUTH_URL` for backwards-compatible configurations.
   
 ---
 
@@ -75,7 +76,7 @@ Set the following environment variables:
 
 - `CLIENT_ID`: Your client ID for Documentation Tool authentication
 - `SECRET_KEY`: Your secret key for Documentation Tool authentication
-- `REGION`: Set to "Local" for on-premises deployment
+- `REGION`: Set to `LOCAL` for on-premises deployment
   
 ---
 
@@ -107,12 +108,14 @@ It is expected to work with any MCP client that supports the Model Context Proto
       "env": {
         "CLIENT_ID": "YOUR_CLIENT_ID",
         "SECRET_KEY": "YOUR_SECRET_KEY",
-        "REGION": "EU"
+        "AUTH_URL": "YOUR_AUTH_URL"
       }
     }
   }
 }
 ```
+
+> **Tip:** Copy `AUTH_URL` directly from the Authentication URL shown in the API key creation dialog. The path suffix is stripped automatically — no manual editing needed.
 
 ### Configuring the Claude Desktop App
 
@@ -143,7 +146,7 @@ Add the server configuration:
       "env": {
         "CLIENT_ID": "YOUR_CLIENT_ID",
         "SECRET_KEY": "YOUR_SECRET_KEY",
-        "REGION": "EU"
+        "AUTH_URL": "YOUR_AUTH_URL"
       }
     }
   }
@@ -170,7 +173,7 @@ Add this configuration:
         "env": {
           "CLIENT_ID": "YOUR_CLIENT_ID",
           "SECRET_KEY": "YOUR_SECRET_KEY",
-          "REGION": "EU"
+          "AUTH_URL": "YOUR_AUTH_URL"
         }
       }
     }
@@ -219,7 +222,17 @@ npm run build
 You can run the server locally for development using [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector) or any compatible MCP client.
 
 ```bash
-node FULL_PATH_TO_SERVER/packages/copilot/dist/index.js --client-id "YOUR_CLIENT_ID" --secret-key "YOUR_SECRET_KEY" --region "EU"
+# Option A: use the Authentication URL from the API key creation dialog
+node FULL_PATH_TO_SERVER/packages/documentation-tool/dist/index.js \
+  --client-id "YOUR_CLIENT_ID" \
+  --secret-key "YOUR_SECRET_KEY" \
+  --auth-url "YOUR_AUTH_URL"
+
+# Option B: use a region code (EU / US / STG / LOCAL)
+node FULL_PATH_TO_SERVER/packages/documentation-tool/dist/index.js \
+  --client-id "YOUR_CLIENT_ID" \
+  --secret-key "YOUR_SECRET_KEY" \
+  --region "EU"
 ```
 
 ---

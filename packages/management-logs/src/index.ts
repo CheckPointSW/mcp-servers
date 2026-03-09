@@ -2,8 +2,8 @@
 
 import { z } from 'zod';
 import { Settings, APIManagerForAPIKey } from '@chkp/quantum-infra';
-import { 
-  launchMCPServer, 
+import {
+  launchMCPServer,
   createServerModule,
   createApiRunner,
   SessionContext,
@@ -11,6 +11,12 @@ import {
 } from '@chkp/mcp-utils';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import {
+  getCurrentDateStr,
+  generateDates,
+  checkSessionUser,
+  checkSessionInTimeFrame,
+} from './helpers.js';
 
 const { server, pkg } = createMcpServer(import.meta.url, {
   description: 'MCP server to interact with Management Logs objects on Check Point Products.'
@@ -262,7 +268,7 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -270,7 +276,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
@@ -291,7 +297,7 @@ server.tool(
       offset: z.number().optional().default(0),
       order: z.array(z.string()).optional(),
       details_level: z.string().optional(),
-      domains_to_process: z.array(z.string()).optional(),
+      domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
       type: z.string().optional(),
       domain: z.string().optional(),
   },
@@ -302,7 +308,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     const type = typeof args.type === 'string' ? args.type : undefined;
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
     const params: Record<string, any> = { limit, offset };
@@ -335,6 +341,146 @@ server.tool(
       const apiManager = SessionContext.getAPIManager(serverModule, extra);
       const resp = await apiManager.callApi('POST', 'show-object', params, domain);
       return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+  }
+);
+
+// Tool: check_user_changes
+server.tool(
+  'check_user_changes',
+  'Use this tool if and only if the user asks which changes were made by a specific user in the environment. ' +
+  'If the question contains time frame, convert the timeframe to the parameters from_date and to_date ' +
+  `based on today date: ${getCurrentDateStr()}.`,
+  {
+    from_date: z.string().optional().describe(
+      `The date from when to check the changes. The format is YYYY-MM-DDTHH:MM:SSZ. ` +
+      `Fill this parameter only if a time frame exists in the question. ` +
+      `Make sure to fill this parameter based on the current date ${getCurrentDateStr()}.`
+    ),
+    to_date: z.string().optional().describe(
+      `The date until when to check the changes. The format is YYYY-MM-DDTHH:MM:SSZ. ` +
+      `Fill this parameter only if a time frame exists in the question. ` +
+      `Make sure to fill this parameter based on the current date ${getCurrentDateStr()}.`
+    ),
+    user: z.string().describe("The name of the user. Put '' if no specific user was mentioned"),
+    domain: z.string().optional().describe('Domain name for Multi-Domain environments.'),
+  },
+  async (args: Record<string, unknown>, extra: any) => {
+    try {
+      const apiManager = SessionContext.getAPIManager(serverModule, extra);
+      const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
+      const [fromDate, toDate] = await generateDates(args as Record<string, any>);
+      const user = args.user as string;
+      let offset = 0;
+      const limit = 100;
+      let total = 100;
+      let lastSessionInTimeFrame = true;
+      const totalSessionsResponse: any[] = [];
+      const totalSessionsObjects: any[] = [];
+
+      if (!fromDate || !toDate) {
+        const response = [{ message: 'No time frame is defined. Should try with log tool' }];
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({ success: true, response, next_tool: 'KQL' }, null, 2)
+          }]
+        };
+      }
+
+      if (!user) {
+        const response = [{ message: 'No specific user is defined. Should try with log tool' }];
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({ success: true, response, next_tool: 'KQL' }, null, 2)
+          }]
+        };
+      }
+
+
+      // Fetch all sessions
+      while (total === limit && lastSessionInTimeFrame) {
+        const sessionsParams = {
+          'details-level': 'full',
+          'view-published-sessions': true,
+          offset,
+          limit,
+        };
+
+        const sessionsResponse = await apiManager.callApi('POST', 'show-sessions', sessionsParams, domain);
+        totalSessionsResponse.push(sessionsResponse);
+
+        const sessionsObjects = sessionsResponse.objects || [];
+        if (sessionsObjects.length > 0) {
+          totalSessionsObjects.push(...sessionsObjects);
+
+          const lastSession = sessionsObjects[sessionsObjects.length - 1];
+          if (!fromDate || !checkSessionInTimeFrame(lastSession, fromDate, null)) {
+            lastSessionInTimeFrame = false;
+          }
+        } else {
+          lastSessionInTimeFrame = false;
+        }
+
+        total = sessionsObjects.length;
+        offset += total;
+      }
+
+      // Filter sessions by user and timeframe
+      const filteredSessions = totalSessionsObjects
+        .filter(resp => checkSessionUser(resp, user) && checkSessionInTimeFrame(resp, fromDate, toDate))
+        .map(resp => resp.uid);
+
+      if (filteredSessions.length === 0) {
+        const response = [
+          {
+            message: 'No changes for this timeframe were found by this tool, ' +
+                    'before answering to the user, call log tool to check it'
+          }
+        ];
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({ success: true, response, next_tool: 'KQL' }, null, 2)
+          }]
+        };
+      }
+
+      // Get changes for each session
+      const changesResponses: any[] = [];
+      for (const session of filteredSessions) {
+        const changesParams = { 'to-session': session };
+        const changesResp = await apiManager.callApi('POST', 'show-changes', changesParams, domain);
+        changesResponses.push(changesResp);
+      }
+
+      const changesTasks = changesResponses
+        .filter(resp => resp['task-id'])
+        .map(resp => resp['task-id']);
+
+      // Get task results using infra function
+      const tasksResponses: any[] = [];
+      for (const taskId of changesTasks) {
+        const taskResult = await apiManager.getManagementTaskResult(taskId, domain, 4);
+        tasksResponses.push(taskResult);
+      }
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({ response: tasksResponses, success: true }, null, 2)
+        }]
+      };
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error checking user changes: ${errorMessage}`
+        }]
+      };
+    }
   }
 );
 

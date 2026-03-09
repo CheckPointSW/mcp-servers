@@ -176,11 +176,26 @@ server.tool(
 
 server.tool(
   'show_access_rulebase',
-  'Show the access rulebase for a given name or uid. Either name or uid is required, the other can be empty. By default, returns a formatted table with parsing capabilities. Set show_raw=true to get the raw JSON response.',
+  'Show the access rulebase for a given name or uid. Either name or uid is required, the other can be empty. By default, returns a formatted table with parsing capabilities. Set show_raw=true to get the raw JSON response. Set limit=0 to fetch the entire rulebase using pagination.',
   {
     name: z.string().optional(),
     uid: z.string().optional(),
     package: z.string().optional(),
+    filter: z.string().optional(),
+    filter_settings: z.object({
+      search_mode: z.enum(['general', 'packet']).optional().default('general'),
+      packet_search_settings: z.object({
+        expand_group_members: z.boolean().optional().default(false),
+        expand_group_with_exclusion_members: z.boolean().optional().default(false),
+        intersection_mode_dst: z.enum(['exact', 'containing', 'contained_in', 'any']).optional().default('any'),
+        intersection_mode_src: z.enum(['exact', 'containing', 'contained_in', 'any']).optional().default('any'),
+        match_on_any: z.boolean().optional().default(true),
+        match_on_group_with_exclusion: z.boolean().optional().default(true),
+        match_on_negate: z.boolean().optional().default(true),
+      }).optional()
+    }).optional(),
+    limit: z.number().optional().default(50),
+    offset: z.number().optional().default(0),
     show_raw: z.boolean().optional().default(false),
     format: z.enum(['table', 'model-friendly']).optional().default('table'),
     expand_groups: z.boolean().optional().default(false),
@@ -189,27 +204,130 @@ server.tool(
   },
   async (args: Record<string, unknown>, extra: any) => {
     const params: Record<string, any> = {};
-    
+
     if (typeof args.name === 'string' && args.name.trim() !== '') {
       params.name = args.name;
     }
-    
+
     if (typeof args.uid === 'string' && args.uid.trim() !== '') {
       params.uid = args.uid;
     }
-    
+
     if (typeof args.package === 'string' && args.package.trim() !== '') {
       params.package = args.package;
     }
-    
+
+    // Add filter parameter
+    if (typeof args.filter === 'string' && args.filter.trim() !== '') {
+      params.filter = args.filter;
+    }
+
+    // Add filter-settings parameter
+    if (args.filter_settings && typeof args.filter_settings === 'object') {
+      const filterSettings: Record<string, any> = {};
+      const fs = args.filter_settings as Record<string, any>;
+
+      if (typeof fs.search_mode === 'string') {
+        filterSettings['search-mode'] = fs.search_mode;
+      }
+
+      if (fs.packet_search_settings && typeof fs.packet_search_settings === 'object') {
+        const pss = fs.packet_search_settings as Record<string, any>;
+        const packetSettings: Record<string, any> = {};
+
+        if (typeof pss.expand_group_members === 'boolean') {
+          packetSettings['expand-group-members'] = pss.expand_group_members;
+        }
+        if (typeof pss.expand_group_with_exclusion_members === 'boolean') {
+          packetSettings['expand-group-with-exclusion-members'] = pss.expand_group_with_exclusion_members;
+        }
+        if (typeof pss.intersection_mode_dst === 'string') {
+          packetSettings['intersection-mode-dst'] = pss.intersection_mode_dst;
+        }
+        if (typeof pss.intersection_mode_src === 'string') {
+          packetSettings['intersection-mode-src'] = pss.intersection_mode_src;
+        }
+        if (typeof pss.match_on_any === 'boolean') {
+          packetSettings['match-on-any'] = pss.match_on_any;
+        }
+        if (typeof pss.match_on_group_with_exclusion === 'boolean') {
+          packetSettings['match-on-group-with-exclusion'] = pss.match_on_group_with_exclusion;
+        }
+        if (typeof pss.match_on_negate === 'boolean') {
+          packetSettings['match-on-negate'] = pss.match_on_negate;
+        }
+
+        if (Object.keys(packetSettings).length > 0) {
+          filterSettings['packet-search-settings'] = packetSettings;
+        }
+      }
+
+      if (Object.keys(filterSettings).length > 0) {
+        params['filter-settings'] = filterSettings;
+      }
+    }
+
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
+
     // Get API manager for this session
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    
-    // Call the API
-    const resp = await apiManager.callApi('POST', 'show-access-rulebase', params, domain);
+
+    // Get limit and offset
+    const requestedLimit = typeof args.limit === 'number' ? args.limit : 50;
+    const requestedOffset = typeof args.offset === 'number' ? args.offset : 0;
+
+    let resp: any;
+
+    // If limit is 0, fetch all results by pagination
+    if (requestedLimit === 0) {
+      const batchSize = 50;
+      let currentOffset = 0;
+      let allRulebases: any[] = [];
+      let totalFetched = 0;
+      let total = 0;
+
+      // First call to get the total count and first batch
+      const firstParams = { ...params, limit: batchSize, offset: currentOffset };
+      const firstResp = await apiManager.callApi('POST', 'show-access-rulebase', firstParams, domain);
+
+      // Store first response structure
+      resp = firstResp;
+
+      // Check if the response has rulebase array
+      if (firstResp.rulebase && Array.isArray(firstResp.rulebase)) {
+        allRulebases = [...firstResp.rulebase];
+        totalFetched = firstResp.to || firstResp.rulebase.length;
+        total = firstResp.total || firstResp.rulebase.length;
+        currentOffset = totalFetched;
+
+        // Continue fetching until we have all rules
+        while (totalFetched < total) {
+          const batchParams = { ...params, limit: batchSize, offset: currentOffset };
+          const batchResp = await apiManager.callApi('POST', 'show-access-rulebase', batchParams, domain);
+
+          if (batchResp.rulebase && Array.isArray(batchResp.rulebase) && batchResp.rulebase.length > 0) {
+            allRulebases = [...allRulebases, ...batchResp.rulebase];
+            totalFetched = batchResp.to || (currentOffset + batchResp.rulebase.length);
+            currentOffset = totalFetched;
+          } else {
+            // No more data to fetch
+            break;
+          }
+        }
+
+        // Update response with all fetched rulebases
+        resp.rulebase = allRulebases;
+        resp.from = 1;
+        resp.to = allRulebases.length;
+        resp.total = total;
+      }
+    } else {
+      // Normal case: use provided limit and offset
+      params.limit = requestedLimit;
+      params.offset = requestedOffset;
+      resp = await apiManager.callApi('POST', 'show-access-rulebase', params, domain);
+    }
     
     // Check if raw data is requested
     const showRaw = typeof args.show_raw === 'boolean' ? args.show_raw : false;
@@ -405,7 +523,7 @@ server.tool(
     offset: z.number().optional(),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
     domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -415,7 +533,7 @@ server.tool(
     if (typeof args.offset === 'number') params.offset = args.offset;
     if (Array.isArray(args.order) && args.order.length > 0) params.order = args.order;
     if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params.details_level = args.details_level;
-    if (Array.isArray(args.domains_to_process) && args.domains_to_process.length > 0) params.domains_to_process = args.domains_to_process;
+    if (typeof args.domains_to_process === 'string') params['domains-to-process'] = args.domains_to_process;
     
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -549,7 +667,7 @@ server.tool(
     offset: z.number().optional(),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
     domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -558,7 +676,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : undefined;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -609,7 +727,7 @@ server.tool(
     offset: z.number().optional(),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
     domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -618,7 +736,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : undefined;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -669,7 +787,7 @@ server.tool(
     offset: z.number().optional(),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
     domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -678,7 +796,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : undefined;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -741,7 +859,7 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -749,7 +867,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
@@ -794,7 +912,7 @@ server.tool(
     order: z.array(z.string()).optional(),
     show_membership: z.boolean().optional().default(false),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
     domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -804,7 +922,7 @@ server.tool(
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -830,7 +948,7 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
     domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -839,7 +957,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -890,7 +1008,7 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
     domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -899,7 +1017,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -949,7 +1067,7 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
     domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -958,7 +1076,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -1007,7 +1125,7 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
     domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -1016,7 +1134,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -1069,7 +1187,7 @@ server.tool(
     dereference_group_members: z.boolean().optional().default(false),
     show_membership: z.boolean().optional().default(false),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
     domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -1081,7 +1199,7 @@ server.tool(
     const dereference_group_members = typeof args.dereference_group_members === 'boolean' ? args.dereference_group_members : false;
     const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -1101,6 +1219,107 @@ server.tool(
 );
 
 server.tool(
+  'show_unused_objects',
+  'Retrieve all unused objects with optional filtering and pagination.',
+  {
+    filter: z.string().optional(),
+    limit: z.number().optional().default(50),
+    offset: z.number().optional().default(0),
+    order: z.array(z.string()).optional(),
+    dereference_group_members: z.boolean().optional().default(false),
+    show_membership: z.boolean().optional().default(false),
+    details_level: z.string().optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
+    show_only_local_domain: z.boolean().optional().default(false),
+    domain: z.string().optional(),
+  },
+  async (args: Record<string, unknown>, extra: any) => {
+    const filter = typeof args.filter === 'string' ? args.filter : '';
+    const limit = typeof args.limit === 'number' ? args.limit : 50;
+    const offset = typeof args.offset === 'number' ? args.offset : 0;
+    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
+    const dereference_group_members = typeof args.dereference_group_members === 'boolean' ? args.dereference_group_members : false;
+    const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
+    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
+    const show_only_local_domain = typeof args.show_only_local_domain === 'boolean' ? args.show_only_local_domain : false;
+
+    // Get domain parameter
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
+
+    const params: Record<string, any> = {
+      limit,
+      offset,
+      'dereference-group-members': dereference_group_members,
+      'show-membership': show_membership,
+      'show-only-local-domain': show_only_local_domain
+    };
+    if (filter) params.filter = filter;
+    if (order) params.order = order;
+    if (details_level) params['details-level'] = details_level;
+    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-unused-objects', params, domain);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+  }
+);
+
+server.tool(
+  'where_used',
+  'Search for usage of the target object in other objects and rules. Requires either uid or name parameter.',
+  {
+    uid: z.string().optional(),
+    name: z.string().optional(),
+    dereference_group_members: z.boolean().optional().default(false),
+    show_membership: z.boolean().optional().default(false),
+    async_response: z.boolean().optional().default(false),
+    details_level: z.string().optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
+    indirect: z.boolean().optional().default(false),
+    indirect_max_depth: z.number().optional().default(5),
+    domain: z.string().optional(),
+  },
+  async (args: Record<string, unknown>, extra: any) => {
+    // At least one of uid or name must be provided
+    const uid = typeof args.uid === 'string' ? args.uid : undefined;
+    const name = typeof args.name === 'string' ? args.name : undefined;
+
+    if (!uid && !name) {
+      throw new Error('Either uid or name parameter must be provided');
+    }
+
+    const dereference_group_members = typeof args.dereference_group_members === 'boolean' ? args.dereference_group_members : false;
+    const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
+    const async_response = typeof args.async_response === 'boolean' ? args.async_response : false;
+    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
+    const indirect = typeof args.indirect === 'boolean' ? args.indirect : false;
+    const indirect_max_depth = typeof args.indirect_max_depth === 'number' ? args.indirect_max_depth : 5;
+
+    // Get domain parameter
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
+
+    const params: Record<string, any> = {
+      'dereference-group-members': dereference_group_members,
+      'show-membership': show_membership,
+      'async-response': async_response,
+      indirect,
+      'indirect-max-depth': indirect_max_depth
+    };
+
+    if (uid) params.uid = uid;
+    if (name) params.name = name;
+    if (details_level) params['details-level'] = details_level;
+    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'where-used', params, domain);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+  }
+);
+
+server.tool(
   'show_services_tcp',
   'Retrieve multiple TCP service objects with optional filtering and pagination.',
   {
@@ -1110,7 +1329,7 @@ server.tool(
     order: z.array(z.string()).optional(),
     show_membership: z.boolean().optional().default(false),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
     domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -1120,7 +1339,7 @@ server.tool(
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -1147,7 +1366,7 @@ server.tool(
     order: z.array(z.string()).optional(),
     show_membership: z.boolean().optional().default(false),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1156,7 +1375,7 @@ server.tool(
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     const params: Record<string, any> = { limit, offset, 'show-membership': show_membership };
     if (filter) params.filter = filter;
     if (order) params.order = order;
@@ -1178,7 +1397,7 @@ server.tool(
     dereference_members: z.boolean().optional().default(false),
     show_membership: z.boolean().optional().default(false),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
     domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -1189,7 +1408,7 @@ server.tool(
     const dereference_members = typeof args.dereference_members === 'boolean' ? args.dereference_members : false;
     const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -1216,7 +1435,7 @@ server.tool(
     order: z.array(z.string()).optional(),
     show_membership: z.boolean().optional().default(false),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
     domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -1226,7 +1445,7 @@ server.tool(
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -1252,7 +1471,7 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
     domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -1261,7 +1480,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -1288,7 +1507,7 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
     domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -1297,7 +1516,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -1324,7 +1543,7 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
     domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -1333,7 +1552,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -1360,7 +1579,7 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
     domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -1369,7 +1588,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -1396,7 +1615,7 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
     domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -1405,7 +1624,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -1431,7 +1650,7 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1439,7 +1658,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -1467,7 +1686,7 @@ server.tool(
     order: z.array(z.string()).optional(),
     show_membership: z.boolean().optional().default(false),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1476,7 +1695,7 @@ server.tool(
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     const params: Record<string, any> = { limit, offset, 'show-membership': show_membership };
     if (filter) params.filter = filter;
     if (order) params.order = order;
@@ -1497,7 +1716,7 @@ server.tool(
     order: z.array(z.string()).optional(),
     show_membership: z.boolean().optional().default(false),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1506,7 +1725,7 @@ server.tool(
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     const params: Record<string, any> = { limit, offset, 'show-membership': show_membership };
     if (filter) params.filter = filter;
     if (order) params.order = order;
@@ -1530,7 +1749,7 @@ server.tool(
     dereference_members: z.boolean().optional().default(false),
     show_membership: z.boolean().optional().default(false),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1541,7 +1760,7 @@ server.tool(
     const dereference_members = typeof args.dereference_members === 'boolean' ? args.dereference_members : false;
     const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     const params: Record<string, any> = {
       limit, offset, 'show-as-ranges': show_as_ranges, 'dereference-members': dereference_members, 'show-membership': show_membership
     };
@@ -1563,7 +1782,7 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1571,7 +1790,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
@@ -1592,7 +1811,7 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
     domain: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -1601,7 +1820,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -1628,7 +1847,7 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1636,7 +1855,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
@@ -1657,7 +1876,7 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.array(z.string()).optional(),
+    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1665,7 +1884,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
@@ -1686,7 +1905,7 @@ server.tool(
       offset: z.number().optional().default(0),
       order: z.array(z.string()).optional(),
       details_level: z.string().optional(),
-      domains_to_process: z.array(z.string()).optional(),
+      domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
       type: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -1696,7 +1915,7 @@ server.tool(
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
-    const domains_to_process = Array.isArray(args.domains_to_process) ? args.domains_to_process as string[] : undefined;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     const type = typeof args.type === 'string' ? args.type : undefined;
     const params: Record<string, any> = { limit, offset };
     if ( uids ) params.uids = uids;
@@ -1828,6 +2047,166 @@ server.tool(
           type: 'text', 
           text: `Error finding zero hits rules: ${errorMessage}` 
         }] 
+      };
+    }
+  }
+);
+
+// Tool: simulate_packet
+server.tool(
+  'simulate_packet',
+  'Simulate a packet flow through a gateway\'s firewall policy to check if it would be accepted or dropped. Returns detailed policy matching information including access rules, NAT rules, and any errors. Useful for troubleshooting firewall rules and understanding traffic flow.',
+  {
+    gateway: z.string().describe('The target gateway name to simulate the packet on'),
+    source_ip: z.string().describe('Source IP address (IPv4 or IPv6 based on ip_version)'),
+    destination_ip: z.string().describe('Destination IP address (IPv4 or IPv6 based on ip_version)'),
+    ip_protocol: z.union([
+      z.string().describe('Protocol name: UDP, TCP, or ICMP'),
+      z.number().int().min(0).max(255).describe('IANA protocol number')
+    ]).describe('IP protocol either as string (UDP/TCP/ICMP) or IANA protocol number'),
+    protocol_options: z.record(z.any()).describe('Protocol-specific options (e.g., for TCP/UDP: source-port, destination-port; for ICMP: type, code)'),
+    incoming_interface: z.string().describe('Incoming interface name for the packet. Use "localhost" to simulate local outgoing connection'),
+    ip_version: z.enum(['4', '6']).optional().default('4').describe('IP version: 4 for IPv4, 6 for IPv6'),
+    application: z.union([
+      z.string(),
+      z.array(z.string())
+    ]).optional().describe('Application or Category name(s) as defined in SmartConsole'),
+    protocol: z.string().optional().describe('Protocol to match for services with "Protocol Signature" enabled'),
+    check_access_rule_uid: z.string().optional().describe('Specific rule UID to check why packet didn\'t match this rule'),
+    domain: z.string().optional().describe('Domain name for Multi-Domain Server environments'),
+  },
+  async (args: Record<string, unknown>, extra: any) => {
+    try {
+      // Extract and validate parameters
+      const gateway = args.gateway as string;
+      const sourceIp = args.source_ip as string;
+      const destinationIp = args.destination_ip as string;
+      const ipProtocol = args.ip_protocol as string | number;
+      const protocolOptions = args.protocol_options as Record<string, any>;
+      const incomingInterface = args.incoming_interface as string;
+      const ipVersion = (args.ip_version as string) || '4';
+      const application = args.application as string | string[] | undefined;
+      const protocol = args.protocol as string | undefined;
+      const checkAccessRuleUid = args.check_access_rule_uid as string | undefined;
+      const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
+
+      // Build API parameters
+      const params: Record<string, any> = {
+        'ip-version': ipVersion,
+        'source-ip': sourceIp,
+        'destination-ip': destinationIp,
+        'ip-protocol': ipProtocol,
+        'protocol-options': protocolOptions,
+        'incoming-interface': incomingInterface,
+      };
+
+      // Add optional parameters
+      if (application !== undefined) {
+        params.application = application;
+      }
+      if (protocol !== undefined) {
+        params.protocol = protocol;
+      }
+      if (checkAccessRuleUid !== undefined) {
+        params['check-access-rule-uid'] = checkAccessRuleUid;
+      }
+
+      // Get API manager
+      const apiManager = SessionContext.getAPIManager(serverModule, extra);
+
+      // First, we need to determine the domain for this gateway (if in MDS environment)
+      let targetDomain = domain;
+
+      // If no domain specified but we're in MDS, try to find the gateway's domain
+      if (!targetDomain) {
+        const isMds = await apiManager.isMds();
+        if (isMds) {
+          // Get gateway info to determine its domain
+          const gatewayResp = await apiManager.callApi('POST', 'show-gateways-and-servers', {
+            filter: gateway,
+            'details-level': 'standard'
+          });
+
+          if (gatewayResp.objects && gatewayResp.objects.length > 0) {
+            const gatewayObj = gatewayResp.objects.find((obj: any) => obj.name === gateway);
+            if (gatewayObj && gatewayObj.domain && gatewayObj.domain.name) {
+              targetDomain = gatewayObj.domain.name;
+            }
+          }
+        }
+      }
+
+      // Call the simulate-packet API
+      const resp = await apiManager.callApi('POST', 'gaia-api/simulate-packet', params, targetDomain);
+
+      // Check if we got a task-id (async operation)
+      if (resp['task-id']) {
+        const taskId = resp['task-id'];
+
+        // Poll for task completion using getManagementTaskResult
+        const taskResult = await apiManager.getManagementTaskResult(taskId, targetDomain, 10);
+
+        // Extract task details from the response
+        if (taskResult.response && taskResult.response.tasks && taskResult.response.tasks.length > 0) {
+          const task = taskResult.response.tasks[0];
+
+          if (task.status === 'failed') {
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify({
+                  success: false,
+                  status: 'failed',
+                  message: 'Packet simulation failed',
+                  task: task
+                }, null, 2)
+              }]
+            };
+          }
+
+          // Return the task details which contain the simulation results
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                success: true,
+                status: task.status,
+                gateway: gateway,
+                simulation_results: task['task-details'] || task,
+                full_response: taskResult.response
+              }, null, 2)
+            }]
+          };
+        }
+
+        // If we couldn't parse the task result properly, return it as-is
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: true,
+              task_id: taskId,
+              result: taskResult
+            }, null, 2)
+          }]
+        };
+      }
+
+      // If no task-id, return the direct response
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify(resp, null, 2)
+        }]
+      };
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Error simulating packet: ${errorMessage}`
+        }]
       };
     }
   }
