@@ -1,5 +1,11 @@
 # @chkp/cpinfo-analysis-mcp
 
+## 1.1.2
+
+### Patch Changes
+
+- 56cf1d2: General improvements and updates (synced from internal repository)
+
 ## 1.1.0
 
 ### Minor Changes

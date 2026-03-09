@@ -1,5 +1,11 @@
 # @chkp/argos-erm-mcp
 
+## 0.4.0
+
+### Minor Changes
+
+- 56cf1d2: Updated implementation and features, Updated configuration, Modified 2 file(s) (synced from internal repository)
+
 ## 0.3.0
 
 ### Minor Changes

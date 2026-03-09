@@ -1,5 +1,11 @@
 # @chkp/documentation-mcp
 
+## 1.3.0
+
+### Minor Changes
+
+- 56cf1d2: Updated implementation and features, Modified 3 file(s) (synced from internal repository)
+
 ## 1.1.0
 
 ### Minor Changes

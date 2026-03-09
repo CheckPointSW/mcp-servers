@@ -1,6 +1,6 @@
 {
   "name": "@chkp/harmony-infra",
-  "version": "1.0.6",
+  "version": "1.1.0",
   "description": "Infrastructure for Check Point Harmony SASE MCP servers",
   "type": "module",
   "main": "dist/index.js",
