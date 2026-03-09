@@ -1,0 +1,7 @@
+# @chkp/policy-insights-mcp
+
+## 0.1.0
+
+### Minor Changes
+
+- 56cf1d2: Updated implementation and features, Updated configuration, Added 12 new file(s) (synced from internal repository)

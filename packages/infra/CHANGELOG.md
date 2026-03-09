@@ -1,5 +1,16 @@
 # @chkp/quantum-infra
 
+## 1.2.0
+
+### Minor Changes
+
+- 56cf1d2: Updated implementation and features, Updated configuration, Modified 3 file(s) (synced from internal repository)
+
+### Patch Changes
+
+- Updated dependencies [56cf1d2]
+  - @chkp/mcp-utils@1.2.0
+
 ## 1.0.2
 
 ### Patch Changes

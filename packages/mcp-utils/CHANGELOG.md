@@ -1,5 +1,11 @@
 # @chkp/mcp-utils
 
+## 1.2.0
+
+### Minor Changes
+
+- 56cf1d2: Updated implementation and features, Updated configuration, Modified 7 file(s) (synced from internal repository)
+
 ## 1.1.0
 
 ### Minor Changes
