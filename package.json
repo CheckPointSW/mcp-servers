@@ -153,9 +153,6 @@
     },
     "@nx/jest": {
       "minimatch": "^9.0.7"
-    },
-    "@typescript-eslint/typescript-estree": {
-      "minimatch": "^9.0.7"
     }
   }
 }
