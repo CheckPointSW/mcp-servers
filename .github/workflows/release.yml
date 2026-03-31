@@ -13,11 +13,11 @@ jobs:
       id-token: write
       pull-requests: write  # Needed to create PRs
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
           
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
@@ -82,7 +82,7 @@ jobs:
       - name: Create Release Pull Request or Publish
         if: steps.check_lockfile.outputs.lockfile_changed != 'true'
         id: changesets
-        uses: changesets/action@v1
+        uses: changesets/action@6a0a831ff30acef54f2c6aa1cbbc1096b066edaf # v1
         with:
           # This script runs ONLY when publishing (Phase 2)
           publish: npm run release
