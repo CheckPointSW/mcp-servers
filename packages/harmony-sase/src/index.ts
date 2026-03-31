@@ -39,7 +39,7 @@ const runApi = createApiRunner(serverModule);
 // --- Harmony SASE API Tools ---
 
 // Networks
-server.tool("list_networks", "List all Harmony SASE networks", z.object({}).strict(), async (args, extra) => {
+server.tool("list_networks", "List all Harmony SASE networks", {}, async (args, extra) => {
   console.error("Running list_networks");
   const result = await runApi("GET", API_V2_1_NETWORKS, {}, extra);
   console.error("result", result);
@@ -106,7 +106,7 @@ server.tool(
 server.tool(
   "list_network_regions",
   "List all available Harmony SASE network regions",
-  z.object({}).strict(),
+  {},
   async (args, extra) => {
     console.error("Running list_network_regions");
     const result = await runApi("GET", `${API_V2_1_NETWORKS}/regions`, {}, extra);
@@ -150,7 +150,7 @@ server.tool(
 );
 
 // Applications
-server.tool("list_applications", "List all applications", z.object({}).strict(), async (args, extra) => {
+server.tool("list_applications", "List all applications", {}, async (args, extra) => {
   console.error("Running list_applications");
   const result = await runApi("GET", API_V2_1_APPLICATIONS, {}, extra);
 

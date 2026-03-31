@@ -8,6 +8,7 @@
     "packages/*"
   ],
   "scripts": {
+    "prepare": "npx npm-merge-driver install --driver-name npm-merge-driver --no-legacy",
     "changeset": "changeset",
     "clean": "npx shx rm -rf packages/*/dist dist && npx shx rm -rf **/*.tsbuildinfo",
     "build": "npx nx run-many --target=build --all",
@@ -27,6 +28,7 @@
     "prebuild:all": "test -f scripts-internal/utilities/verify-fix-shebangs.js && npm run verify-shebangs || echo 'Shebang verification skipped - script not available'",
     "verify-packages": "node scripts-internal/verify-packages-for-ci.js",
     "verify-packages:fast": "node scripts-internal/verify-packages-for-ci.js --fast",
+    "deps:update:safe": "node scripts-internal/safe-update-lockfile.js",
     "deps:analyze": "node scripts-internal/verify-and-clean-dependencies.js",
     "deps:clean": "node scripts-internal/verify-and-clean-dependencies.js --apply",
     "deps:status": "node scripts-internal/dependency-status-report.js",
@@ -110,13 +112,14 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.0.0",
     "@typescript-eslint/eslint-plugin": "^8.38.0",
-    "@typescript-eslint/parser": "^8.38.0",    
+    "@typescript-eslint/parser": "^8.38.0",
     "esbuild": "^0.25.5",
     "eslint": "~8.57.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.3",
     "jest": "^30.2.0",
     "js-yaml": "^4.1.0",
+    "npm-merge-driver": "^2.3.6",
     "nx": "21.3.5",
     "prettier": "^3.6.2",
     "rimraf": "^6.0.1",
@@ -129,6 +132,7 @@
     "node": ">=20.0.0"
   },
   "overrides": {
+    "hono": "^4.12.4",
     "tmp": ">=0.2.4",
     "glob": "^11.1.0",
     "rimraf": "^6.0.1",

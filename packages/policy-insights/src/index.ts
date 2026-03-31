@@ -35,7 +35,7 @@ const runApi = createApiRunner(serverModule);
 server.tool(
   `${SERVER_PACKAGE_NAME.split('/').pop().replace(/-mcp$/, '')}__init`,
   'Verify, login and initialize management connection. Use this tool on your first interaction with the server.',
-  z.object({}).strict(),
+  {},
   async (args: Record<string, unknown>, extra: any) => {
     try {
       // Get API manager for this session

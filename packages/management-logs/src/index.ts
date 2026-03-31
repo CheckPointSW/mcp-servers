@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { z } from 'zod';
-import { Settings, APIManagerForAPIKey } from '@chkp/quantum-infra';
+import { Settings, APIManagerForAPIKey, formatWithPaginationHint } from '@chkp/quantum-infra';
 import {
   launchMCPServer,
   createServerModule,
@@ -36,7 +36,7 @@ const runApi = createApiRunner(serverModule);
 server.tool(
   'management-logs__init',
   'Verify, login and initialize management connection. Use this tool on your first interaction with the server.',
-  z.object({}).strict(),
+  {},
   async (args: Record<string, unknown>, extra: any) => {
     try {
       // Get API manager for this session
@@ -131,7 +131,7 @@ server.tool(
 
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-logs', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -159,7 +159,7 @@ server.tool(
 
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-logs', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -283,7 +283,7 @@ server.tool(
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     const resp = await runApi('POST', 'show-gateways-and-servers', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -320,7 +320,7 @@ server.tool(
     if (type) params.type = type;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-objects', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -340,7 +340,7 @@ server.tool(
       params.details_level = 'full'
       const apiManager = SessionContext.getAPIManager(serverModule, extra);
       const resp = await apiManager.callApi('POST', 'show-object', params, domain);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+      return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 

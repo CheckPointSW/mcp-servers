@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { z } from 'zod';
-import { Settings, APIManagerForAPIKey } from '@chkp/quantum-infra';
+import { Settings, APIManagerForAPIKey, formatWithPaginationHint } from '@chkp/quantum-infra';
 import {
   launchMCPServer,
   createServerModule,
@@ -30,7 +30,7 @@ const runApi = createApiRunner(serverModule);
 server.tool(
   'threat-prevention__init',
   'Verify, login and initialize management connection. Use this tool on your first interaction with the server.',
-  z.object({}).strict(),
+  {},
   async (args: Record<string, unknown>, extra: any) => {
     try {
       // Get API manager for this session
@@ -95,7 +95,7 @@ server.tool(
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-threat-protections', params, domainParam);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -117,7 +117,7 @@ server.tool(
     if (details_level) params['details-level'] = details_level;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-threat-layer', params, domainParam);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -139,7 +139,7 @@ server.tool(
     if (details_level) params['details-level'] = details_level;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-threat-indicator', params, domainParam);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -154,7 +154,7 @@ server.tool(
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-ips-status', {}, domainParam);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -180,7 +180,7 @@ server.tool(
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-threat-ioc-feeds', params, domainParam);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -207,7 +207,7 @@ server.tool(
     const params = { body };
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-threat-rule', params, domainParam);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -233,7 +233,7 @@ server.tool(
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-exception-groups', params, domainParam);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -248,7 +248,7 @@ server.tool(
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-ips-update-schedule', {}, domainParam);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -274,7 +274,7 @@ server.tool(
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-threat-indicators', params, domainParam);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -300,7 +300,7 @@ server.tool(
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-threat-profiles', params, domainParam);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -322,7 +322,7 @@ server.tool(
     if (details_level) params['details-level'] = details_level;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-ips-protection-extended-attribute', params, domainParam);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -348,7 +348,7 @@ server.tool(
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-ips-protection-extended-attributes', params, domainParam);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -374,7 +374,7 @@ server.tool(
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-threat-layers', params, domainParam);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -436,7 +436,7 @@ server.tool(
     const params = { body };
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-threat-rulebase', params, domainParam);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -458,7 +458,7 @@ server.tool(
     if (details_level) params['details-level'] = details_level;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-exception-group', params, domainParam);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -487,7 +487,7 @@ server.tool(
     const params = { body };
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-threat-protection', params, domainParam);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -555,7 +555,7 @@ server.tool(
     const params = { body };
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-threat-rule-exception-rulebase', params, domainParam);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -571,7 +571,7 @@ server.tool(
     const params = { body: {} };
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-threat-advanced-settings', params, domainParam);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -594,7 +594,7 @@ server.tool(
     const params = { body };
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-threat-profile', params, domainParam);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -616,7 +616,7 @@ server.tool(
     if (details_level) params['details-level'] = details_level;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-threat-ioc-feed', params, domainParam);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -644,7 +644,7 @@ server.tool(
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     const resp = await runApi('POST', 'show-gateways-and-servers', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -681,7 +681,7 @@ server.tool(
     if (type) params.type = type;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-objects', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -701,7 +701,7 @@ server.tool(
       params.details_level = 'full';
       const apiManager = SessionContext.getAPIManager(serverModule, extra);
       const resp = await apiManager.callApi('POST', 'show-object', params, domain);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+      return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 

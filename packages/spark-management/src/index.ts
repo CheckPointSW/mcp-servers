@@ -12,6 +12,12 @@ import { fileURLToPath } from 'url';
 import { SMPAPIManager } from './api-manager.js';
 import { Settings } from './settings.js';
 
+function formatSparkPaginationHint(result: any, label: string): string {
+  if (result.fetchedAll === undefined) return `${label}: ${JSON.stringify(result, null, 2)}`;
+  const nextNote = result.fetchedAll ? '' : ` | Next page: use startIndex: ${result.nextBaseIndex}`;
+  return `// fetchedAll: ${result.fetchedAll}${nextNote}\n${label}: ${JSON.stringify(result, null, 2)}`;
+}
+
 const { server, pkg } = createMcpServer(import.meta.url, {
   description: 'MCP Assistant server for Spark Management'
 });
@@ -371,7 +377,7 @@ server.tool(
         content: [
           {
             type: "text",
-            text: `Gateway list: ${JSON.stringify(result, null, 2)}`
+            text: formatSparkPaginationHint(result, 'Gateway list')
           },
         ],
       };
@@ -450,7 +456,7 @@ server.tool(
         content: [
           {
             type: "text",
-            text: `Plan list: ${JSON.stringify(result, null, 2)}`
+            text: formatSparkPaginationHint(result, 'Plan list')
           },
         ],
       };
@@ -669,7 +675,7 @@ server.tool(
 server.tool(
   "get_settings",
   "Get portal settings from Spark Management",
-  z.object({}).strict(),
+  {},
   async (args, extra) => {
     try {
       const result = await runApi("GET", 'portal/settings', {}, extra);
