@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 import { z } from 'zod';
-import { Settings, APIManagerForAPIKey } from '@chkp/quantum-infra';
-import { 
-  launchMCPServer, 
+import { Settings, APIManagerForAPIKey, formatWithPaginationHint } from '@chkp/quantum-infra';
+import {
+  launchMCPServer,
   createServerModule,
   SessionContext,
   createApiRunner,
@@ -11,9 +11,9 @@ import {
 } from '@chkp/mcp-utils';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { 
-  parseRulebaseWithInlineLayers, 
-  formatAsTable, 
+import {
+  parseRulebaseWithInlineLayers,
+  formatAsTable,
   formatAsModelFriendly,
   ZeroHitsUtil
 } from './rulebase-parser/index.js';
@@ -132,7 +132,7 @@ server.prompt(
 server.tool(
   'management__init',
   'Verify, login and initialize management connection. Use this tool on your first interaction with the server.',
-  z.object({}).strict(),
+  {},
   async (args: Record<string, unknown>, extra: any) => {
     try {
       // Get API manager for this session
@@ -332,7 +332,7 @@ server.tool(
     // Check if raw data is requested
     const showRaw = typeof args.show_raw === 'boolean' ? args.show_raw : false;
     if (showRaw) {
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+      return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
     }
     
     // Otherwise, use the enhanced parser
@@ -371,11 +371,18 @@ server.tool(
       }
       
       // Add summary information
+      const rulesInResponse = parsedData.sections.reduce((total: number, section: any) => total + section.rules.length, 0);
+      const apiFrom = resp.from ?? 1;
+      const apiTo = resp.to ?? rulesInResponse;
+      const apiTotal = resp.total ?? rulesInResponse;
+      const paginationNote = apiTo < apiTotal
+        ? `\n- Next page: call again with offset: ${apiTo}`
+        : '';
       const summary = `
 Rulebase Summary:
 - Name: ${parsedData.name}
 - Sections: ${parsedData.sections.length}
-- Total Rules: ${parsedData.sections.reduce((total: number, section: any) => total + section.rules.length, 0)}
+- Rules in this response: ${rulesInResponse} (positions ${apiFrom}–${apiTo} of ${apiTotal} total)${paginationNote}
 - Inline Layers: ${expandGroups ? 'Supported' : 'Not expanded'}
 - Group Expansion: ${expandGroups ? `Enabled (${groupMode} mode)` : 'Disabled'}
 
@@ -427,7 +434,7 @@ server.tool(
     
     // Call the API
     const resp = await apiManager.callApi('POST', 'show-hosts', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -480,7 +487,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-access-rule', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -510,7 +517,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-access-layer', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -540,7 +547,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-access-layers', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -574,7 +581,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-nat-rulebase', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -600,7 +607,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-access-section', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -628,7 +635,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-nat-section', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -654,7 +661,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-vpn-community-star', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -690,7 +697,7 @@ server.tool(
       details_level,
       domains_to_process,
     }, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -714,7 +721,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-vpn-community-meshed', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -750,7 +757,7 @@ server.tool(
       details_level,
       domains_to_process,
     }, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -774,7 +781,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-vpn-community-remote-access', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -810,18 +817,18 @@ server.tool(
       details_level,
       domains_to_process,
     }, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
 server.tool(
   'show_domains',
   'Retrieve all domains available in the management server.',
-  z.object({}).strict(),
+  {},
   async (args: Record<string, unknown>, extra: any) => {
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-domains', {});
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -846,7 +853,7 @@ server.tool(
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     const resp = await runApi('POST', 'show-mdss', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -874,7 +881,7 @@ server.tool(
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     const resp = await runApi('POST', 'show-gateways-and-servers', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -898,7 +905,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-simple-gateway', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -935,7 +942,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-simple-gateways', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -970,7 +977,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-lsm-clusters', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -995,7 +1002,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-cluster-member', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1030,7 +1037,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-cluster-members', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1054,7 +1061,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-lsm-gateway', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1089,7 +1096,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-simple-clusters', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1112,7 +1119,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-simple-cluster', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1147,7 +1154,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-lsm-gateways', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1171,7 +1178,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-lsm-cluster', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1214,7 +1221,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-groups', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1261,7 +1268,7 @@ server.tool(
 
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-unused-objects', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1315,7 +1322,7 @@ server.tool(
 
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'where-used', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1352,7 +1359,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-services-tcp', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1382,7 +1389,7 @@ server.tool(
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     const resp = await runApi('POST', 'show-application-sites', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1421,7 +1428,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-application-site-groups', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1458,7 +1465,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-services-udp', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1493,7 +1500,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-wildcards', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1529,7 +1536,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-security-zones', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1565,7 +1572,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-tags', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1601,7 +1608,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-address-ranges', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1637,7 +1644,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-application-site-categories', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1671,7 +1678,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-dynamic-objects', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1702,7 +1709,7 @@ server.tool(
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     const resp = await runApi('POST', 'show-services-icmp6', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1732,7 +1739,7 @@ server.tool(
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     const resp = await runApi('POST', 'show-services-icmp', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1769,7 +1776,7 @@ server.tool(
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     const resp = await runApi('POST', 'show-service-groups', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1797,7 +1804,7 @@ server.tool(
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     const resp = await runApi('POST', 'show-multicast-address-ranges', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1833,7 +1840,7 @@ server.tool(
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-dns-domains', params, domain);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1862,7 +1869,7 @@ server.tool(
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     const resp = await runApi('POST', 'show-time-groups', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1891,7 +1898,7 @@ server.tool(
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     const resp = await runApi('POST', 'show-access-point-names', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1925,7 +1932,7 @@ server.tool(
     if (domains_to_process) params['domains-to-process'] = domains_to_process;
     if (type) params.type = type;
     const resp = await runApi('POST', 'show-objects', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -1942,7 +1949,7 @@ server.tool(
       params.uid = uid
       params.details_level = 'full'
       const resp = await runApi('POST', 'show-object', params, extra);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+      return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 
@@ -2196,7 +2203,7 @@ server.tool(
       return {
         content: [{
           type: 'text',
-          text: JSON.stringify(resp, null, 2)
+          text: formatWithPaginationHint(resp)
         }]
       };
 
@@ -2228,7 +2235,7 @@ server.tool(
     if (typeof args.offset === 'number') params.offset = args.offset;
     if (Array.isArray(args.order) && args.order.length > 0) params.order = args.order;
     const resp = await runApi('POST', 'show-networks', params, extra);
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
 

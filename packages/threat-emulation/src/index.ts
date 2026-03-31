@@ -359,7 +359,7 @@ server.tool(
 server.tool(
     'get_quota',
     'Get API quota and usage information',
-    z.object({}).strict(),
+    {},
     async (extra: any) => {
         try {
             const settings = SessionContext.getSettings(serverModule, extra);

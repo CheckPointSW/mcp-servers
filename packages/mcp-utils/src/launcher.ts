@@ -394,19 +394,12 @@ async function launchHTTPServer(
       
       // Get session information
       const sessionCount = serverModule.sessionManager.getSessionCount();
-      const sessions = serverModule.sessionManager.getAllSessions().map((session: any) => ({
-        id: session.sessionId,
-        createdAt: session.createdAt,
-        lastActive: session.lastActive,
-        // Don't include potentially sensitive metadata
-      }));
-      
-      res.end(JSON.stringify({ 
+
+      res.end(JSON.stringify({
         status: 'ok',
         server: config.name,
         version: serverModule.pkg.version,
         activeSessions: sessionCount,
-        sessions: sessions 
       }));
     } else {
       // 404 for unknown routes

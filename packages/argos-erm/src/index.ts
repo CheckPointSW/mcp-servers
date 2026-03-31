@@ -350,7 +350,7 @@ COMMON USER REQUESTS:
 - "What kinds of alerts exist?"
 - "What filters are available for alerts?"
 - "What are the different alert classifications?"`,
-  z.object({}).strict(),
+  {},
   async (_params, extra) => {
     try {
       const apiManager = SessionContext.getAPIManager(serverModule, extra);
@@ -1218,7 +1218,7 @@ COMMON USER REQUESTS:
 - "Show me available industry sectors"
 - "What threat labels/categories exist?"
 - "What filters are available for threat intelligence?"`,
-  z.object({}).strict(),
+  {},
   async (_params, extra) => {
     try {
       const apiManager = SessionContext.getAPIManager(serverModule, extra);
@@ -1273,7 +1273,7 @@ COMMON USER REQUESTS:
 - "Which threat actors  sectors/countries exist?"
 - "What filters are available for threat actors search?"
 - "What filters are available for most active threat actors search?"`,
-  z.object({}).strict(),
+  {},
   async (_params, extra) => {
     try {
       const apiManager = SessionContext.getAPIManager(serverModule, extra);
@@ -1518,7 +1518,7 @@ COMMON USER REQUESTS:
 - "Show me the risk assessment dashboard"
 - "Generate security metrics for executive review"
 - "How has our security risk changed recently?"`,
-  z.object({}).strict(),
+  {},
   async (_params, extra) => {
     try {
       const apiManager = SessionContext.getAPIManager(serverModule, extra);
