@@ -82,7 +82,7 @@ jobs:
       - name: Create Release Pull Request or Publish
         if: steps.check_lockfile.outputs.lockfile_changed != 'true'
         id: changesets
-        uses: changesets/action@6a0a831ff30acef54f2c6aa1cbbc1096b066edaf # v1
+        uses: changesets/action@v1 # 6a0a831ff30acef54f2c6aa1cbbc1096b066edaf
         with:
           # This script runs ONLY when publishing (Phase 2)
           publish: npm run release
