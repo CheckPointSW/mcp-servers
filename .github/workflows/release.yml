@@ -47,7 +47,7 @@ jobs:
       
       - name: Create Release Pull Request or Publish
         id: changesets
-        uses: changesets/action@v1 # 6a0a831ff30acef54f2c6aa1cbbc1096b066edaf
+        uses: changesets/action@6a0a831ff30acef54f2c6aa1cbbc1096b066edaf # v1
         with:
           publish: npm run release
           createGithubReleases: true
