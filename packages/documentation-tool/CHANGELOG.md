@@ -1,5 +1,11 @@
 # @chkp/documentation-mcp
 
+## 1.4.1
+
+### Patch Changes
+
+- b5fdd00: General improvements and updates (synced from internal repository)
+
 ## 1.3.0
 
 ### Minor Changes

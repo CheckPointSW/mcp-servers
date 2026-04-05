@@ -1,5 +1,13 @@
 # @chkp/harmony-infra
 
+## 1.2.1
+
+### Patch Changes
+
+- b5fdd00: General improvements and updates (synced from internal repository)
+- Updated dependencies [b5fdd00]
+  - @chkp/mcp-utils@1.4.0
+
 ## 1.1.0
 
 ### Minor Changes

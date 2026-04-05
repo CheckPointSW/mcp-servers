@@ -1,5 +1,11 @@
 # @chkp/quantum-management-mcp
 
+## 1.4.0
+
+### Minor Changes
+
+- b5fdd00: Updated implementation and features, Modified 1 file(s) (synced from internal repository)
+
 ## 1.2.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # @chkp/reputation-service-mcp
 
+## 1.3.1
+
+### Patch Changes
+
+- b5fdd00: General improvements and updates (synced from internal repository)
+
 ## 1.2.0
 
 ### Minor Changes
