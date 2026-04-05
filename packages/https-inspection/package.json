@@ -1,6 +1,6 @@
 {
   "name": "@chkp/https-inspection-mcp",
-  "version": "1.4.0",
+  "version": "1.3.0",
   "description": "HTTPS Inspection MCP server for Check Point products",
   "type": "module",
   "main": "dist/index.js",
