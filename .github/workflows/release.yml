@@ -3,6 +3,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      force_mcpb_release:
+        description: 'Force MCPB release even if no npm packages were published'
+        type: boolean
+        default: false
 
 jobs:
   release:
@@ -58,9 +63,9 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
 
-      # NEW: Create MCPB Release (only when packages are actually published)
+      # Create MCPB Release when npm packages were published, or when manually forced
       - name: Create MCPB Release
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.changesets.outputs.published == 'true' || inputs.force_mcpb_release == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -221,19 +226,40 @@ jobs:
       # NEW: Generate Final Summary
       - name: Generate Final Summary
         if: always()
+        env:
+          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
         run: |
           echo "## 📊 Public Release Workflow Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Branch: **${{ github.ref_name }}**" >> $GITHUB_STEP_SUMMARY
-          echo "NPM Published: **$([ "${{ steps.changesets.outputs.published }}" == "true" ] && echo "Yes" || echo "No")**" >> $GITHUB_STEP_SUMMARY
-          
-          # Show MCPB info if packages were built
+          echo "Workflow Complete: **$(date '+%Y-%m-%d %H:%M:%S')**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # NPM published packages
+          if [ "${{ steps.changesets.outputs.published }}" == "true" ] && [ -n "$PUBLISHED_PACKAGES" ] && [ "$PUBLISHED_PACKAGES" != "[]" ]; then
+            NPM_COUNT=$(echo "$PUBLISHED_PACKAGES" | node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).length.toString())")
+            echo "### 📦 NPM Packages Published: $NPM_COUNT" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "$PUBLISHED_PACKAGES" | node -e "
+              const pkgs = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+              pkgs.forEach(p => process.stdout.write('- \`' + p.name + '@' + p.version + '\`\n'));
+            " >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### 📦 NPM Packages Published: 0" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "_No new versions to publish (all packages already at current version)_" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # MCPB packages
           if [ -d "mcpb-builds" ] && [ -n "$(find mcpb-builds -name "*.mcpb" -type f 2>/dev/null)" ]; then
             MCPB_COUNT=$(find mcpb-builds -name "*.mcpb" -type f | wc -l | tr -d ' ')
-            echo "MCPB Packages: **$MCPB_COUNT**" >> $GITHUB_STEP_SUMMARY
+            echo "### 🧩 MCPB Packages Built: $MCPB_COUNT" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            find mcpb-builds -name "*.mcpb" -type f | sort | while read f; do
+              echo "- \`$(basename $f)\`" >> $GITHUB_STEP_SUMMARY
+            done
           else
-            echo "MCPB Packages: **0**" >> $GITHUB_STEP_SUMMARY
+            echo "### 🧩 MCPB Packages Built: 0" >> $GITHUB_STEP_SUMMARY
           fi
-          
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Workflow Complete: **$(date '+%Y-%m-%d %H:%M:%S')**" >> $GITHUB_STEP_SUMMARY
