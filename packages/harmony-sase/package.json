@@ -1,6 +1,6 @@
 {
   "name": "@chkp/harmony-sase-mcp",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Harmony SASE MCP server for Check Point products",
   "type": "module",
   "main": "dist/index.js",
@@ -22,10 +22,14 @@
     "build:bundle": "node ../../bundle-mcp.js",
     "build:tsc": "npx tsc && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
     "dev": "tsc --watch",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "prepack": "node ../../scripts/strip-bundled-deps.js",
+    "postpack": "node ../../scripts/strip-bundled-deps.js restore"
   },
   "license": "MIT",
   "dependencies": {
+    "@chkp/harmony-infra": "*",
+    "@chkp/mcp-utils": "*",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "axios": "^1.13.5",
     "commander": "^13.1.0",
@@ -33,8 +37,6 @@
     "zod": "^3.24.4"
   },
   "devDependencies": {
-    "@chkp/harmony-infra": "*",
-    "@chkp/mcp-utils": "*",
     "@types/node": "^20.0.0",
     "typescript": "^5.0.4"
   }

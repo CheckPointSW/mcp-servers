@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "scripts": {
-    "prepare": "npx npm-merge-driver install --driver-name npm-merge-driver --no-legacy",
+    "prepare": "npx npm-merge-driver install --driver-name npm-merge-driver --no-legacy && git config core.hooksPath .githooks",
     "changeset": "changeset",
     "clean": "npx shx rm -rf packages/*/dist dist && npx shx rm -rf **/*.tsbuildinfo",
     "build": "npx nx run-many --target=build --all",

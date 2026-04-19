@@ -1,6 +1,6 @@
 {
   "name": "@chkp/threat-prevention-mcp",
-  "version": "1.3.0",
+  "version": "1.4.2",
   "description": "Threat Prevention MCP server for Check Point products",
   "type": "module",
   "main": "dist/index.js",
@@ -17,9 +17,13 @@
     "build:bundle": "node ../../bundle-mcp.js",
     "build:tsc": "npx tsc && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
     "dev": "tsc --watch",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "prepack": "node ../../scripts/strip-bundled-deps.js",
+    "postpack": "node ../../scripts/strip-bundled-deps.js restore"
   },
   "dependencies": {
+    "@chkp/mcp-utils": "*",
+    "@chkp/quantum-infra": "*",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "axios": "^1.13.5",
     "commander": "^13.1.0",
@@ -27,8 +31,6 @@
     "zod": "^3.24.4"
   },
   "devDependencies": {
-    "@chkp/mcp-utils": "*",
-    "@chkp/quantum-infra": "*",
     "@types/node": "^20.0.0",
     "typescript": "^5.0.4"
   },

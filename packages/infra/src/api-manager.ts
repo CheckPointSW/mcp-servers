@@ -520,6 +520,7 @@ export class APIManagerForAPIKey extends APIManagerBase {
     managementPort?: string;
     s1cUrl?: string;
     cloudInfraToken?: string;
+    cloudConnected?: boolean;
   }): APIManagerForAPIKey {
     const verbose = SettingsManager.globalDebugState;
 
@@ -605,6 +606,7 @@ export class APIManagerForAPIKey extends APIManagerBase {
       key,
       keyType,
       args.s1cUrl!,
+      !!args.cloudConnected,
     ));
   }
 }

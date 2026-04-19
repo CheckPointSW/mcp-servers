@@ -6,7 +6,7 @@ import { getHeaderValue, SettingsManager } from '@chkp/mcp-utils';
 /**
  * Region type definition
  */
-export type Region = 'EU' | 'US' | 'STG' | 'LOCAL';
+export type Region = 'EU' | 'US' | 'STG' | 'DEV' | 'LOCAL';
 
 /**
  * Settings for the MCP servers
@@ -19,6 +19,7 @@ export class Settings {
   public managementHost?: string;
   public managementPort?: string;
   public cloudInfraToken?: string;
+  public cloudConnected?: boolean;
   public clientId?: string;
   public secretKey?: string;
   public region: Region = 'EU';
@@ -67,6 +68,7 @@ export class Settings {
     managementHost = process.env.MANAGEMENT_HOST,
     managementPort = process.env.MANAGEMENT_PORT || '443',
     cloudInfraToken = process.env.CLOUD_INFRA_TOKEN,
+    cloudConnected = process.env.CLOUD_CONNECTED === 'true',
     clientId = process.env.CLIENT_ID,
     secretKey = process.env.SECRET_KEY,
     region = (process.env.REGION as Region) || 'EU',
@@ -80,6 +82,7 @@ export class Settings {
     managementHost?: string;
     managementPort?: string;
     cloudInfraToken?: string;
+    cloudConnected?: boolean;
     clientId?: string;
     secretKey?: string;
     region?: Region;
@@ -111,6 +114,7 @@ export class Settings {
     this.managementHost = managementHost;
     this.managementPort = managementPort;
     this.cloudInfraToken = cloudInfraToken;
+    this.cloudConnected = cloudConnected;
     this.clientId = clientId;
     this.secretKey = secretKey;
     this.region = this.normalizeRegion(region) || 'EU';
@@ -137,7 +141,7 @@ export class Settings {
    * Check if the provided string is a valid region
    */
   private isValidRegion(region: string): region is Region {
-    return ['EU', 'US', 'STG', 'LOCAL'].includes(region.toUpperCase() as Region);
+    return ['EU', 'US', 'STG', 'DEV', 'LOCAL'].includes(region.toUpperCase() as Region);
   }
 
   /**
@@ -150,6 +154,7 @@ export class Settings {
       case 'US':
         return 'https://cloudinfra-gw-us.portal.checkpoint.com';
       case 'STG':
+      case 'DEV':
       case 'LOCAL':
         return 'https://dev-cloudinfra-gw.kube1.iaas.checkpoint.com';
       default:
@@ -275,6 +280,7 @@ export class Settings {
       managementHost: args.managementHost,
       managementPort: args.managementPort,
       cloudInfraToken: args.cloudInfraToken,
+      cloudConnected: args.cloudConnected,
       clientId: args.clientId,
       secretKey: args.secretKey,
       region: typeof args.region === 'string' ? args.region.trim().toUpperCase() as Region : undefined,
@@ -303,6 +309,7 @@ export class Settings {
       managementHost: getHeaderValue(headers, 'MANAGEMENT-HOST'),
       managementPort: getHeaderValue(headers, 'MANAGEMENT-PORT'),
       cloudInfraToken: getHeaderValue(headers, 'CLOUD-INFRA-TOKEN'),
+      cloudConnected: getHeaderValue(headers, 'CLOUD-CONNECTED'),
       clientId: getHeaderValue(headers, 'CLIENT-ID'),
       secretKey: getHeaderValue(headers, 'SECRET-KEY'),
       region: getHeaderValue(headers, 'REGION'),
@@ -346,6 +353,7 @@ export class Settings {
       managementHost: extractedValues.managementHost,
       managementPort: extractedValues.managementPort,
       cloudInfraToken: extractedValues.cloudInfraToken,
+      cloudConnected: extractedValues.cloudConnected === 'true',
       clientId: extractedValues.clientId,
       secretKey: extractedValues.secretKey,
       region: extractedValues.region?.toUpperCase() as Region,

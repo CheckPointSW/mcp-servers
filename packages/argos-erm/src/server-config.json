@@ -1,30 +1,30 @@
 {
-  "name": "argos-erm",
-  "description": "Check Point Argos ERM MCP Server for External Risk Management",
-  "options": [
-    {
-      "flag": "--argos-server-url <url>",
-      "description": "Argos instance URL - example: https://<your_instance>.cyberint.io/",
-      "env": "ARGOS_SERVER_URL",
-      "required": true,
-      "type": "string",
-      "help": "Your Argos ERM instance URL. Format: https://<your_instance>.cyberint.io/. Found in your Argos ERM portal under account settings"
-    },
-    {
-      "flag": "--argos-integration-token <token>",
-      "description": "Argos ERM API key for authentication",
-      "env": "ARGOS_INTEGRATION_TOKEN",
-      "required": true,
-      "type": "string",
-      "help": "API authentication token for your Argos ERM instance. Generate from your Argos ERM portal under Integrations or API settings"
-    },
-    {
-      "flag": "--argos-customer-id <id>",
-      "description": "Argos ERM customer ID",
-      "env": "ARGOS_CUSTOMER_ID",
-      "required": true,
-      "type": "string",
-      "help": "Your Argos ERM customer ID. Required for all API calls. Found in your Argos ERM portal under account or tenant settings"
-    }
-  ]
+    "name": "argos-erm",
+    "description": "Check Point Argos ERM MCP Server for External Risk Management",
+    "options": [
+        {
+            "flag": "--argos-server-url <url>",
+            "description": "Argos instance URL - example: https://<your_instance>.cyberint.io/",
+            "env": "ARGOS_SERVER_URL",
+            "required": true,
+            "type": "string",
+            "help": "Your Argos ERM instance URL. Format: https://<your_instance>.cyberint.io/. Found in your Argos ERM portal under account settings"
+        },
+        {
+            "flag": "--argos-integration-token <token>",
+            "description": "Argos ERM API key for authentication",
+            "env": "ARGOS_INTEGRATION_TOKEN",
+            "required": true,
+            "type": "string",
+            "help": "API authentication token for your Argos ERM instance. Generate from your Argos ERM portal under Integrations or API settings"
+        },
+        {
+            "flag": "--argos-customer-id <id>",
+            "description": "Argos ERM customer ID (optional — multi-tenant mode when absent)",
+            "env": "ARGOS_CUSTOMER_ID",
+            "required": false,
+            "type": "string",
+            "help": "Your Argos ERM customer ID. When omitted, server starts in multi-tenant mode and prompts on first use"
+        }
+    ]
 }

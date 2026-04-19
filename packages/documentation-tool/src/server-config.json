@@ -33,7 +33,7 @@
       "required": false,
       "hidden": true,
       "type": "string",
-      "help": "Alternative to --auth-url. Region code for your deployment: EU, US, STG, or LOCAL. Use this if you know your region and prefer not to copy the full authentication URL"
+      "help": "Alternative to --auth-url. Region code for your deployment: EU, US, STG, DEV, or LOCAL. Use this if you know your region and prefer not to copy the full authentication URL"
     }
   ]
 }

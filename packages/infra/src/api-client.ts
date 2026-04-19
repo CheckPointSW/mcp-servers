@@ -41,7 +41,8 @@ export abstract class APIClientBase {
 
   constructor(
     protected readonly authToken: string = "",
-    protected readonly tokenType: TokenType = TokenType.API_KEY // Default
+    protected readonly tokenType: TokenType = TokenType.API_KEY, // Default
+    protected readonly cloudConnected: boolean = false,
   ) {}
 
   /**
@@ -68,7 +69,15 @@ export abstract class APIClientBase {
     if (this.sid) {
       headers["X-chkp-sid"] = this.sid;
     }
-    
+
+    // When cloud-connected, authenticate every request to the CloudInfra proxy
+    // via Authorization Bearer (same as login). CLOUD-INFRA-TOKEN is kept for
+    // any downstream services that expect it.
+    if (this.cloudConnected && this.tokenType === TokenType.CI_TOKEN) {
+      headers["Authorization"] = `Bearer ${this.authToken}`;
+      headers["CLOUD-INFRA-TOKEN"] = this.authToken;
+    }
+
     return headers;
   }
 
@@ -227,6 +236,10 @@ export abstract class APIClientBase {
     return now > (this.sessionStart + (this.sessionTimeout - 5) * 1000);
   }
 
+  protected getHeadersForLogin(): Record<string, string> {
+    return { "Content-Type": "application/json" };
+  }
+
   /**
    * Login to the API using the API key
    */
@@ -237,7 +250,7 @@ export abstract class APIClientBase {
       "POST",
       "login",
       { [apiTokenHeader] : this.authToken },
-      { "Content-Type": "application/json" }
+      this.getHeadersForLogin()
     );
     if (loginResp.status !== 200 || !loginResp.response || !loginResp.response.sid) {
       throw loginResp;
@@ -355,14 +368,24 @@ export class SmartOneCloudAPIClient extends APIClientBase {
   constructor(
     authToken: string,
     tokenType: TokenType,
-    private readonly s1cUrl: string
+    private readonly s1cUrl: string,
+    cloudConnected: boolean = false
   ) {
-    super(authToken, tokenType);
+    super(authToken, tokenType, cloudConnected);
   }
 
   getHost(): string {
     return this.s1cUrl;
   }
+
+  protected getHeadersForLogin(): Record<string, string> {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (this.cloudConnected && this.tokenType === TokenType.CI_TOKEN) {
+      headers["Authorization"] = `Bearer ${this.authToken}`;
+    }
+    return headers;
+  }
+
 }
 
 /**
