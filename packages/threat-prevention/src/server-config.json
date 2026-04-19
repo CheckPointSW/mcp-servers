@@ -24,6 +24,13 @@
       "hidden": true
     },
     {
+      "flag": "--cloud-connected",
+      "description": "Enable cloud-connected mode",
+      "env": "CLOUD_CONNECTED",
+      "type": "boolean",
+      "hidden": true
+    },
+    {
       "flag": "--username <username>",
       "description": "Username for on-prem authentication",
       "env": "USERNAME",

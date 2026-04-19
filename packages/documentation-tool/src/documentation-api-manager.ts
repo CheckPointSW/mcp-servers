@@ -45,7 +45,9 @@ export class DocumentationToolAPIManager {
         if (this.settings.region === 'LOCAL') {
             return `http://localhost:${this.settings.devPort || '8006'}`;
         }
-        return `${this.settings.getCloudInfraGateway()}/app/console-one`;
+        const appPath =
+            this.settings.region === 'DEV' ? 'dev-ai-actions' : 'ai-actions';
+        return `${this.settings.getCloudInfraGateway()}/app/${appPath}`;
     }
 
     async callApi(

@@ -1,6 +1,6 @@
 {
   "name": "@chkp/threat-emulation-mcp",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "bin": {
     "threat-emulation-mcp": "dist/index.js"
   },
@@ -14,9 +14,12 @@
     "build:bundle": "node ../../bundle-mcp.js",
     "build:tsc": "npx tsc && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
     "dev": "tsc --watch",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "prepack": "node ../../scripts/strip-bundled-deps.js",
+    "postpack": "node ../../scripts/strip-bundled-deps.js restore"
   },
   "dependencies": {
+    "@chkp/mcp-utils": "*",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "axios": "^1.13.5",
     "body-parser": "^1.20.3",
@@ -33,7 +36,6 @@
     "node": ">=20.0.0"
   },
   "devDependencies": {
-    "@chkp/mcp-utils": "*",
     "@types/body-parser": "^1.19.2",
     "@types/commander": "^2.12.0",
     "@types/express": "^4.17.17",

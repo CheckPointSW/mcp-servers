@@ -1,0 +1,18 @@
+{
+    "folders": [
+        {
+            "path": ".",
+        },
+    ],
+    "settings": {
+        "sonarlint.connectedMode.project": {
+            "connectionId": "https-sonarqube-checkpoint-com",
+            "projectKey": "argos-erm-mcp",
+        },
+        "js/ts.tsdk.path": "../../node_modules/typescript/lib",
+        "eslint.workingDirectories": [{ "mode": "location" }],
+        "chat.tools.terminal.autoApprove": {
+            "npx tsc": true,
+        },
+    },
+}

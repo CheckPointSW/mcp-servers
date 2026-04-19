@@ -1,6 +1,6 @@
 {
   "name": "@chkp/cpinfo-analysis-mcp",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "CPInfo analysis MCP server",
   "type": "module",
   "main": "dist/index.js",
@@ -26,16 +26,18 @@
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "prepack": "node ../../scripts/strip-bundled-deps.js",
+    "postpack": "node ../../scripts/strip-bundled-deps.js restore"
   },
   "dependencies": {
+    "@chkp/mcp-utils": "*",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "commander": "^13.1.0",
     "node-machine-id": "^1.1.12",
     "zod": "^3.24.4"
   },
   "devDependencies": {
-    "@chkp/mcp-utils": "*",
     "@types/node": "^20.0.0",
     "@vitest/coverage-v8": "^3.1.0",
     "typescript": "^5.0.4",
