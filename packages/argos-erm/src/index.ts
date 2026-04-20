@@ -55,12 +55,14 @@ registerTakedownTools(server, serverModule);
 
 export { server };
 
-try {
+const main = async () => {
     await launchMCPServer(
         join(dirname(fileURLToPath(import.meta.url)), 'server-config.json'),
         serverModule
     );
-} catch (error) {
+};
+
+main().catch((error) => {
     console.error('Fatal error in main():', error);
     process.exit(1);
-}
+});
