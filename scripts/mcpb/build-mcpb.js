@@ -812,21 +812,31 @@ For testing, use the files directly from mcpb-builds/ or upload as CI artifacts.
     buildAllPackages();
     
     // Build each package
+    const failedPackages = [];
     for (const packageName of targetPackages) {
-      await buildPackage(packageName);
+      try {
+        await buildPackage(packageName);
+      } catch (err) {
+        console.error(`❌ Skipping ${packageName}, continuing with remaining packages...`);
+        failedPackages.push(packageName);
+      }
     }
-    
+
     // Note: Keep mcpb-builds directory for testing and CI artifacts
     // Don't clean up - let the files remain for use
-    
-    console.log('\n🎉 All packages built successfully!');
-    
+
+    if (failedPackages.length === 0) {
+      console.log('\n🎉 All packages built successfully!');
+    } else {
+      console.log(`\n⚠️ Build completed with ${failedPackages.length} failure(s): ${failedPackages.join(', ')}`);
+    }
+
     // Show summary
     console.log('\n📊 Build Summary:');
     console.log('='.repeat(50));
     for (const packageName of targetPackages) {
       const mcpbBuildsFile = path.join(mcpbBuildsDir, packageName, `${packageName}.mcpb`);
-      
+
       if (fs.existsSync(mcpbBuildsFile)) {
         console.log(`${packageName}.mcpb: ✅ mcpb-builds/${packageName}/`);
       } else {
@@ -839,7 +849,11 @@ For testing, use the files directly from mcpb-builds/ or upload as CI artifacts.
     console.log('2. For CI: Upload mcpb-builds/**/*.mcpb as artifacts');
     console.log('3. For releases: Attach mcpb-builds/**/*.mcpb to GitHub releases');
     console.log('4. If MCPB CLI is not installed: npm install -g @anthropic-ai/mcpb');
-    
+
+    if (failedPackages.length > 0) {
+      process.exit(1);
+    }
+
   } catch (error) {
     console.error('\n❌ Build failed:', error.message);
     process.exit(1);
