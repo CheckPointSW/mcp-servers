@@ -183,8 +183,10 @@ async function bundlePackage(packageName) {
   }
   
   // Get external dependencies (non-internal packages)
+  // Exclude all @chkp* scopes (both @chkp/ and @chkp-internal/) since they are
+  // already bundled into dist/index.js by the build:bundle step.
   const dependencies = packageJson.dependencies || {};
-  const externalDeps = Object.keys(dependencies).filter(dep => !dep.startsWith('@chkp/'));
+  const externalDeps = Object.keys(dependencies).filter(dep => !dep.startsWith('@chkp'));
   
   try {
     // Dynamic import of esbuild

@@ -471,7 +471,7 @@ class ConfigurationManager {
             mcpServers: {
                 [serverKey]: {
                     command: "npx",
-                    args: [this.currentServer.package],
+                    args: ["-y", this.currentServer.package + "@latest"],
                     env: envConfig
                 }
             }
@@ -488,7 +488,7 @@ class ConfigurationManager {
                 servers: {
                     [serverKey]: {
                         command: "npx",
-                        args: [this.currentServer.package],
+                        args: ["-y", this.currentServer.package + "@latest"],
                         env: envConfig
                     }
                 }
