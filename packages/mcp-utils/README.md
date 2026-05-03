@@ -96,9 +96,11 @@ Add `@chkp/mcp-utils` to your package.json:
 
 ## HTTP Transport
 
-By default, servers launched with `launchMCPServer` use **stdio** transport, which is the standard mode for MCP clients like Claude Desktop and Cursor.
+By default, servers launched with `launchMCPServer` use **stdio** transport, which is the standard mode for MCP clients like Claude Desktop and Cursor. For hosted or multi-user deployments, an **HTTP transport** (MCP Streamable HTTP) is also available.
 
-An alternative **HTTP transport** (MCP Streamable HTTP) is available for hosted or multi-user deployments. Enable it via environment variable or CLI flag:
+> **Security notice before you continue:** The HTTP server has no built-in authentication and no TLS. Any client that can reach the port can establish a session, and credentials travel in cleartext. Only use HTTP transport behind an authenticated reverse proxy (nginx, Caddy, a cloud load balancer) that terminates TLS and enforces authentication. If you are running the server on the same machine as your MCP client, use the default stdio transport — it has none of these concerns.
+
+### Starting the server in HTTP mode
 
 ```bash
 MCP_TRANSPORT_TYPE=http MCP_TRANSPORT_PORT=3000 my-mcp-server
@@ -106,17 +108,23 @@ MCP_TRANSPORT_TYPE=http MCP_TRANSPORT_PORT=3000 my-mcp-server
 my-mcp-server --transport http --transport-port 3000
 ```
 
-When running in HTTP mode the server exposes two endpoints:
+The server exposes:
 - `POST/GET/DELETE /mcp` — MCP protocol endpoint
 - `GET /health` — server status (active session count, version)
 
-### ⚠️ Security considerations for HTTP transport
+### Connecting an MCP client
 
-**No built-in authentication.** The HTTP server has no authentication layer. Any client that can reach the port can establish an MCP session. You must place the server behind an authenticated reverse proxy or restrict network access at the infrastructure level.
+Point your MCP client at `http://<host>:3000/mcp`. Example for Claude Desktop (`claude_desktop_config.json`):
 
-**No TLS.** The server runs plain HTTP. Credentials passed by MCP clients (API keys, passwords, management host) travel in cleartext over the wire. In production, always terminate TLS at a reverse proxy (nginx, Caddy, a cloud load balancer, etc.) in front of the MCP server.
-
-**stdio is recommended for local use.** If you are running the server on the same machine as your MCP client, use the default stdio transport — it has none of these concerns.
+```json
+{
+  "mcpServers": {
+    "my-server": {
+      "url": "http://localhost:3000/mcp"
+    }
+  }
+}
+```
 
 ## Benefits
 
