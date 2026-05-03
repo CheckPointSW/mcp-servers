@@ -103,7 +103,7 @@ server.tool(
         try {
             const result = await runApi(
                 'post',
-                'api/v1/doc/ask_docs',
+                'ask_docs',
                 { question: text, product },
                 extra
             );
