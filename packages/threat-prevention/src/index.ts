@@ -204,9 +204,8 @@ server.tool(
     if (rule_number !== undefined) body['rule-number'] = rule_number;
     if (layer) body.layer = layer;
     if (details_level) body['details-level'] = details_level;
-    const params = { body };
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-threat-rule', params, domainParam);
+    const resp = await apiManager.callApi('POST', 'show-threat-rule', body, domainParam);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
@@ -433,9 +432,8 @@ server.tool(
     if (dereference_group_members !== undefined) body['dereference-group-members'] = dereference_group_members;
     if (show_membership !== undefined) body['show-membership'] = show_membership;
     if (details_level) body['details-level'] = details_level;
-    const params = { body };
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-threat-rulebase', params, domainParam);
+    const resp = await apiManager.callApi('POST', 'show-threat-rulebase', body, domainParam);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
@@ -484,9 +482,8 @@ server.tool(
     if (show_ips_additional_properties !== undefined) body['show-ips-additional-properties'] = show_ips_additional_properties;
     if (show_profiles !== undefined) body['show-profiles'] = show_profiles;
     if (details_level) body['details-level'] = details_level;
-    const params = { body };
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-threat-protection', params, domainParam);
+    const resp = await apiManager.callApi('POST', 'show-threat-protection', body, domainParam);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
@@ -552,9 +549,8 @@ server.tool(
     if (dereference_group_members !== undefined) body['dereference-group-members'] = dereference_group_members;
     if (show_membership !== undefined) body['show-membership'] = show_membership;
     if (details_level) body['details-level'] = details_level;
-    const params = { body };
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-threat-rule-exception-rulebase', params, domainParam);
+    const resp = await apiManager.callApi('POST', 'show-threat-rule-exception-rulebase', body, domainParam);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
@@ -568,9 +564,8 @@ server.tool(
   },
   async ({ domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
-    const params = { body: {} };
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-threat-advanced-settings', params, domainParam);
+    const resp = await apiManager.callApi('POST', 'show-threat-advanced-settings', {}, domainParam);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
@@ -591,9 +586,8 @@ server.tool(
     if (name) body.name = name;
     if (uid) body.uid = uid;
     if (details_level) body['details-level'] = details_level;
-    const params = { body };
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    const resp = await apiManager.callApi('POST', 'show-threat-profile', params, domainParam);
+    const resp = await apiManager.callApi('POST', 'show-threat-profile', body, domainParam);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
