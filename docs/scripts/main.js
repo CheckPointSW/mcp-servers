@@ -789,7 +789,7 @@ function addDynamicStyles() {
         .server-package {
             font-family: 'Monaco', 'Consolas', monospace;
             font-size: var(--font-size-sm);
-            color: var(--brand-berry);
+            color: var(--gravitas-grey);
             background: rgba(238, 12, 93, 0.1);
             padding: var(--spacing-xs) var(--spacing-sm);
             border-radius: var(--radius-sm);
@@ -976,6 +976,10 @@ function addDynamicStyles() {
             .server-actions .btn-secondary:hover {
                 background: rgba(242, 242, 242, 0.1);
                 border-color: var(--clay);
+                color: var(--clay);
+            }
+
+            .server-package {
                 color: var(--clay);
             }
         }
