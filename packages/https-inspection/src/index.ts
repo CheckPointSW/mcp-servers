@@ -28,6 +28,15 @@ const serverModule = createServerModule(
 // Create an API runner function
 const runApi = createApiRunner(serverModule);
 
+// Management API version: v2.1 (R82.10+)
+// --- SHARED PARAM SCHEMAS ---
+const PARAM_DOMAINS_TO_PROCESS = z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional()
+  .describe('Scope query to all domains on this server or current domain only. Use standard (not full) for details-level. Must be called from the System Domain.');
+const PARAM_SHOW_ONLY_LOCAL_DOMAIN = z.boolean().optional().default(false)
+  .describe('When true, returns only objects belonging to the current domain; excludes objects inherited from a Global Policy domain.');
+const PARAM_DOMAIN = z.string().optional()
+  .describe('MDS domain name for routing this API call. Required in multi-domain (MDS) environments; omit for single-domain setups.');
+
 // HTTPS Inspection Tools
 
 server.tool(
@@ -84,7 +93,7 @@ server.tool(
     rule_number: z.string().optional(),
     layer: z.string().optional(),
     details_level: z.string().optional().default('standard'),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const uid = typeof args.uid === 'string' ? args.uid : undefined;
@@ -123,9 +132,11 @@ server.tool(
     package: z.string().optional(),
     details_level: z.string().optional().default('standard'),
     use_object_dictionary: z.boolean().optional(),
-    dereference_group_members: z.boolean().optional(),
-    show_membership: z.boolean().optional(),
-    domain: z.string().optional(),
+    dereference_group_members: z.boolean().optional()
+      .describe('When true, expands group members to their full object details instead of returning UIDs.'),
+    show_membership: z.boolean().optional()
+      .describe('When true, includes the groups each object belongs to. Triggers additional server-side computation; omit if not needed.'),
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const uid = typeof args.uid === 'string' ? args.uid : undefined;
@@ -166,7 +177,7 @@ server.tool(
     name: z.string().optional(),
     layer: z.string(),
     details_level: z.string().optional().default('standard'),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const uid = typeof args.uid === 'string' ? args.uid : undefined;
@@ -200,7 +211,7 @@ server.tool(
     uid: z.string().optional(),
     name: z.string().optional(),
     details_level: z.string().optional().default('standard'),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const uid = typeof args.uid === 'string' ? args.uid : undefined;
@@ -235,8 +246,9 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.object({ ASC: z.string().optional(), DESC: z.string().optional() })).optional(),
     details_level: z.string().optional().default('standard'),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : undefined;
@@ -251,7 +263,8 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-https-layers', params, domain);
@@ -268,26 +281,28 @@ server.tool(
   'https-inspection__show_gateways_and_servers',
   'Retrieve multiple gateway and server objects with optional filtering and pagination. Use this to get the currently installed policies only gateways.',
   {
-    filter: z.string().optional(),
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
     const limit = typeof args.limit === 'number' ? args.limit : 50;
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
     const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
     const params: Record<string, any> = { limit, offset };
-    if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-gateways-and-servers', params, extra);
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-gateways-and-servers', params, domain);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
@@ -302,9 +317,10 @@ server.tool(
       offset: z.number().optional().default(0),
       order: z.array(z.string()).optional(),
       details_level: z.string().optional(),
-      domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
+      domains_to_process: PARAM_DOMAINS_TO_PROCESS,
       type: z.string().optional(),
-      domain: z.string().optional(),
+      show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+      domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const uids = Array.isArray(args.uids) ? args.uids as string[] : undefined;
@@ -321,7 +337,8 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     if (type) params.type = type;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-objects', params, domain);
@@ -335,7 +352,7 @@ server.tool(
   'Retrieve a generic object by UID.',
   {
     uid: z.string(),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
       const uid = args.uid as string;

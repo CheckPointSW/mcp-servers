@@ -10,6 +10,7 @@ import {
 } from '@chkp/mcp-utils';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { slimProtection, slimGateway, slimRule, slimProfile, matchOverridesForCve, collectThreatRulebases } from './cve-protection.js';
 
 const { server, pkg } = createMcpServer(import.meta.url, {
   description: 'MCP server to interact with Threat Prevention objects on Check Point Gateways.'
@@ -25,6 +26,15 @@ const serverModule = createServerModule(
 
 // Create an API runner function
 const runApi = createApiRunner(serverModule);
+
+// Management API version: v2.1 (R82.10+)
+// --- SHARED PARAM SCHEMAS ---
+const PARAM_DOMAINS_TO_PROCESS = z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional()
+  .describe('Scope query to all domains on this server or current domain only. Use standard (not full) for details-level. Must be called from the System Domain.');
+const PARAM_SHOW_ONLY_LOCAL_DOMAIN = z.boolean().optional().default(false)
+  .describe('When true, returns only objects belonging to the current domain; excludes objects inherited from a Global Policy domain.');
+const PARAM_DOMAIN = z.string().optional()
+  .describe('MDS domain name for routing this API call. Required in multi-domain (MDS) environments; omit for single-domain setups.');
 
 
 server.tool(
@@ -83,16 +93,27 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    show_capture_packets_and_track: z.boolean().optional().default(true)
+      .describe('Include capture packets and track settings in the response.'),
+    show_ips_additional_properties: z.boolean().optional().default(false)
+      .describe('Include IPS-specific additional properties. Only applies when details-level is full.'),
+    show_profiles: z.boolean().optional().default(false)
+      .describe('Include profile associations for each protection. Only applies when details-level is full.'),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }: any, extra: any) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, show_capture_packets_and_track = true, show_ips_additional_properties = false, show_profiles = false, domains_to_process, show_only_local_domain = false, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    params['show-capture-packets-and-track'] = show_capture_packets_and_track;
+    if (show_ips_additional_properties) params['show-ips-additional-properties'] = true;
+    if (show_profiles) params['show-profiles'] = true;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (show_only_local_domain) params['show-only-local-domain'] = true;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-threat-protections', params, domainParam);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
@@ -107,7 +128,7 @@ server.tool(
     name: z.string().optional(),
     uid: z.string().optional(),
     details_level: z.string().optional(),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async ({ name = '', uid = '', details_level, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
@@ -129,7 +150,7 @@ server.tool(
     name: z.string().optional(),
     uid: z.string().optional(),
     details_level: z.string().optional(),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async ({ name = '', uid = '', details_level, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
@@ -148,7 +169,7 @@ server.tool(
   'show_ips_status',
   'Show the IPS (Intrusion Prevention System) status.',
   {
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async ({ domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
@@ -168,16 +189,18 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }: any, extra: any) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, show_only_local_domain = false, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (show_only_local_domain) params['show-only-local-domain'] = true;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-threat-ioc-feeds', params, domainParam);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
@@ -194,7 +217,7 @@ server.tool(
     rule_number: z.number().optional(),
     layer: z.string(),
     details_level: z.enum(['uid', 'standard', 'full']).optional(),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async ({ uid, name, rule_number, layer, details_level, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
@@ -220,16 +243,18 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }: any, extra: any) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, show_only_local_domain = false, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (show_only_local_domain) params['show-only-local-domain'] = true;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-exception-groups', params, domainParam);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
@@ -241,7 +266,7 @@ server.tool(
   'show_ips_update_schedule',
   'Show the IPS update schedule.',
   {
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async ({ domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
@@ -261,16 +286,18 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }: any, extra: any) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, show_only_local_domain = false, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (show_only_local_domain) params['show-only-local-domain'] = true;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-threat-indicators', params, domainParam);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
@@ -287,16 +314,18 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }: any, extra: any) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, show_only_local_domain = false, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (show_only_local_domain) params['show-only-local-domain'] = true;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-threat-profiles', params, domainParam);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
@@ -311,7 +340,7 @@ server.tool(
     name: z.string().optional(),
     uid: z.string().optional(),
     details_level: z.string().optional(),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async ({ name = '', uid = '', details_level, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
@@ -335,16 +364,18 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }: any, extra: any) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, show_only_local_domain = false, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (show_only_local_domain) params['show-only-local-domain'] = true;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-ips-protection-extended-attributes', params, domainParam);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
@@ -361,16 +392,18 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, domain }: any, extra: any) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, show_only_local_domain = false, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (show_only_local_domain) params['show-only-local-domain'] = true;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-threat-layers', params, domainParam);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
@@ -400,10 +433,12 @@ server.tool(
     order: z.array(z.string()).optional(),
     package: z.string().optional(),
     use_object_dictionary: z.boolean().optional(),
-    dereference_group_members: z.boolean().optional(),
-    show_membership: z.boolean().optional(),
+    dereference_group_members: z.boolean().optional()
+      .describe('When true, expands group members to their full object details instead of returning UIDs.'),
+    show_membership: z.boolean().optional()
+      .describe('When true, includes the groups each object belongs to. Triggers additional server-side computation; omit if not needed.'),
     details_level: z.enum(['uid', 'standard', 'full']).optional(),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async ({ name, uid, filter, filter_settings, limit, offset, order, package: pkg, use_object_dictionary, dereference_group_members, show_membership, details_level, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
@@ -446,7 +481,7 @@ server.tool(
     name: z.string().optional(),
     uid: z.string().optional(),
     details_level: z.string().optional(),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async ({ name = '', uid = '', details_level, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
@@ -467,11 +502,14 @@ server.tool(
   {
     name: z.string().optional(),
     uid: z.string().optional(),
-    show_capture_packets_and_track: z.boolean().optional(),
-    show_ips_additional_properties: z.boolean().optional(),
-    show_profiles: z.boolean().optional(),
+    show_capture_packets_and_track: z.boolean().optional()
+      .describe('Include capture packets and track settings in the response.'),
+    show_ips_additional_properties: z.boolean().optional()
+      .describe('Include IPS-specific additional properties. Only applies when details-level is full.'),
+    show_profiles: z.boolean().optional()
+      .describe('Include profile associations for each protection. Only applies when details-level is full.'),
     details_level: z.enum(['uid', 'standard', 'full']).optional(),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async ({ name, uid, show_capture_packets_and_track, show_ips_additional_properties, show_profiles, details_level, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
@@ -514,10 +552,12 @@ server.tool(
     order: z.array(z.string()).optional(),
     package: z.string().optional(),
     use_object_dictionary: z.boolean().optional(),
-    dereference_group_members: z.boolean().optional(),
-    show_membership: z.boolean().optional(),
+    dereference_group_members: z.boolean().optional()
+      .describe('When true, expands group members to their full object details instead of returning UIDs.'),
+    show_membership: z.boolean().optional()
+      .describe('When true, includes the groups each object belongs to. Triggers additional server-side computation; omit if not needed.'),
     details_level: z.enum(['uid', 'standard', 'full']).optional(),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async ({ name, uid, rule_uid, rule_name, rule_number, filter, filter_settings, limit, offset, order, package: pkg, use_object_dictionary, dereference_group_members, show_membership, details_level, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
@@ -560,7 +600,7 @@ server.tool(
   'show_threat_advanced_settings',
   "Show Threat Prevention's Blades' advanced settings.",
   {
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async ({ domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
@@ -578,7 +618,7 @@ server.tool(
     name: z.string().optional(),
     uid: z.string().optional(),
     details_level: z.enum(['uid', 'standard', 'full']).optional(),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async ({ name, uid, details_level, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
@@ -600,7 +640,7 @@ server.tool(
     name: z.string().optional(),
     uid: z.string().optional(),
     details_level: z.string().optional(),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async ({ name = '', uid = '', details_level, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
@@ -618,26 +658,28 @@ server.tool(
   'threat-prevention__show_gateways_and_servers',
   'Retrieve multiple gateway and server objects with optional filtering and pagination. Use this to get the currently installed policies only gateways.',
   {
-    filter: z.string().optional(),
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
     const limit = typeof args.limit === 'number' ? args.limit : 50;
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
     const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
     const params: Record<string, any> = { limit, offset };
-    if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-gateways-and-servers', params, extra);
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-gateways-and-servers', params, domain);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
@@ -652,9 +694,10 @@ server.tool(
       offset: z.number().optional().default(0),
       order: z.array(z.string()).optional(),
       details_level: z.string().optional(),
-      domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
+      domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+      show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
       type: z.string().optional(),
-      domain: z.string().optional(),
+      domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const uids = Array.isArray(args.uids) ? args.uids as string[] : undefined;
@@ -671,7 +714,8 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     if (type) params.type = type;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-objects', params, domain);
@@ -685,7 +729,7 @@ server.tool(
   'Retrieve a generic object by UID.',
   {
     uid: z.string(),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
       const uid = args.uid as string;
@@ -700,53 +744,63 @@ server.tool(
 );
 
 // Tool: check_cve_protection
+// Mirrors the legacy console-one-backend cve_function_tool.py: the four
+// API calls with field-filtered responses, returned as a list. Adds multi-CVE
+// input, profile activation thresholds, and per-CVE override matching.
 server.tool(
   'check_cve_protection',
-  'Check if a given CVE is protected, optionally for a specific gateway. Performs a series of API calls to determine protection status.',
+  'Check whether one or more CVEs are protected. Returns filtered responses for show-threat-protections (per CVE), show-gateways-and-servers, show-threat-rulebase (per relevant rulebase), and show-threat-profile (per referenced profile). Pass an array to `cve` to batch CVEs (gateway/rulebase/profile fetches are shared). A gateway protects a CVE when: (1) network-security-blades.ips=true AND policy.threat-policy-installed=true; (2) a rulebase rule includes the gateway in install-on; (3) the rule\'s profile activates the protection (severity / performance-impact thresholds gated by ips-settings.exclude-* toggles, then extended-attributes filtering, then action = profile["confidence-level-<protection.confidence-level>"]); (4) no entry in overrides-by-cve forces the protection\'s final.action to Inactive.',
   {
-    cve: z.string().describe('The CVE to check for protection'),
-    gateway: z.string().optional().describe('The gateway to check for protection. Leave empty to check all gateways.'),
-    domain: z.string().optional(),
+    cve: z.union([z.string(), z.array(z.string())]).describe('CVE string or array of CVE strings (e.g. "CVE-2025-24054" or ["CVE-2025-24054", "CVE-2024-1234"]).'),
+    gateway: z.string().optional().describe('Restrict to this gateway name. Empty = all gateways except management hosts.'),
+    domain: PARAM_DOMAIN,
   },
   async ({ cve, gateway, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    
-    // 1. Query protections for the CVE
-    const protectionsResp = await apiManager.callApi('POST', 'show-threat-protections', { filter: cve, 'details-level': 'full' }, domainParam);
-    // 2. Query all gateways and servers
-    const gatewaysResp = await apiManager.callApi('POST', 'show-gateways-and-servers', { 'details-level': 'full' }, domainParam);
-    const gateways: any[] = Array.isArray(gatewaysResp.objects) ? gatewaysResp.objects.filter((gw: any) => !gateway || gw.name === gateway) : [];
-    // 3. For each gateway, check IPS and threat policy
-    const rulebases = new Set<string>();
-    for (const gw of gateways) {
-      const blades = gw['network-security-blades'] || {};
-      const ipsEnabled = !!blades.ips;
-      const policy = gw.policy || {};
-      if (ipsEnabled && policy['threat-policy-installed'] && policy['threat-policy-name']) {
-        rulebases.add(`${policy['threat-policy-name']} Threat Prevention`);
-      }
+    const cves = Array.from(new Set(
+      (Array.isArray(cve) ? cve : [cve]).filter((c) => typeof c === 'string').map((c: string) => c.trim()).filter(Boolean)
+    ));
+    if (cves.length === 0) {
+      return { content: [{ type: 'text', text: 'Error: `cve` must be a CVE string or a non-empty array of CVE strings.' }] };
     }
-    // 4. For each rulebase, get rules and collect profile names
+
+    const responses: any[] = [];
+
+    const protectionsByCve: Record<string, any[]> = {};
+    for (const c of cves) {
+      const resp = await apiManager.callApi('POST', 'show-threat-protections', { filter: c, 'details-level': 'full' }, domainParam);
+      const slim = (resp?.protections ?? []).map(slimProtection);
+      protectionsByCve[c] = slim;
+      responses.push({ name: 'show-threat-protections', arguments: { filter: c }, response: { protections: slim } });
+    }
+
+    const gwsResp = await apiManager.callApi('POST', 'show-gateways-and-servers', { 'details-level': 'full' }, domainParam);
+    const gateways = (gwsResp?.objects ?? [])
+      .filter((gw: any) => gateway ? gw?.name === gateway : gw?.type !== 'checkpoint-host')
+      .map(slimGateway);
+    responses.push({ name: 'show-gateways-and-servers', response: { objects: gateways } });
+
     const profileNames = new Set<string>();
-    for (const rulebase of rulebases) {
-      const rulebaseResp = await apiManager.callApi('POST', 'show-threat-rulebase', { name: rulebase, 'details-level': 'full' }, domainParam);
-      const rules = Array.isArray(rulebaseResp.rulebase) ? rulebaseResp.rulebase : [];
-      for (const rule of rules) {
-        if (rule.action) profileNames.add(rule.action);
+    for (const name of collectThreatRulebases(gateways)) {
+      const rb = await apiManager.callApi('POST', 'show-threat-rulebase', { name, 'details-level': 'full' }, domainParam);
+      const rules = (rb?.rulebase ?? []).map(slimRule);
+      for (const rule of rules) if (typeof rule.action === 'string') profileNames.add(rule.action);
+      responses.push({ name: 'show-threat-rulebase', arguments: { name }, response: { rulebase: rules } });
+    }
+
+    for (const name of profileNames) {
+      const resp = await apiManager.callApi('POST', 'show-threat-profile', { name, 'details-level': 'full' }, domainParam);
+      const overrides: any[] = Array.isArray(resp?.overrides) ? resp.overrides : [];
+      const overridesByCve: Record<string, any[]> = {};
+      for (const c of cves) {
+        const m = matchOverridesForCve(overrides, c, protectionsByCve[c] ?? []);
+        if (m.length > 0) overridesByCve[c] = m;
       }
+      responses.push({ name: 'show-threat-profile', arguments: { name }, response: slimProfile(resp, overridesByCve) });
     }
-    // 5. For each profile, get details
-    const profiles = [];
-    for (const profileName of profileNames) {
-      const profileResp = await apiManager.callApi('POST', 'show-threat-profile', { name: profileName, 'details-level': 'full' }, domainParam);
-      profiles.push(profileResp);
-    }
-    return {
-      content: [
-        { type: 'text', text: JSON.stringify({ protections: protectionsResp, gateways: gateways, rulebases: Array.from(rulebases), profiles }, null, 2) }
-      ]
-    };
+
+    return { content: [{ type: 'text', text: JSON.stringify({ cves, responses }, null, 2) }] };
   }
 );
 

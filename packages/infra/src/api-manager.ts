@@ -22,8 +22,14 @@ export abstract class APIManagerBase {
       name?: string;
       'ipv4-address'?: string;
       'ipv6-address'?: string;
-      active?: boolean
+      active?: boolean;
+      'multi-domain-server'?: string;
     }>
+  }> | null = null;
+  private mdsServers: Array<{
+    name: string;
+    'ipv4-address'?: string;
+    'ipv6-address'?: string;
   }> | null = null;
 
   constructor(protected readonly client: APIClientBase) {}
@@ -55,8 +61,10 @@ export abstract class APIManagerBase {
   async callApi(method: string, uri: string, data: Record<string, any>, domain?: string): Promise<Record<string, any>> {
     const sanitizedData = sanitizeData(data);
 
-    // If domain is specified, use domain-specific routing logic similar to runScript
-    const apiClient = domain ? await this.getDomainApiClientByDomain(domain) : this.client;
+    // domains-to-process must run from the System Domain (root MDS session) — ignore domain routing when set
+    const apiClient = (domain && !data['domains-to-process'])
+      ? await this.getDomainApiClientByDomain(domain)
+      : this.client;
 
     // Use the default client for non-domain-specific calls
     const clientResponse = await apiClient.callApi(
@@ -121,7 +129,8 @@ export abstract class APIManagerBase {
       name?: string;
       'ipv4-address'?: string;
       'ipv6-address'?: string;
-      active?: boolean
+      active?: boolean;
+      'multi-domain-server'?: string;
     }>
   }>> {
     // Return cached domains if available
@@ -129,38 +138,52 @@ export abstract class APIManagerBase {
       return this.domains;
     }
 
-    // Fetch domains with full details to get server information (active/standby MDS IPs)
-    const response = await this.callApi('post', 'show-domains', {
-      'details-level': 'full'
-    });
-
-    // Extract domain names, types, and server information from the response
-    const domains: Array<{
+    const allDomains: Array<{
       name: string;
       type: string;
       servers?: Array<{
         name?: string;
         'ipv4-address'?: string;
         'ipv6-address'?: string;
-        active?: boolean
+        active?: boolean;
+        'multi-domain-server'?: string;
       }>
     }> = [];
 
-    if (response.objects) {
-      for (const obj of response.objects) {
-        if (obj.name && obj.type) {
-          domains.push({
-            name: obj.name,
-            type: obj.type,
-            servers: obj.servers || []
-          });
+    const limit = 50;
+    let offset = 0;
+    let total = Infinity;
+
+    // Paginate through all domains — show-domains defaults to 50 results per page
+    while (offset < total) {
+      const response = await this.callApi('post', 'show-domains', {
+        'details-level': 'full',
+        'limit': limit,
+        'offset': offset
+      });
+
+      if (response.objects) {
+        for (const obj of response.objects) {
+          if (obj.name && obj.type) {
+            allDomains.push({
+              name: obj.name,
+              type: obj.type,
+              servers: obj.servers || []
+            });
+          }
         }
+      }
+
+      total = typeof response.total === 'number' ? response.total : allDomains.length;
+      offset += limit;
+
+      if (!response.objects || response.objects.length === 0) {
+        break;
       }
     }
 
-    // Cache the domains
-    this.domains = domains;
-    return domains;
+    this.domains = allDomains;
+    return this.domains;
   }
 
   /**
@@ -225,80 +248,77 @@ export abstract class APIManagerBase {
   }
 
   /**
-   * Get the appropriate API client for a specific domain, handling MDS domain routing
-   * This method handles multi-MDS environments where domains may be distributed across
-   * different MDS servers with active/standby configurations.
+   * Get the appropriate API client for a specific domain, handling MDS domain routing.
+   * Uses login -d (credential-based domain login) as the primary path.
+   *
+   * Flow:
+   *  1. login -d on current MDS root (works for both local and standby domains)
+   *  2. Cross-MDS: find target MDS root IP via show-mdss, then login -d there
+   *  3. Last resort: login directly to the active DMS virtual IP
+   *
+   * NOTE: This server currently exposes read-only APIs only. For reads, landing on a
+   * standby DMS is acceptable — the data is replicated. If write operations are added
+   * in the future, step 1 must be changed to enforce routing to the ACTIVE DMS server
+   * (use getMDSServerForDomain which selects the active server from show-domains).
    */
   async getDomainApiClientByDomain(domainName: string): Promise<APIClientBase> {
-    // 1. Check if the main API client is MDS, if not return it directly
     const isMDS = await this.client.isMDSEnvironment();
     if (!isMDS) {
       return this.client;
     }
 
-    // 2. Check if we already have a valid client for this domain
     const existingDomainClient = this.domainClients.get(domainName);
     if (existingDomainClient && existingDomainClient.hasValidSession()) {
       return existingDomainClient;
     }
 
-    // 3. Check if the domain exists on the current MDS server (active or standby)
-    const isOnCurrentMDS = await this.isDomainOnCurrentMDS(domainName);
-
-    if (isOnCurrentMDS) {
-      // Domain is present on current MDS (either active or standby)
-      // We can use the current connection to login to the domain
-      const domainSid = await this.loginToDomain(domainName);
-      const domainClient = this.createClientWithSid(domainSid);
-      this.domainClients.set(domainName, domainClient);
-      return domainClient;
-    }
-
-    // 4. Domain is NOT on current MDS - need to connect to a different MDS server
-    const targetMDSIP = await this.getMDSServerForDomain(domainName);
-
-    if (!targetMDSIP) {
-      throw new Error(
-        `Domain '${domainName}' not found or has no available MDS servers. ` +
-        `Make sure the domain exists and you have access to it.`
-      );
-    }
-
-    // Extract port from current client if available
     const currentHost = this.client.getHost();
     const portMatch = currentHost.match(/:(\d+)/);
     const port = portMatch ? portMatch[1] : '443';
 
-    // 5. Create a new API client for the target MDS server
-    const newMDSClient = this.createClientForMDS(targetMDSIP, port);
-
-    // Copy debug setting to the new client
-    if ('debug' in newMDSClient) {
-      (newMDSClient as any).debug = this._debug;
+    // Step 1: login -d on current MDS root
+    try {
+      const domainClient = this.createClientForMDS(
+        (this.client as any).managementHost,
+        port,
+        domainName
+      );
+      if ('debug' in domainClient) (domainClient as any).debug = this._debug;
+      await domainClient.login();
+      this.domainClients.set(domainName, domainClient);
+      return domainClient;
+    } catch {
+      // Domain may be on a different MDS or credentials don't cover this domain.
     }
 
-    // 6. Login to the target MDS server
-    await newMDSClient.login();
+    // Step 2: Cross-MDS — find the target MDS root IP via show-mdss and login -d there
+    const targetMDSIP = await this.getMDSRootForDomain(domainName);
+    if (targetMDSIP) {
+      try {
+        const crossMDSClient = this.createClientForMDS(targetMDSIP, port, domainName);
+        if ('debug' in crossMDSClient) (crossMDSClient as any).debug = this._debug;
+        await crossMDSClient.login();
+        this.domainClients.set(domainName, crossMDSClient);
+        return crossMDSClient;
+      } catch {
+        // Cross-MDS login -d failed. Fall through to direct DMS login.
+      }
+    }
 
-    // 7. Login to the specific domain on the target MDS
-    const loginResponse = await newMDSClient.callApi('post', 'login-to-domain', {
-      'domain': domainName
-    }, undefined);
-
-    if (!loginResponse.response.sid) {
+    // Step 3: Last resort — login directly to the active DMS virtual IP
+    const dmsIP = await this.getMDSServerForDomain(domainName);
+    if (!dmsIP) {
       throw new Error(
-        `Failed to login to domain '${domainName}' on MDS server ${targetMDSIP}`
+        `Domain '${domainName}' not found or has no available servers. ` +
+        `Make sure the domain exists and you have access to it.`
       );
     }
 
-    // 8. Create a client with the domain SID
-    const domainSid = loginResponse.response.sid;
-    const domainClient = this.createClientWithSid(domainSid);
-
-    // Store the domain client for reuse
-    this.domainClients.set(domainName, domainClient);
-
-    return domainClient;
+    const targetClient = this.createClientForMDS(dmsIP, port);
+    if ('debug' in targetClient) (targetClient as any).debug = this._debug;
+    await targetClient.login();
+    this.domainClients.set(domainName, targetClient);
+    return targetClient;
   }
 
   /**
@@ -346,25 +366,59 @@ export abstract class APIManagerBase {
   }
 
   /**
-   * Check if a domain exists on the current MDS server (either active or standby)
+   * Get MDS server list from show-mdss with caching
    */
-  private async isDomainOnCurrentMDS(domainName: string): Promise<boolean> {
-    const domains = await this.getDomains();
-    const domain = domains.find(d => d.name === domainName);
-
-    if (!domain?.servers || domain.servers.length === 0) {
-      return false;
+  private async getMDSServers(): Promise<Array<{
+    name: string;
+    'ipv4-address'?: string;
+    'ipv6-address'?: string;
+  }>> {
+    if (this.mdsServers !== null) {
+      return this.mdsServers;
     }
 
-    // Extract the IP/host from the current client's host URL
-    const currentHost = this.client.getHost();
+    try {
+      const response = await this.callApi('post', 'show-mdss', {
+        'details-level': 'full',
+        'limit': 500
+      });
+      const servers: Array<{ name: string; 'ipv4-address'?: string; 'ipv6-address'?: string }> = [];
+      if (response.objects) {
+        for (const obj of response.objects) {
+          if (obj.name) {
+            servers.push({
+              name: obj.name,
+              'ipv4-address': obj['ipv4-address'],
+              'ipv6-address': obj['ipv6-address']
+            });
+          }
+        }
+      }
+      this.mdsServers = servers;
+    } catch {
+      this.mdsServers = [];
+    }
+    return this.mdsServers;
+  }
 
-    // Check if any of the domain's servers match the current MDS host (IPv4 or IPv6)
-    return domain.servers.some(server => {
-      const ipv4 = server['ipv4-address'];
-      const ipv6 = server['ipv6-address'];
-      return (ipv4 && currentHost.includes(ipv4)) || (ipv6 && currentHost.includes(ipv6));
-    });
+  /**
+   * Return the MDS root IP for the domain's active server.
+   * Maps the domain's `multi-domain-server` name (from show-domains) to an MDS
+   * root IP (from show-mdss). Returns null if the domain is not found or the MDS
+   * root IP cannot be determined.
+   */
+  private async getMDSRootForDomain(domainName: string): Promise<string | null> {
+    const domains = await this.getDomains();
+    const domain = domains.find(d => d.name === domainName);
+    if (!domain?.servers?.length) return null;
+
+    const activeServer = domain.servers.find(s => s.active === true) ?? domain.servers[0];
+    const targetMDSName = activeServer?.['multi-domain-server'];
+    if (!targetMDSName) return null;
+
+    const mdsServers = await this.getMDSServers();
+    const mdsServer = mdsServers.find(m => m.name === targetMDSName);
+    return mdsServer?.['ipv4-address'] ?? mdsServer?.['ipv6-address'] ?? null;
   }
 
   /**
@@ -403,30 +457,29 @@ export abstract class APIManagerBase {
   }
 
   /**
-   * Create a new API client for a different MDS server
-   * Handles both IPv4 and IPv6 addresses
-   * Only supports OnPremAPIClient for multi-MDS scenarios
+   * Create a new API client targeting a specific host (MDS root or DMS IP).
+   * When `domain` is provided it is included in the login payload, causing the
+   * server to return a domain-scoped session (equivalent to login -d).
+   * Handles both IPv4 and IPv6 addresses.
    */
-  private createClientForMDS(mdsIP: string, port: string = '443'): APIClientBase {
+  private createClientForMDS(mdsIP: string, port: string = '443', domain?: string): APIClientBase {
     if (this.client instanceof OnPremAPIClient) {
-      // Access the private properties through type casting
       const currentClient = this.client as any;
 
-      // Format IPv6 addresses properly for URL usage (wrap in brackets if needed)
+      // Wrap bare IPv6 addresses in brackets for URL usage
       const formattedHost = mdsIP.includes(':') && !mdsIP.startsWith('[')
         ? `[${mdsIP}]`
         : mdsIP;
 
-      // Create a new OnPremAPIClient with the same credentials but different host
       return new OnPremAPIClient(
         currentClient.authToken || undefined,
         formattedHost,
         port,
         currentClient.username,
-        currentClient.password
+        currentClient.password,
+        domain
       );
     } else if (this.client instanceof SmartOneCloudAPIClient) {
-      // SmartOneCloud doesn't support multi-MDS in the same way
       throw new Error('Multi-MDS routing is not supported for SmartOneCloud environments');
     } else {
       throw new Error('Unknown client type for MDS routing');
@@ -521,6 +574,7 @@ export class APIManagerForAPIKey extends APIManagerBase {
     s1cUrl?: string;
     cloudInfraToken?: string;
     cloudConnected?: boolean;
+    sid?: string;
   }): APIManagerForAPIKey {
     const verbose = SettingsManager.globalDebugState;
 
@@ -533,13 +587,14 @@ export class APIManagerForAPIKey extends APIManagerBase {
         managementHost: args.managementHost,
         managementPort: args.managementPort,
         s1cUrl: args.s1cUrl,
-        cloudInfraToken: args.cloudInfraToken ? '***' : undefined
+        cloudInfraToken: args.cloudInfraToken ? '***' : undefined,
+        sid: args.sid ? '***' : undefined
       });
     }
 
     // Early validation - check if args is effectively empty
     const hasAnyValue = args.apiKey || args.username || args.password ||
-                        args.s1cUrl || args.managementHost || args.cloudInfraToken;
+                        args.s1cUrl || args.managementHost || args.cloudInfraToken || args.sid;
     if (!hasAnyValue) {
       if (verbose) {
         console.error('[APIManagerForAPIKey.create] Verbose: ERROR - Args object is effectively empty, no values provided');
@@ -561,6 +616,13 @@ export class APIManagerForAPIKey extends APIManagerBase {
         args.username,
         args.password
       );
+      // If a pre-authenticated SID was provided, set it on the client to skip login
+      if (args.sid) {
+        if (verbose) {
+          console.error('[APIManagerForAPIKey.create] Verbose: Setting external SID on on-prem client (skipping login)');
+        }
+        onPremClient.setExternalSid(args.sid);
+      }
       return new this(onPremClient);
     }
 
@@ -595,6 +657,15 @@ export class APIManagerForAPIKey extends APIManagerBase {
       keyType = TokenType.API_KEY;
       key = args.apiKey;
     }
+    else if (args.sid) {
+      // SID provided without auth credentials for S1C - use a placeholder token
+      // since the client won't need to login
+      if (verbose) {
+        console.error('[APIManagerForAPIKey.create] Verbose: Using external SID with S1C (no auth token needed)');
+      }
+      keyType = TokenType.API_KEY;
+      key = '';
+    }
     else {
       if (verbose) {
         console.error('[APIManagerForAPIKey.create] Verbose: ERROR - No API key or cloud infra token provided');
@@ -602,12 +673,22 @@ export class APIManagerForAPIKey extends APIManagerBase {
       throw new Error('API key or cloud infrastructure token is required');
     }
 
-    return new this(SmartOneCloudAPIClient.create(
+    const s1cClient = SmartOneCloudAPIClient.create(
       key,
       keyType,
       args.s1cUrl!,
       !!args.cloudConnected,
-    ));
+    );
+
+    // If a pre-authenticated SID was provided, set it on the client to skip login
+    if (args.sid) {
+      if (verbose) {
+        console.error('[APIManagerForAPIKey.create] Verbose: Setting external SID on S1C client (skipping login)');
+      }
+      s1cClient.setExternalSid(args.sid);
+    }
+
+    return new this(s1cClient);
   }
 }
 

@@ -17,6 +17,10 @@ While the Logs MCP work well on it's own, and will enable to read logs and deriv
 - Query and visualize connection logs
 - View Audit and monitoring logs 
 
+## Management API Version
+
+This server supports **Management API v2.1 (R82.10+)**. It is generally compatible with earlier versions; some parameters may not be available on older management servers.
+
 ## Demo
 
 [![Watch the demo](https://img.youtube.com/vi/-DuLzDJK9Yo/0.jpg)](https://www.youtube.com/watch?v=-DuLzDJK9Yo)

@@ -31,6 +31,8 @@ const serverModule = createServerModule(
 // Create an API runner function
 const runApiScript = createApiRunner(serverModule);
 
+// Management API version: v2.1 (R82.10+)
+
 // Connection Analysis Tools
 server.tool(
   'start_connection_analysis',

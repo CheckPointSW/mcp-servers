@@ -15,6 +15,10 @@ MCP changes this: exposing security management data in a modular, context-rich f
 - **IPS (Intrusion Prevention System) Monitoring**: Check IPS status, update schedules, and protection attributes  
 - **IOC Feed Management**: View and analyze threat intelligence feeds and indicators of compromise
 
+## Management API Version
+
+This server supports **Management API v2.1 (R82.10+)**. It is generally compatible with earlier versions; some parameters may not be available on older management servers.
+
 ## Demo
 
 [![Watch the demo](https://img.youtube.com/vi/-DuLzDJK9Yo/0.jpg)](https://www.youtube.com/watch?v=-DuLzDJK9Yo)

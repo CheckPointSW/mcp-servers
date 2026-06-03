@@ -33,6 +33,8 @@ const serverModule = createServerModule(
 // Create an API runner function
 const runApi = createApiRunner(serverModule);
 
+// Management API version: v2.1 (R82.10+)
+
 server.tool(
   'management-logs__init',
   'Verify, login and initialize management connection. Use this tool on your first interaction with the server.',
@@ -269,6 +271,7 @@ server.tool(
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
     domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
+    show_only_local_domain: z.boolean().optional().default(false),
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -281,7 +284,8 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     const resp = await runApi('POST', 'show-gateways-and-servers', params, extra);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
@@ -298,6 +302,7 @@ server.tool(
       order: z.array(z.string()).optional(),
       details_level: z.string().optional(),
       domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
+      show_only_local_domain: z.boolean().optional().default(false),
       type: z.string().optional(),
       domain: z.string().optional(),
   },
@@ -316,7 +321,8 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     if (type) params.type = type;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-objects', params, domain);

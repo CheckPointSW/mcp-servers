@@ -20,6 +20,7 @@ export class Settings {
   public managementPort?: string;
   public cloudInfraToken?: string;
   public cloudConnected?: boolean;
+  public sid?: string;              // Pre-authenticated session ID (X-chkp-sid)
   public clientId?: string;
   public secretKey?: string;
   public region: Region = 'EU';
@@ -69,6 +70,7 @@ export class Settings {
     managementPort = process.env.MANAGEMENT_PORT || '443',
     cloudInfraToken = process.env.CLOUD_INFRA_TOKEN,
     cloudConnected = process.env.CLOUD_CONNECTED === 'true',
+    sid,
     clientId = process.env.CLIENT_ID,
     secretKey = process.env.SECRET_KEY,
     region = (process.env.REGION as Region) || 'EU',
@@ -83,6 +85,7 @@ export class Settings {
     managementPort?: string;
     cloudInfraToken?: string;
     cloudConnected?: boolean;
+    sid?: string;
     clientId?: string;
     secretKey?: string;
     region?: Region;
@@ -115,6 +118,7 @@ export class Settings {
     this.managementPort = managementPort;
     this.cloudInfraToken = cloudInfraToken;
     this.cloudConnected = cloudConnected;
+    this.sid = sid;
     this.clientId = clientId;
     this.secretKey = secretKey;
     this.region = this.normalizeRegion(region) || 'EU';
@@ -201,6 +205,7 @@ export class Settings {
 
     if (verbose) {
       console.error('[Settings] Verbose: Validating settings...');
+      console.error('[Settings] Verbose: sid:', this.sid ? '***' : '(empty)');
       console.error('[Settings] Verbose: s1cUrl:', this.s1cUrl || '(empty)');
       console.error('[Settings] Verbose: managementHost:', this.managementHost || '(empty)');
       console.error('[Settings] Verbose: apiKey:', this.apiKey ? '***' : '(empty)');
@@ -209,12 +214,29 @@ export class Settings {
       console.error('[Settings] Verbose: password:', this.password ? '***' : '(empty)');
     }
 
-    // For S1C, API key is required
-    if (!nullOrEmpty(this.s1cUrl) && nullOrEmpty(this.apiKey) && nullOrEmpty(this.cloudInfraToken)) {
+    // When a pre-authenticated session ID (X-chkp-sid) is provided,
+    // skip credential validation - the caller already has a valid session.
+    if (!nullOrEmpty(this.sid)) {
       if (verbose) {
-        console.error('[Settings] Verbose: Validation FAILED - S1C URL provided but no API key or CI token');
+        console.error('[Settings] Verbose: Pre-authenticated SID provided, skipping credential validation');
       }
-      throw new Error('API key or CI Token is required for S1C (via --api-key or API_KEY env var)');
+      return;
+    }
+
+    // For S1C, API key is required (unless running in stateless HTTP mode
+    // where credentials arrive per-request via headers)
+    if (!nullOrEmpty(this.s1cUrl) && nullOrEmpty(this.apiKey) && nullOrEmpty(this.cloudInfraToken)) {
+      // In HTTP transport mode, credentials may come per-request via headers — allow startup without them
+      if (process.env.MCP_TRANSPORT_TYPE?.toLowerCase() === 'http') {
+        if (verbose) {
+          console.error('[Settings] Verbose: S1C URL provided without credentials, but HTTP transport mode allows per-request auth via headers');
+        }
+      } else {
+        if (verbose) {
+          console.error('[Settings] Verbose: Validation FAILED - S1C URL provided but no API key or CI token');
+        }
+        throw new Error('API key or CI Token is required for S1C (via --api-key or API_KEY env var)');
+      }
     }
 
     // For on-prem, either API key or username/password is required
@@ -223,10 +245,17 @@ export class Settings {
       nullOrEmpty(this.apiKey) &&
       (nullOrEmpty(this.username) || nullOrEmpty(this.password))
     ) {
-      if (verbose) {
-        console.error('[Settings] Verbose: Validation FAILED - Management host provided but no API key or credentials');
+      // In HTTP transport mode, credentials may come per-request via headers — allow startup without them
+      if (process.env.MCP_TRANSPORT_TYPE?.toLowerCase() === 'http') {
+        if (verbose) {
+          console.error('[Settings] Verbose: Management host provided without credentials, but HTTP transport mode allows per-request auth via headers');
+        }
+      } else {
+        if (verbose) {
+          console.error('[Settings] Verbose: Validation FAILED - Management host provided but no API key or credentials');
+        }
+        throw new Error('Either API key or username/password are required for on-prem management (via CLI args or env vars)');
       }
-      throw new Error('Either API key or username/password are required for on-prem management (via CLI args or env vars)');
     }
 
     // Need either management URL or management host
@@ -310,6 +339,7 @@ export class Settings {
       managementPort: getHeaderValue(headers, 'MANAGEMENT-PORT'),
       cloudInfraToken: getHeaderValue(headers, 'CLOUD-INFRA-TOKEN'),
       cloudConnected: getHeaderValue(headers, 'CLOUD-CONNECTED'),
+      sid: getHeaderValue(headers, 'X-chkp-sid'),
       clientId: getHeaderValue(headers, 'CLIENT-ID'),
       secretKey: getHeaderValue(headers, 'SECRET-KEY'),
       region: getHeaderValue(headers, 'REGION'),
@@ -354,6 +384,7 @@ export class Settings {
       managementPort: extractedValues.managementPort,
       cloudInfraToken: extractedValues.cloudInfraToken,
       cloudConnected: extractedValues.cloudConnected === 'true',
+      sid: extractedValues.sid,
       clientId: extractedValues.clientId,
       secretKey: extractedValues.secretKey,
       region: extractedValues.region?.toUpperCase() as Region,
