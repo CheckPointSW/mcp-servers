@@ -37,6 +37,7 @@ export abstract class APIClientBase {
   protected sessionTimeout: number | null = null; // in seconds
   protected sessionStart: number | null = null;   // timestamp when session was created
   protected isMDS: boolean = false; // Whether this is an MDS environment
+  protected _externalSid: boolean = false; // Whether the SID was provided externally (X-chkp-sid)
   private _debug?: boolean;
 
   constructor(
@@ -96,9 +97,24 @@ export abstract class APIClientBase {
   }
 
  /**
+   * Set a pre-authenticated session ID provided externally (e.g. via X-chkp-sid header).
+   * When set, the client will skip login and use this SID directly for all requests.
+   */
+  setExternalSid(sid: string): void {
+    this.sid = sid;
+    this._externalSid = true;
+    this.sessionStart = Date.now();
+    this.sessionTimeout = Number.MAX_SAFE_INTEGER / 1000;
+  }
+
+  /**
    * Check if this client needs to perform login before making API calls
    */
   protected needsLogin(): boolean {
+    // Skip login when a pre-authenticated SID was provided externally
+    if (this._externalSid) {
+      return false;
+    }
     return true;
   }
   
@@ -191,12 +207,17 @@ export abstract class APIClientBase {
     } catch (error: any) {
       // If we get a 401 error with "session" in the message, the session has expired on the server side
       // Reset the session and retry once
-      if ((error.message?.includes('401') || error.response?.status === 401) && 
+      if ((error.message?.includes('401') || error.response?.status === 401) &&
           error.message?.toLowerCase().includes('session')) {
+
+        if (this._externalSid) {
+          throw new Error('Pre-authenticated session (X-chkp-sid) has expired. Provide a new session ID.');
+        }
+
         console.error("Session expired (401), resetting session and retrying...");
         this.sid = null;
         this.sessionStart = null;
-        
+
         // Re-login and retry the request
         try {
           await this.login();
@@ -208,7 +229,7 @@ export abstract class APIClientBase {
           console.error("Login retry failed with unexpected error:", loginError);
           throw loginError;
         }
-        
+
         // Retry the original request with the new session
         return await this.makeRequest(
             this.getHost(),
@@ -220,7 +241,7 @@ export abstract class APIClientBase {
             httpsAgent
         );
       }
-      
+
       // For other errors, just re-throw the original error
       throw error;
     }
@@ -244,6 +265,10 @@ export abstract class APIClientBase {
    * Login to the API using the API key
    */
   async login(): Promise<string> {
+    if (this._externalSid) {
+      if (!this.sid) throw new Error('External SID has expired');
+      return this.sid;
+    }
     const apiTokenHeader = this.tokenType === TokenType.API_KEY ? "api-key" : "ci-token";
     const loginResp = await this.makeRequest(
       this.getHost(),
@@ -288,7 +313,7 @@ export abstract class APIClientBase {
         httpsAgent
       );
       
-      if (sessionResp.status === 200 && 
+      if (sessionResp.status === 200 &&
           sessionResp.response?.domain?.["domain-type"] === "mds") {
         this.isMDS = true;
       }
@@ -436,7 +461,8 @@ export class OnPremAPIClient extends APIClientBase {
     private readonly managementHost: string,
     private readonly managementPort: string = "443",
     username?: string,
-    password?: string
+    password?: string,
+    private readonly domain?: string
   ) {
     super(apiKey || ""); // APIClientBase requires apiKey, but we'll handle empty case
     this.username = username;
@@ -454,6 +480,10 @@ export class OnPremAPIClient extends APIClientBase {
    * and allow self-signed certificates
    */
   async login(): Promise<string> {
+    if (this._externalSid) {
+      if (!this.sid) throw new Error('External SID has expired');
+      return this.sid;
+    }
     // Determine if we're using API key or username/password
     const isUsingApiKey = !!this.authToken;
     const isUsingCredentials = !!(this.username && this.password);
@@ -470,9 +500,13 @@ export class OnPremAPIClient extends APIClientBase {
     const httpsAgent = new https.Agent({ rejectUnauthorized: false });
     
     // Prepare login payload based on authentication method
-    const loginPayload = isUsingApiKey 
-      ? { "api-key": this.authToken } 
+    const loginPayload: Record<string, any> = isUsingApiKey
+      ? { "api-key": this.authToken }
       : { "user": this.username, "password": this.password };
+
+    if (this.domain) {
+      loginPayload["domain"] = this.domain;
+    }
     
     const loginResp = await this.makeRequest(
       this.getHost(),

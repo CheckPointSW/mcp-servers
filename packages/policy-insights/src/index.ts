@@ -31,6 +31,8 @@ const serverModule = createServerModule(server, Settings, pkg, APIManagerForAPIK
 // Create an API runner function
 const runApi = createApiRunner(serverModule);
 
+// Management API version: v2.1 (R82.10+)
+
 // Add the init tool
 server.tool(
   `${SERVER_PACKAGE_NAME.split('/').pop().replace(/-mcp$/, '')}__init`,
@@ -144,10 +146,8 @@ async function executeApiTool(
     const requestBody = validatedArgs?.['requestBody'] || {};
 
     if (validatedArgs.domains_to_process) {
-      requestBody['domains-to-process'] =
-        typeof validatedArgs.domain === 'string' && validatedArgs.domain.trim() !== ''
-          ? validatedArgs.domain
-          : undefined;
+      requestBody['domains-to-process'] = [validatedArgs.domains_to_process];
+      requestBody['ignore-warnings'] = true;
     }
 
     const resp = await runApi('POST', urlPath, requestBody, extra, domain);

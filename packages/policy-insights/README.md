@@ -29,6 +29,9 @@ Together they give you the full picture: combine actual rule content with insigh
 - Get when new insights are planned to be generated
 - Retrieve detailed information when you can't see insights
 
+## Management API Version
+
+This server supports **Management API v2.1 (R82.10+)**. It is generally compatible with earlier versions; some parameters may not be available on older management servers.
 
 ## Example Use Cases
 

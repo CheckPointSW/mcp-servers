@@ -33,6 +33,19 @@ const serverModule = createServerModule(
 // Create an API runner function
 const runApi = createApiRunner(serverModule);
 
+// Management API version: v2.1 (R82.10+)
+// --- SHARED PARAM SCHEMAS ---
+const PARAM_DOMAINS_TO_PROCESS = z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional()
+  .describe('Scope query to all domains on this server or current domain only. Use standard (not full) for details-level. Must be called from the System Domain.');
+const PARAM_SHOW_ONLY_LOCAL_DOMAIN = z.boolean().optional().default(false)
+  .describe('When true, returns only objects belonging to the current domain; excludes objects inherited from a Global Policy domain.');
+const PARAM_DOMAIN = z.string().optional()
+  .describe('MDS domain name for routing this API call. Required in multi-domain (MDS) environments; omit for single-domain setups.');
+const PARAM_SHOW_MEMBERSHIP = z.boolean().optional().default(false)
+  .describe('When true, includes the groups each object belongs to. Triggers additional server-side computation; omit if not needed.');
+const PARAM_DEREFERENCE_GROUP_MEMBERS = z.boolean().optional().default(false)
+  .describe('When true, expands group members to their full object details instead of returning UIDs.');
+
 // --- PROMPT RESOURCES ---
 const SHOW_INSTALLED_POLICIES = `Please show me my installed policies per gateway. In order to see which policies are installed, you need to call show-gateways-and-servers with details-level set to 'full'.\nIf you already know the gateway name or uid, you can use the show-simple-gateway or show simple-cluster function with details-level set to 'full' to get the installed policy.\n`;
 
@@ -200,7 +213,7 @@ server.tool(
     format: z.enum(['table', 'model-friendly']).optional().default('table'),
     expand_groups: z.boolean().optional().default(false),
     group_mode: z.enum(['in-rule', 'as-reference']).optional().default('as-reference'),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const params: Record<string, any> = {};
@@ -414,25 +427,30 @@ server.tool(
     filter: z.string().optional(),
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
-    show_membership: z.boolean().optional().default(true),
-    domain: z.string().optional(),
+    order: z.array(z.object({ ASC: z.string().optional(), DESC: z.string().optional() })).optional(),
+    show_membership: z.boolean().optional().default(true)
+      .describe('When true, includes the groups each object belongs to. Triggers additional server-side computation; omit if not needed.'),
+    details_level: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
-  
+
   async (args: Record<string, unknown>, extra: any) => {
     const params: Record<string, any> = {};
     if (typeof args.filter === 'string' && args.filter.trim() !== '') params.filter = args.filter;
     if (typeof args.limit === 'number') params.limit = args.limit;
     if (typeof args.offset === 'number') params.offset = args.offset;
-    if (Array.isArray(args.order) && args.order.length > 0) params.order = args.order;
-    if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params.details_level = args.details_level;
-    if (typeof args.show_membership === 'boolean') params.show_membership = args.show_membership;
-    
-    // Get domain parameter
+    if (Array.isArray(args.order)) params.order = args.order;
+    if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params['details-level'] = args.details_level;
+    if (typeof args.show_membership === 'boolean') params['show-membership'] = args.show_membership;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
+
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
+
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
-    
-    // Call the API
     const resp = await apiManager.callApi('POST', 'show-hosts', params, domain);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
@@ -449,7 +467,7 @@ server.tool(
     details_level: z.string().optional(),
     show_as_ranges: z.boolean().optional().default(false),
     show_hits: z.boolean().optional().default(false),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const params: Record<string, any> = {};
@@ -498,7 +516,7 @@ server.tool(
     name: z.string().optional(),
     uid: z.string().optional(),
     details_level: z.string().optional(),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const params: Record<string, any> = {};
@@ -530,8 +548,9 @@ server.tool(
     offset: z.number().optional(),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const params: Record<string, any> = {};
@@ -540,7 +559,7 @@ server.tool(
     if (typeof args.offset === 'number') params.offset = args.offset;
     if (Array.isArray(args.order) && args.order.length > 0) params.order = args.order;
     if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params.details_level = args.details_level;
-    if (typeof args.domains_to_process === 'string') params['domains-to-process'] = args.domains_to_process;
+    if (typeof args.domains_to_process === 'string') { params['domains-to-process'] = [args.domains_to_process]; params['ignore-warnings'] = true; }
     
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -561,9 +580,9 @@ server.tool(
     offset: z.number().optional(),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    dereference_group_members: z.boolean().optional().default(false),
-    show_membership: z.boolean().optional().default(false),
-    domain: z.string().optional(),
+    dereference_group_members: PARAM_DEREFERENCE_GROUP_MEMBERS,
+    show_membership: PARAM_SHOW_MEMBERSHIP,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const params: Record<string, any> = {};
@@ -593,7 +612,7 @@ server.tool(
     uid: z.string().optional(),
     layer: z.string().optional(),
     details_level: z.string().optional(),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const params: Record<string, any> = {};
@@ -620,7 +639,7 @@ server.tool(
     layer: z.string().optional(),
     package: z.string(),
     details_level: z.string().optional(),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const params: Record<string, any> = {};
@@ -648,7 +667,7 @@ server.tool(
     name: z.string().optional(),
     uid: z.string().optional(),
     details_level: z.string().optional(),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const params: Record<string, any> = {};
@@ -674,8 +693,9 @@ server.tool(
     offset: z.number().optional(),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -708,7 +728,7 @@ server.tool(
     name: z.string().optional(),
     uid: z.string().optional(),
     details_level: z.string().optional(),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const params: Record<string, any> = {};
@@ -734,8 +754,9 @@ server.tool(
     offset: z.number().optional(),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -768,7 +789,7 @@ server.tool(
       uid: z.string().optional(),
       name: z.string().optional(),
       details_level: z.string().optional(),
-      domain: z.string().optional(),
+      domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const params: Record<string, any> = {};
@@ -794,8 +815,9 @@ server.tool(
     offset: z.number().optional(),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -861,26 +883,28 @@ server.tool(
   'management__show_gateways_and_servers',
   'Retrieve multiple gateway and server objects with optional filtering and pagination. Use this to get the currently installed policies only gateways.',
   {
-    filter: z.string().optional(),
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
     const limit = typeof args.limit === 'number' ? args.limit : 50;
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
     const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
     const params: Record<string, any> = { limit, offset };
-    if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-gateways-and-servers', params, extra);
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-gateways-and-servers', params, domain);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
@@ -892,7 +916,7 @@ server.tool(
     name: z.string().optional(),
     uid: z.string().optional(),
     details_level: z.string().optional(),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const params: Record<string, any> = {};
@@ -917,10 +941,11 @@ server.tool(
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
-    show_membership: z.boolean().optional().default(false),
+    show_membership: PARAM_SHOW_MEMBERSHIP,
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -938,7 +963,9 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (typeof args.show_membership === 'boolean') params['show-membership'] = args.show_membership;
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-simple-gateways', params, domain);
@@ -954,9 +981,11 @@ server.tool(
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
+    show_membership: PARAM_SHOW_MEMBERSHIP,
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -973,7 +1002,9 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (typeof args.show_membership === 'boolean') params['show-membership'] = args.show_membership;
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-lsm-clusters', params, domain);
@@ -987,7 +1018,7 @@ server.tool(
   {
     uid: z.string().optional(),
     details_level: z.string().optional(),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const uid = typeof args.uid === 'string' ? args.uid : '';
@@ -1014,9 +1045,11 @@ server.tool(
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
+    show_membership: PARAM_SHOW_MEMBERSHIP,
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1033,7 +1066,9 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (typeof args.show_membership === 'boolean') params['show-membership'] = args.show_membership;
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-cluster-members', params, domain);
@@ -1048,7 +1083,7 @@ server.tool(
     name: z.string().optional(),
     uid: z.string().optional(),
     details_level: z.string().optional(),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const params: Record<string, any> = {};
@@ -1073,9 +1108,11 @@ server.tool(
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
+    show_membership: PARAM_SHOW_MEMBERSHIP,
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1092,7 +1129,9 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (typeof args.show_membership === 'boolean') params['show-membership'] = args.show_membership;
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-simple-clusters', params, domain);
@@ -1131,9 +1170,11 @@ server.tool(
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
+    show_membership: PARAM_SHOW_MEMBERSHIP,
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1150,7 +1191,9 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (typeof args.show_membership === 'boolean') params['show-membership'] = args.show_membership;
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-lsm-gateways', params, domain);
@@ -1165,7 +1208,7 @@ server.tool(
     name: z.string().optional(),
     uid: z.string().optional(),
     details_level: z.string().optional(),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const params: Record<string, any> = {};
@@ -1191,11 +1234,12 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     show_as_ranges: z.boolean().optional().default(false),
-    dereference_group_members: z.boolean().optional().default(false),
-    show_membership: z.boolean().optional().default(false),
+    dereference_group_members: PARAM_DEREFERENCE_GROUP_MEMBERS,
+    show_membership: PARAM_SHOW_MEMBERSHIP,
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1217,7 +1261,8 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-groups', params, domain);
@@ -1233,12 +1278,12 @@ server.tool(
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
-    dereference_group_members: z.boolean().optional().default(false),
-    show_membership: z.boolean().optional().default(false),
+    dereference_group_members: PARAM_DEREFERENCE_GROUP_MEMBERS,
+    show_membership: PARAM_SHOW_MEMBERSHIP,
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    show_only_local_domain: z.boolean().optional().default(false),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1264,7 +1309,8 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
 
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-unused-objects', params, domain);
@@ -1278,14 +1324,14 @@ server.tool(
   {
     uid: z.string().optional(),
     name: z.string().optional(),
-    dereference_group_members: z.boolean().optional().default(false),
-    show_membership: z.boolean().optional().default(false),
+    dereference_group_members: PARAM_DEREFERENCE_GROUP_MEMBERS,
+    show_membership: PARAM_SHOW_MEMBERSHIP,
     async_response: z.boolean().optional().default(false),
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
     indirect: z.boolean().optional().default(false),
     indirect_max_depth: z.number().optional().default(5),
-    domain: z.string().optional(),
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     // At least one of uid or name must be provided
@@ -1318,7 +1364,8 @@ server.tool(
     if (uid) params.uid = uid;
     if (name) params.name = name;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
 
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'where-used', params, domain);
@@ -1334,10 +1381,11 @@ server.tool(
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
-    show_membership: z.boolean().optional().default(false),
+    show_membership: PARAM_SHOW_MEMBERSHIP,
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1355,7 +1403,9 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (typeof args.show_membership === 'boolean') params['show-membership'] = args.show_membership;
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-services-tcp', params, domain);
@@ -1371,9 +1421,11 @@ server.tool(
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
-    show_membership: z.boolean().optional().default(false),
+    show_membership: PARAM_SHOW_MEMBERSHIP,
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1387,8 +1439,12 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-application-sites', params, extra);
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
+    if (typeof args.show_membership === 'boolean') params['show-membership'] = args.show_membership;
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
+    const apiManager_app_sites = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager_app_sites.callApi('POST', 'show-application-sites', params, domain);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
@@ -1401,30 +1457,33 @@ server.tool(
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
-    dereference_members: z.boolean().optional().default(false),
-    show_membership: z.boolean().optional().default(false),
+    dereference_group_members: PARAM_DEREFERENCE_GROUP_MEMBERS,
+    show_membership: PARAM_SHOW_MEMBERSHIP,
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
     const limit = typeof args.limit === 'number' ? args.limit : 50;
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
-    const dereference_members = typeof args.dereference_members === 'boolean' ? args.dereference_members : false;
+    const dereference_group_members = typeof args.dereference_group_members === 'boolean' ? args.dereference_group_members : false;
     const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
     const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
-    
+
     // Get domain parameter
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
-    const params: Record<string, any> = { limit, offset, 'dereference-members': dereference_members, 'show-membership': show_membership };
+
+    const params: Record<string, any> = { limit, offset, 'dereference-group-members': dereference_group_members, 'show-membership': show_membership };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (typeof args.show_membership === 'boolean') params['show-membership'] = args.show_membership;
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-application-site-groups', params, domain);
@@ -1440,10 +1499,11 @@ server.tool(
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
-    show_membership: z.boolean().optional().default(false),
+    show_membership: PARAM_SHOW_MEMBERSHIP,
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1461,7 +1521,9 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (typeof args.show_membership === 'boolean') params['show-membership'] = args.show_membership;
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-services-udp', params, domain);
@@ -1478,8 +1540,9 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1496,7 +1559,8 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-wildcards', params, domain);
@@ -1513,9 +1577,11 @@ server.tool(
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
+    show_membership: PARAM_SHOW_MEMBERSHIP,
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1532,7 +1598,9 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (typeof args.show_membership === 'boolean') params['show-membership'] = args.show_membership;
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-security-zones', params, domain);
@@ -1550,8 +1618,9 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1568,7 +1637,8 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-tags', params, domain);
@@ -1586,8 +1656,9 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1604,7 +1675,8 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-address-ranges', params, domain);
@@ -1622,8 +1694,9 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1640,7 +1713,8 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-application-site-categories', params, domain);
@@ -1656,8 +1730,9 @@ server.tool(
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
+    show_membership: PARAM_SHOW_MEMBERSHIP,
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1674,7 +1749,9 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (typeof args.show_membership === 'boolean') params['show-membership'] = args.show_membership;
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-dynamic-objects', params, domain);
@@ -1691,9 +1768,11 @@ server.tool(
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
-    show_membership: z.boolean().optional().default(false),
+    show_membership: PARAM_SHOW_MEMBERSHIP,
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1707,8 +1786,12 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-services-icmp6', params, extra);
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
+    if (typeof args.show_membership === 'boolean') params['show-membership'] = args.show_membership;
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
+    const apiManager_icmp6 = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager_icmp6.callApi('POST', 'show-services-icmp6', params, domain);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
@@ -1721,9 +1804,11 @@ server.tool(
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
-    show_membership: z.boolean().optional().default(false),
+    show_membership: PARAM_SHOW_MEMBERSHIP,
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1737,8 +1822,12 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-services-icmp', params, extra);
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
+    if (typeof args.show_membership === 'boolean') params['show-membership'] = args.show_membership;
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
+    const apiManager_icmp = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager_icmp.callApi('POST', 'show-services-icmp', params, domain);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
@@ -1754,9 +1843,11 @@ server.tool(
     order: z.array(z.string()).optional(),
     show_as_ranges: z.boolean().optional().default(false),
     dereference_members: z.boolean().optional().default(false),
-    show_membership: z.boolean().optional().default(false),
+    show_membership: PARAM_SHOW_MEMBERSHIP,
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1768,14 +1859,17 @@ server.tool(
     const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : false;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
     const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
     const params: Record<string, any> = {
       limit, offset, 'show-as-ranges': show_as_ranges, 'dereference-members': dereference_members, 'show-membership': show_membership
     };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-service-groups', params, extra);
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-service-groups', params, domain);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
@@ -1788,8 +1882,11 @@ server.tool(
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
+    show_membership: PARAM_SHOW_MEMBERSHIP,
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1798,12 +1895,16 @@ server.tool(
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
     const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-multicast-address-ranges', params, extra);
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (typeof args.show_membership === 'boolean') params['show-membership'] = args.show_membership;
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-multicast-address-ranges', params, domain);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
@@ -1817,9 +1918,11 @@ server.tool(
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
+    show_membership: PARAM_SHOW_MEMBERSHIP,
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
-    domain: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1836,7 +1939,9 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (typeof args.show_membership === 'boolean') params['show-membership'] = args.show_membership;
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-dns-domains', params, domain);
@@ -1854,7 +1959,9 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1863,12 +1970,15 @@ server.tool(
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
     const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-time-groups', params, extra);
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-time-groups', params, domain);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
@@ -1883,7 +1993,9 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const filter = typeof args.filter === 'string' ? args.filter : '';
@@ -1892,12 +2004,15 @@ server.tool(
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
     const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
-    const resp = await runApi('POST', 'show-access-point-names', params, extra);
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-access-point-names', params, domain);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
@@ -1912,7 +2027,7 @@ server.tool(
       offset: z.number().optional().default(0),
       order: z.array(z.string()).optional(),
       details_level: z.string().optional(),
-      domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
+      domains_to_process: PARAM_DOMAINS_TO_PROCESS,
       type: z.string().optional(),
   },
   async (args: Record<string, unknown>, extra: any) => {
@@ -1929,7 +2044,8 @@ server.tool(
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) params['domains-to-process'] = domains_to_process;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     if (type) params.type = type;
     const resp = await runApi('POST', 'show-objects', params, extra);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
@@ -2224,9 +2340,14 @@ server.tool(
   'Show all networks, with optional filtering and detail level.',
   {
     filter: z.string().optional(),
-    limit: z.number().optional(),
-    offset: z.number().optional(),
+    limit: z.number().optional().default(50),
+    offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
+    show_membership: PARAM_SHOW_MEMBERSHIP,
+    details_level: z.string().optional(),
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const params: Record<string, any> = {};
@@ -2234,7 +2355,16 @@ server.tool(
     if (typeof args.limit === 'number') params.limit = args.limit;
     if (typeof args.offset === 'number') params.offset = args.offset;
     if (Array.isArray(args.order) && args.order.length > 0) params.order = args.order;
-    const resp = await runApi('POST', 'show-networks', params, extra);
+    if (typeof args.show_membership === 'boolean') params['show-membership'] = args.show_membership;
+    if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params['details-level'] = args.details_level;
+    const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
+    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
+
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
+
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-networks', params, domain);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );

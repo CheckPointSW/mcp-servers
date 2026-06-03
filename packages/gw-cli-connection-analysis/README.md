@@ -23,6 +23,10 @@ This MCP server simplifies connection debugging by providing structured, context
 2. **Reproduce the issue**: Generate the traffic that's experiencing problems
 3. **Stop the analysis**: Capture the results and get a detailed report on what happened
 
+## Management API Version
+
+This server supports **Management API v2.1 (R82.10+)**. It is generally compatible with earlier versions; some parameters may not be available on older management servers.
+
 ## Demo
 
 [![Watch the connection analysis demo](https://img.youtube.com/vi/-DuLzDJK9Yo/0.jpg)](https://www.youtube.com/watch?v=-DuLzDJK9Yo)
