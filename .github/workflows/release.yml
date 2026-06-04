@@ -11,7 +11,7 @@ on:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: checkpointsw-scaleset
     permissions:
       contents: write
       packages: write
@@ -65,7 +65,7 @@ jobs:
 
       # Create MCPB Release when npm packages were published, or when manually forced
       - name: Create MCPB Release
-        if: steps.changesets.outputs.published == 'true' || inputs.force_mcpb_release == 'true'
+        if: steps.changesets.outputs.published == 'true' || inputs.force_mcpb_release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
