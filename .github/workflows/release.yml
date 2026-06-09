@@ -10,18 +10,21 @@ on:
         default: false
 
 jobs:
-  release:
-    runs-on: checkpointsw-scaleset
+  publish:
+    runs-on: ubuntu-latest
     permissions:
       contents: write
       packages: write
       id-token: write
-      pull-requests: write  # Needed to create PRs
+      pull-requests: write
+    outputs:
+      published: ${{ steps.changesets.outputs.published }}
+      publishedPackages: ${{ steps.changesets.outputs.publishedPackages }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
-          
+
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
@@ -32,15 +35,11 @@ jobs:
       - name: Build all packages
         run: npm run build:all
 
-      # NEW: Build MCPB packages after NPM packages are built
+      # Build MCPB packages after NPM packages are built
       - name: Build MCPB packages
         run: |
           echo "🏗️ Building MCPB packages..."
-          
-          # Build MCPB packages (MCPB CLI should be installed as dev dependency)
           npm run build:mcpb || echo "⚠️ MCPB build failed, continuing with NPM publishing"
-          
-          # List what was built
           if [ -d "mcpb-builds" ]; then
             echo "📦 Built MCPB packages:"
             find mcpb-builds -name "*.mcpb" -type f | while read mcpb_file; do
@@ -49,13 +48,21 @@ jobs:
           else
             echo "⚠️ No MCPB packages were built"
           fi
-      
+
+      - name: Upload MCPB artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcpb-packages
+          path: mcpb-builds/*.mcpb
+          if-no-files-found: warn
+
       - name: Create Release Pull Request or Publish
         id: changesets
+        continue-on-error: true  # git push tags will fail on GitHub-hosted runner due to IP allowlist; handled in tag-and-release job
         uses: changesets/action@6a0a831ff30acef54f2c6aa1cbbc1096b066edaf # v1
         with:
           publish: npm run release
-          createGithubReleases: true
+          createGithubReleases: false  # handled in tag-and-release job
           # No 'version:' — versioning is managed by the internal repo.
           # This action only publishes packages whose version has no git tag yet.
         env:
@@ -63,41 +70,71 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
 
-      # Create MCPB Release when npm packages were published, or when manually forced
-      - name: Create MCPB Release
-        if: steps.changesets.outputs.published == 'true' || inputs.force_mcpb_release
+  tag-and-release:
+    runs-on: checkpointsw-scaleset
+    needs: publish
+    if: needs.publish.outputs.published == 'true' || inputs.force_mcpb_release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Push git tags
+        if: needs.publish.outputs.published == 'true'
+        run: |
+          echo '${{ needs.publish.outputs.publishedPackages }}' | \
+            jq -r '.[] | .name + "@" + .version' | \
+            while read tag; do
+              git tag "$tag" || echo "Tag $tag already exists"
+              git push origin "$tag" || echo "Failed to push tag $tag"
+            done
+
+      - name: Create GitHub releases for npm packages
+        if: needs.publish.outputs.published == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Check if we have MCPB packages to release
+          echo '${{ needs.publish.outputs.publishedPackages }}' | \
+            jq -r '.[] | .name + "@" + .version' | \
+            while read tag; do
+              gh release create "$tag" --title "$tag" --notes "" || echo "Release $tag already exists"
+            done
+
+      - name: Download MCPB artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: mcpb-packages
+          path: mcpb-builds
+
+      - name: Create MCPB Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
           if [ ! -d "mcpb-builds" ] || [ -z "$(find mcpb-builds -name "*.mcpb" -type f)" ]; then
             echo "⚠️ No MCPB packages found to release"
             exit 0
           fi
-          
-          # Generate version tag based on timestamp and commit
+
           VERSION_TAG="mcpb-$(date +'%Y.%m.%d-%H%M')-$(git rev-parse --short HEAD)"
           echo "🏷️ Creating release: $VERSION_TAG"
-          
-          # Prepare release assets
+
           mkdir -p release-assets
           find mcpb-builds -name "*.mcpb" -type f | while read mcpb_file; do
             filename=$(basename "$mcpb_file")
-            
-            # Copy the MCPB file
             cp "$mcpb_file" "release-assets/$filename"
             echo "✅ Prepared: $filename"
           done
-          
-          # Create release notes
+
           echo "# MCPB Packages Release" > release-notes.md
           echo "" >> release-notes.md
           echo "## 📦 Claude Desktop Extensions (MCPB)" >> release-notes.md
           echo "" >> release-notes.md
           echo "Built from public release workflow." >> release-notes.md
           echo "" >> release-notes.md
-          
-          # Add package list to release notes
+
           for mcpb_file in release-assets/*.mcpb; do
             if [ -f "$mcpb_file" ]; then
               filename=$(basename "$mcpb_file")
@@ -105,15 +142,13 @@ jobs:
               echo "- **${package_name}**: \`${filename}\`" >> release-notes.md
             fi
           done
-          
-          # Add stable URLs section
+
           echo "" >> release-notes.md
           echo "### 📥 Stable URLs" >> release-notes.md
           echo "" >> release-notes.md
           echo "For consistent download links that always point to the newest version:" >> release-notes.md
           echo "" >> release-notes.md
-          
-          # Add stable download links
+
           for mcpb_file in release-assets/*.mcpb; do
             if [ -f "$mcpb_file" ]; then
               filename=$(basename "$mcpb_file")
@@ -122,8 +157,7 @@ jobs:
               echo "- **${package_name}**: [\`${filename}\`]($latest_url)" >> release-notes.md
             fi
           done
-          
-          # Add installation and build info
+
           echo "" >> release-notes.md
           echo "## Installation" >> release-notes.md
           echo "" >> release-notes.md
@@ -138,8 +172,7 @@ jobs:
           echo "- **Branch**: \`${{ github.ref_name }}\`" >> release-notes.md
           echo "- **Timestamp**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> release-notes.md
           echo "- **Workflow**: Public Release" >> release-notes.md
-          
-          # Create the release (mark as latest only if on main branch)
+
           if [ "${{ github.ref_name }}" = "main" ]; then
             echo "🎯 Creating stable release (main branch)"
             gh release create "$VERSION_TAG" \
@@ -153,8 +186,7 @@ jobs:
               --notes-file release-notes.md \
               --prerelease
           fi
-          
-          # Upload MCPB files individually
+
           for mcpb_file in release-assets/*.mcpb; do
             if [ -f "$mcpb_file" ]; then
               filename=$(basename "$mcpb_file")
@@ -163,11 +195,10 @@ jobs:
               echo "✅ Uploaded: $filename"
             fi
           done
-          
-          # Verify latest URLs work (only for main branch releases)
+
           if [ "${{ github.ref_name }}" = "main" ]; then
             echo "🔍 Verifying latest download URLs..."
-            sleep 10  # Give GitHub a moment to process the release
+            sleep 10
             for mcpb_file in release-assets/*.mcpb; do
               if [ -f "$mcpb_file" ]; then
                 filename=$(basename "$mcpb_file")
@@ -181,24 +212,20 @@ jobs:
               fi
             done
           fi
-          
-          # Add to summary
+
           echo "## 📦 MCPB Release Created" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Release**: [$VERSION_TAG](${{ github.server_url }}/${{ github.repository }}/releases/tag/$VERSION_TAG)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Show release type info
+
           if [ "${{ github.ref_name }}" = "main" ]; then
             echo "🎯 **Release Type**: Latest (stable URLs available)" >> $GITHUB_STEP_SUMMARY
           else
             echo "🚧 **Release Type**: Prerelease (branch: ${{ github.ref_name }}, no stable URLs)" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
-          
           echo "### Available Packages:" >> $GITHUB_STEP_SUMMARY
-          
-          # Show latest URLs (only for main branch)
+
           if [ "${{ github.ref_name }}" = "main" ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "#### 📥 Stable URLs (always latest version):" >> $GITHUB_STEP_SUMMARY
@@ -213,8 +240,7 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "#### 📦 Versioned Downloads:" >> $GITHUB_STEP_SUMMARY
           fi
-          
-          # Show all files
+
           for mcpb_file in release-assets/*.mcpb; do
             if [ -f "$mcpb_file" ]; then
               filename=$(basename "$mcpb_file")
@@ -223,11 +249,11 @@ jobs:
             fi
           done
 
-      # NEW: Generate Final Summary
+      # Generate Final Summary
       - name: Generate Final Summary
         if: always()
         env:
-          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
+          PUBLISHED_PACKAGES: ${{ needs.publish.outputs.publishedPackages }}
         run: |
           echo "## 📊 Public Release Workflow Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -235,15 +261,11 @@ jobs:
           echo "Workflow Complete: **$(date '+%Y-%m-%d %H:%M:%S')**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # NPM published packages
-          if [ "${{ steps.changesets.outputs.published }}" == "true" ] && [ -n "$PUBLISHED_PACKAGES" ] && [ "$PUBLISHED_PACKAGES" != "[]" ]; then
-            NPM_COUNT=$(echo "$PUBLISHED_PACKAGES" | node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).length.toString())")
+          if [ "${{ needs.publish.outputs.published }}" == "true" ] && [ -n "$PUBLISHED_PACKAGES" ] && [ "$PUBLISHED_PACKAGES" != "[]" ]; then
+            NPM_COUNT=$(echo "$PUBLISHED_PACKAGES" | jq 'length')
             echo "### 📦 NPM Packages Published: $NPM_COUNT" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "$PUBLISHED_PACKAGES" | node -e "
-              const pkgs = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-              pkgs.forEach(p => process.stdout.write('- \`' + p.name + '@' + p.version + '\`\n'));
-            " >> $GITHUB_STEP_SUMMARY
+            echo "$PUBLISHED_PACKAGES" | jq -r '.[] | "- `" + .name + "@" + .version + "`"' >> $GITHUB_STEP_SUMMARY
           else
             echo "### 📦 NPM Packages Published: 0" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
@@ -252,7 +274,6 @@ jobs:
 
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # MCPB packages
           if [ -d "mcpb-builds" ] && [ -n "$(find mcpb-builds -name "*.mcpb" -type f 2>/dev/null)" ]; then
             MCPB_COUNT=$(find mcpb-builds -name "*.mcpb" -type f | wc -l | tr -d ' ')
             echo "### 🧩 MCPB Packages Built: $MCPB_COUNT" >> $GITHUB_STEP_SUMMARY
