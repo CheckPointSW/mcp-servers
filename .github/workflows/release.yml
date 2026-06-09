@@ -35,26 +35,6 @@ jobs:
       - name: Build all packages
         run: npm run build:all
 
-      # Build MCPB packages after NPM packages are built
-      - name: Build MCPB packages
-        run: |
-          echo "🏗️ Building MCPB packages..."
-          npm run build:mcpb || echo "⚠️ MCPB build failed, continuing with NPM publishing"
-          if [ -d "mcpb-builds" ]; then
-            echo "📦 Built MCPB packages:"
-            find mcpb-builds -name "*.mcpb" -type f | while read mcpb_file; do
-              echo "  $(basename "$mcpb_file")"
-            done
-          else
-            echo "⚠️ No MCPB packages were built"
-          fi
-
-      - name: Upload MCPB artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: mcpb-packages
-          path: mcpb-builds/*.mcpb
-          if-no-files-found: warn
 
       - name: Create Release Pull Request or Publish
         id: changesets
@@ -102,12 +82,28 @@ jobs:
               gh release create "$tag" --title "$tag" --notes "" || echo "Release $tag already exists"
             done
 
-      - name: Download MCPB artifacts
-        continue-on-error: true
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          name: mcpb-packages
-          path: mcpb-builds
+          node-version: '20'
+
+      - run: npm ci
+
+      - name: Build all packages
+        run: npm run build:all
+
+      # Build MCPB packages after NPM packages are built
+      - name: Build MCPB packages
+        run: |
+          echo "🏗️ Building MCPB packages..."
+          npm run build:mcpb || echo "⚠️ MCPB build failed"
+          if [ -d "mcpb-builds" ]; then
+            echo "📦 Built MCPB packages:"
+            find mcpb-builds -name "*.mcpb" -type f | while read mcpb_file; do
+              echo "  $(basename "$mcpb_file")"
+            done
+          else
+            echo "⚠️ No MCPB packages were built"
+          fi
 
       - name: Create MCPB Release
         env:
