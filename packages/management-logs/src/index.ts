@@ -265,7 +265,6 @@ server.tool(
   'management-logs__show_gateways_and_servers',
   'Retrieve multiple gateway and server objects with optional filtering and pagination. Use this to get the currently installed policies only gateways.',
   {
-    filter: z.string().optional(),
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
@@ -274,14 +273,12 @@ server.tool(
     show_only_local_domain: z.boolean().optional().default(false),
   },
   async (args: Record<string, unknown>, extra: any) => {
-    const filter = typeof args.filter === 'string' ? args.filter : '';
     const limit = typeof args.limit === 'number' ? args.limit : 50;
     const offset = typeof args.offset === 'number' ? args.offset : 0;
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
     const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
     const params: Record<string, any> = { limit, offset };
-    if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
@@ -297,6 +294,8 @@ server.tool(
   {
       uids: z.array(z.string()).optional(),
       filter: z.string().optional(),
+      ip_only: z.boolean().optional()
+        .describe('When true, returns only objects that have an IP address (hosts, networks, ranges). Excludes services, groups, etc.'),
       limit: z.number().optional().default(50),
       offset: z.number().optional().default(0),
       order: z.array(z.string()).optional(),
@@ -319,6 +318,7 @@ server.tool(
     const params: Record<string, any> = { limit, offset };
     if ( uids ) params.uids = uids;
     if (filter) params.filter = filter;
+    if (typeof args.ip_only === 'boolean') params['ip-only'] = args.ip_only;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
@@ -343,7 +343,7 @@ server.tool(
       const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
       const params: Record<string, any> = {}
       params.uid = uid
-      params.details_level = 'full'
+      params['details-level'] = 'full'
       const apiManager = SessionContext.getAPIManager(serverModule, extra);
       const resp = await apiManager.callApi('POST', 'show-object', params, domain);
       return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };

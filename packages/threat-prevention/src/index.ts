@@ -364,18 +364,14 @@ server.tool(
     offset: z.number().optional().default(0),
     order: z.array(z.string()).optional(),
     details_level: z.string().optional(),
-    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
-    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
     domain: PARAM_DOMAIN,
   },
-  async ({ filter = '', limit = 50, offset = 0, order, details_level, domains_to_process, show_only_local_domain = false, domain }: any, extra: any) => {
+  async ({ filter = '', limit = 50, offset = 0, order, details_level, domain }: any, extra: any) => {
     const domainParam = typeof domain === 'string' && domain.trim() !== '' ? domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (filter) params.filter = filter;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
-    if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
-    if (show_only_local_domain) params['show-only-local-domain'] = true;
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-ips-protection-extended-attributes', params, domainParam);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
@@ -690,6 +686,8 @@ server.tool(
   {
       uids: z.array(z.string()).optional(),
       filter: z.string().optional(),
+      ip_only: z.boolean().optional()
+        .describe('When true, returns only objects that have an IP address (hosts, networks, ranges). Excludes services, groups, etc.'),
       limit: z.number().optional().default(50),
       offset: z.number().optional().default(0),
       order: z.array(z.string()).optional(),
@@ -712,6 +710,7 @@ server.tool(
     const params: Record<string, any> = { limit, offset };
     if ( uids ) params.uids = uids;
     if (filter) params.filter = filter;
+    if (typeof args.ip_only === 'boolean') params['ip-only'] = args.ip_only;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
@@ -736,7 +735,7 @@ server.tool(
       const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
       const params: Record<string, any> = {};
       params.uid = uid;
-      params.details_level = 'full';
+      params['details-level'] = 'full';
       const apiManager = SessionContext.getAPIManager(serverModule, extra);
       const resp = await apiManager.callApi('POST', 'show-object', params, domain);
       return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };

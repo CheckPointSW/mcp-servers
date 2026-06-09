@@ -87,30 +87,49 @@ server.tool(
 
 server.tool(
   'show_https_rule',
-  'Retrieve an existing HTTPS Inspection rule using either the rule number or the unique identifier (UID) of the rule. It also allows you to specify the level of detail for the fields in the response, ranging from just the UID value to a fully detailed representation of the rule.',
+  'Retrieve an existing HTTPS Inspection rule using either the rule number, name or the unique identifier (UID) of the rule. It also allows you to specify the level of detail for the fields in the response, ranging from just the UID value to a fully detailed representation of the rule.',
   {
     uid: z.string().optional(),
+    name: z.string().optional(),
     rule_number: z.string().optional(),
     layer: z.string().optional(),
+    show_hits: z.boolean().optional(),
+    hits_settings: z.object({
+      from_date: z.string().optional(),
+      to_date: z.string().optional(),
+      target: z.string().optional(),
+    }).optional(),
     details_level: z.string().optional().default('standard'),
     domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const uid = typeof args.uid === 'string' ? args.uid : undefined;
+    const name = typeof args.name === 'string' ? args.name : undefined;
     const rule_number = typeof args.rule_number === 'string' ? args.rule_number : undefined;
     const layer = typeof args.layer === 'string' ? args.layer : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : 'standard';
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
+
     const params: Record<string, any> = {};
     if (uid) {
       params.uid = uid;
+    } else if (name) {
+      params.name = name;
     } else if (rule_number) {
       params['rule-number'] = rule_number;
     } else {
-      throw new Error('Either uid or rule_number must be provided');
+      throw new Error('Either uid, name, or rule_number must be provided');
     }
     if (layer) params.layer = layer;
+    if (typeof args.show_hits === 'boolean') params['show-hits'] = args.show_hits;
+    if (args.hits_settings && typeof args.hits_settings === 'object') {
+      const hs = args.hits_settings as Record<string, any>;
+      const hitsSettings: Record<string, any> = {};
+      if (typeof hs.from_date === 'string') hitsSettings['from-date'] = hs.from_date;
+      if (typeof hs.to_date === 'string') hitsSettings['to-date'] = hs.to_date;
+      if (typeof hs.target === 'string') hitsSettings.target = hs.target;
+      if (Object.keys(hitsSettings).length > 0) params['hits-settings'] = hitsSettings;
+    }
     params['details-level'] = details_level;
     
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
@@ -126,10 +145,28 @@ server.tool(
     uid: z.string().optional(),
     name: z.string().optional(),
     filter: z.string().optional(),
+    filter_settings: z.object({
+      search_mode: z.enum(['general', 'packet']).optional().default('general'),
+      packet_search_settings: z.object({
+        expand_group_members: z.boolean().optional().default(false),
+        expand_group_with_exclusion_members: z.boolean().optional().default(false),
+        intersection_mode_dst: z.enum(['exact', 'containing', 'contained_in', 'any']).optional().default('any'),
+        intersection_mode_src: z.enum(['exact', 'containing', 'contained_in', 'any']).optional().default('any'),
+        match_on_any: z.boolean().optional().default(true),
+        match_on_group_with_exclusion: z.boolean().optional().default(true),
+        match_on_negate: z.boolean().optional().default(true),
+      }).optional()
+    }).optional(),
     limit: z.number().optional().default(50),
     offset: z.number().optional().default(0),
     order: z.array(z.object({ ASC: z.string().optional(), DESC: z.string().optional() })).optional(),
     package: z.string().optional(),
+    show_hits: z.boolean().optional(),
+    hits_settings: z.object({
+      from_date: z.string().optional(),
+      to_date: z.string().optional(),
+      target: z.string().optional(),
+    }).optional(),
     details_level: z.string().optional().default('standard'),
     use_object_dictionary: z.boolean().optional(),
     dereference_group_members: z.boolean().optional()
@@ -151,13 +188,40 @@ server.tool(
     const dereference_group_members = typeof args.dereference_group_members === 'boolean' ? args.dereference_group_members : undefined;
     const show_membership = typeof args.show_membership === 'boolean' ? args.show_membership : undefined;
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
-    
+
     const params: Record<string, any> = { limit, offset };
     if (uid) params.uid = uid;
     if (name) params.name = name;
     if (filter) params.filter = filter;
+    if (args.filter_settings && typeof args.filter_settings === 'object') {
+      const fs = args.filter_settings as Record<string, any>;
+      const filterSettings: Record<string, any> = {};
+      if (typeof fs.search_mode === 'string') filterSettings['search-mode'] = fs.search_mode;
+      if (fs.packet_search_settings && typeof fs.packet_search_settings === 'object') {
+        const pss = fs.packet_search_settings as Record<string, any>;
+        const packetSettings: Record<string, any> = {};
+        if (typeof pss.expand_group_members === 'boolean') packetSettings['expand-group-members'] = pss.expand_group_members;
+        if (typeof pss.expand_group_with_exclusion_members === 'boolean') packetSettings['expand-group-with-exclusion-members'] = pss.expand_group_with_exclusion_members;
+        if (typeof pss.intersection_mode_dst === 'string') packetSettings['intersection-mode-dst'] = pss.intersection_mode_dst;
+        if (typeof pss.intersection_mode_src === 'string') packetSettings['intersection-mode-src'] = pss.intersection_mode_src;
+        if (typeof pss.match_on_any === 'boolean') packetSettings['match-on-any'] = pss.match_on_any;
+        if (typeof pss.match_on_group_with_exclusion === 'boolean') packetSettings['match-on-group-with-exclusion'] = pss.match_on_group_with_exclusion;
+        if (typeof pss.match_on_negate === 'boolean') packetSettings['match-on-negate'] = pss.match_on_negate;
+        if (Object.keys(packetSettings).length > 0) filterSettings['packet-search-settings'] = packetSettings;
+      }
+      if (Object.keys(filterSettings).length > 0) params['filter-settings'] = filterSettings;
+    }
     if (order) params.order = order;
     if (package_name) params.package = package_name;
+    if (typeof args.show_hits === 'boolean') params['show-hits'] = args.show_hits;
+    if (args.hits_settings && typeof args.hits_settings === 'object') {
+      const hs = args.hits_settings as Record<string, any>;
+      const hitsSettings: Record<string, any> = {};
+      if (typeof hs.from_date === 'string') hitsSettings['from-date'] = hs.from_date;
+      if (typeof hs.to_date === 'string') hitsSettings['to-date'] = hs.to_date;
+      if (typeof hs.target === 'string') hitsSettings.target = hs.target;
+      if (Object.keys(hitsSettings).length > 0) params['hits-settings'] = hitsSettings;
+    }
     params['details-level'] = details_level;
     if (use_object_dictionary !== undefined) params['use-object-dictionary'] = use_object_dictionary;
     if (dereference_group_members !== undefined) params['dereference-group-members'] = dereference_group_members;
@@ -313,6 +377,8 @@ server.tool(
   {
       uids: z.array(z.string()).optional(),
       filter: z.string().optional(),
+      ip_only: z.boolean().optional()
+        .describe('When true, returns only objects that have an IP address (hosts, networks, ranges). Excludes services, groups, etc.'),
       limit: z.number().optional().default(50),
       offset: z.number().optional().default(0),
       order: z.array(z.string()).optional(),
@@ -335,6 +401,7 @@ server.tool(
     const params: Record<string, any> = { limit, offset };
     if ( uids ) params.uids = uids;
     if (filter) params.filter = filter;
+    if (typeof args.ip_only === 'boolean') params['ip-only'] = args.ip_only;
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
@@ -359,7 +426,7 @@ server.tool(
       const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
       const params: Record<string, any> = {};
       params.uid = uid;
-      params.details_level = 'full';
+      params['details-level'] = 'full';
       const apiManager = SessionContext.getAPIManager(serverModule, extra);
       const resp = await apiManager.callApi('POST', 'show-object', params, domain);
       return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
