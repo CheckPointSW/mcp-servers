@@ -33,8 +33,10 @@
     { "path": "./packages/spark-management" },
     { "path": "./packages/documentation-tool" },
     { "path": "./packages/cpinfo-analysis" },
+    { "path": "./packages/cpview-history-mcp" },
     { "path": "./packages/argos-erm" },
-    { "path": "./packages/policy-insights" }
+    { "path": "./packages/policy-insights" },
+    { "path": "./packages/cloudguard-waf" }
   ],
   "files": []
 }

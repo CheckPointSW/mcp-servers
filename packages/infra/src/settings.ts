@@ -6,7 +6,7 @@ import { getHeaderValue, SettingsManager } from '@chkp/mcp-utils';
 /**
  * Region type definition
  */
-export type Region = 'EU' | 'US' | 'STG' | 'DEV' | 'LOCAL';
+export type Region = 'EU' | 'US' | 'AU' | 'IN' | 'AE' | 'CA' | 'DEV' |'STG' | 'LOCAL';
 
 /**
  * Settings for the MCP servers
@@ -145,7 +145,7 @@ export class Settings {
    * Check if the provided string is a valid region
    */
   private isValidRegion(region: string): region is Region {
-    return ['EU', 'US', 'STG', 'DEV', 'LOCAL'].includes(region.toUpperCase() as Region);
+    return ['EU', 'US', 'AU', 'IN', 'AE', 'CA', 'DEV', 'STG', 'LOCAL'].includes(region.toUpperCase() as Region);
   }
 
   /**
@@ -157,6 +157,14 @@ export class Settings {
         return 'https://cloudinfra-gw.portal.checkpoint.com';
       case 'US':
         return 'https://cloudinfra-gw-us.portal.checkpoint.com';
+      case 'AU':
+        return 'https://cloudinfra-gw.ap.portal.checkpoint.com';
+      case 'IN':
+        return 'https://cloudinfra-gw.in.portal.checkpoint.com';
+      case 'AE':
+        return 'https://cloudinfra-gw.ae.portal.checkpoint.com';
+      case 'CA':
+        return 'https://cloudinfra-gw.ca.portal.checkpoint.com';
       case 'STG':
       case 'DEV':
       case 'LOCAL':

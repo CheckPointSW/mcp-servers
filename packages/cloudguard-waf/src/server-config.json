@@ -1,0 +1,36 @@
+{
+    "name": "cloudguard-waf",
+    "description": "CloudGuard WAF MCP server for Check Point WAF management",
+    "options": [
+        {
+            "flag": "--client-id <id>",
+            "description": "CloudGuard WAF client ID for authentication",
+            "env": "WAF_CLIENT_ID",
+            "required": true,
+            "type": "string"
+        },
+        {
+            "flag": "--access-key <key>",
+            "description": "CloudGuard WAF access key for authentication",
+            "env": "WAF_ACCESS_KEY",
+            "required": true,
+            "type": "string"
+        },
+        {
+            "flag": "--region <region>",
+            "description": "CloudGuard WAF region (EU, US, AU, IN, AE, CA, DEV, or STG)",
+            "env": "WAF_REGION",
+            "required": false,
+            "type": "string",
+            "default": "EU"
+        },
+        {
+            "flag": "--allow-writes",
+            "description": "Enable write operations. By default the server runs in read-only mode: only get_objects, get_enforcement_status, and waf_consultant are available, and GraphQL mutations are blocked. Pass --allow-writes or set WAF_ALLOW_WRITES=true to also expose manage_objects and publish_and_enforce.",
+            "env": "WAF_ALLOW_WRITES",
+            "required": false,
+            "type": "boolean",
+            "default": false
+        }
+    ]
+}

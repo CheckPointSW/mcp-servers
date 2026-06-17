@@ -1,0 +1,5 @@
+{
+  "name": "cpview-history-mcp",
+  "description": "MCP server for analyzing Check Point cpview history (CPViewDB.dat) SQLite databases",
+  "options": []
+}

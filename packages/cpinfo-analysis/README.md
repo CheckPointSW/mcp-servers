@@ -275,9 +275,25 @@ This approach gives you full control over page size while ensuring accurate navi
 
 ## HTTP Transport
 
-By default, this server uses **stdio** transport, which is the standard mode for MCP clients like Claude Desktop and Cursor. For hosted or multi-user deployments, an **HTTP transport** (MCP Streamable HTTP) is also available.
+By default this server uses **stdio** transport — the server runs as a subprocess on the
+same machine as your MCP client, which is also where your files must reside.
 
-> **Security notice before you continue:** The HTTP server has no built-in authentication and no TLS. Any client that can reach the port can establish a session, and credentials travel in cleartext. Only use HTTP transport behind an authenticated reverse proxy (nginx, Caddy, a cloud load balancer) that terminates TLS and enforces authentication. If you are running the server on the same machine as your MCP client, use the default stdio transport — it has none of these concerns.
+An **HTTP transport** (MCP Streamable HTTP) is available for shared or multi-user
+deployments, but it does not change the file-access model: every tool accepts a file
+**path** that must resolve on the machine running the server. There is no mechanism
+to upload a file over the MCP connection.
+
+> **When HTTP transport makes sense:** the server is running on a host that already
+> has the files accessible — e.g. a shared team server with CPInfo/CPViewDB files
+> mounted, or a host adjacent to the gateways you are analyzing.
+>
+> **When to stick with stdio:** you are analyzing files on your own workstation.
+> Stdio is simpler, has no authentication exposure, and is the recommended default.
+
+> **Security notice:** The HTTP server has no built-in authentication and no TLS.
+> Any client that can reach the port can establish a session. Only use HTTP transport
+> behind an authenticated reverse proxy that terminates TLS and enforces
+> authentication.
 
 ### Starting the server in HTTP mode
 

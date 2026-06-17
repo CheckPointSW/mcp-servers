@@ -1,15 +1,21 @@
 {
-  "name": "@chkp/https-inspection-mcp",
-  "version": "1.4.6",
-  "description": "HTTPS Inspection MCP server for Check Point products",
+  "name": "@chkp/cpview-history-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for analyzing Check Point cpview history databases (CPViewDB.dat)",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "https-inspection-mcp": "./dist/index.js"
+    "cpview-history-mcp": "./dist/index.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chkp-genai/mcp-servers-internal.git",
+    "directory": "packages/cpview-history-mcp"
+  },
+  "license": "MIT",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.5.0"
   },
   "scripts": {
     "clean": "rimraf dist",
@@ -18,26 +24,24 @@
     "build:tsc": "npx tsc && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:create-fixtures": "node __tests__/fixtures/create-ha-smoke-db.mjs",
+    "test:coverage": "vitest run --coverage",
     "prepack": "node ../../scripts/strip-bundled-deps.js",
     "postpack": "node ../../scripts/strip-bundled-deps.js restore"
   },
   "dependencies": {
     "@chkp/mcp-utils": "*",
-    "@chkp/quantum-infra": "*",
     "@modelcontextprotocol/sdk": "^1.26.0",
-    "axios": "^1.13.5",
     "commander": "^13.1.0",
     "node-machine-id": "^1.1.12",
     "zod": "^3.24.4"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "typescript": "^5.0.4"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/CheckPointSW/mcp-servers.git",
-    "directory": "packages/https-inspection"
-  },
-  "license": "MIT"
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^3.1.0",
+    "typescript": "^5.0.4",
+    "vitest": "^3.1.0"
+  }
 }

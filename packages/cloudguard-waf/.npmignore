@@ -1,0 +1,12 @@
+# npm-specific files
+.npmrc
+.npmrc.tmp
+npm-debug.log
+.env
+.env.local
+.DS_Store
+*.log
+node_modules/
+src/
+*.tsbuildinfo
+publish-summary.json
