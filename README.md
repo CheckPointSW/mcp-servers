@@ -36,6 +36,8 @@ This monorepo is organized with each Check Point security domain as a separate M
   - **`/cpinfo-analysis`** - CPInfo Analysis MCP server for Check Point appliance diagnostic file analysis and troubleshooting
   - **`/argos-erm`** - Argos ERM MCP server for external risk management and threat intelligence
   - **`/policy-insights`** - Policy Insights MCP server
+  - **`/cloudguard-waf`** - CloudGuard WAF MCP server for managing web application and APIs firewall assets, policies and configuration
+  - **`/cpview-history-mcp`** - CPView History MCP server for analyzing Check Point gateway performance databases
 
 ## Available MCP Servers
 
@@ -55,9 +57,11 @@ The following MCP servers are available in this repository:
 | [Gaia](./packages/gaia/) | `@chkp/quantum-gaia-mcp` | Network management and interface configuration for GAIA OS |
 | [Documentation Tool](./packages/documentation-tool/) | `@chkp/documentation-mcp` | Comprehensive Check Point documentation assistant providing instant access to product information, technical specifications, configuration guidance, and feature documentation across the entire Check Point security portfolio |
 | [Check Point Spark Firewall](./packages/spark-management/) | `@chkp/spark-management-mcp` | Manage and monitor Check Point Spark Firewall appliances for MSPs and distributed networks. |
-| [Cpinfo analysis](./packages/cpinfo-analysis/) | `@chkp/cpinfo-analysis-mcp` | Analyze CPInfo diagnostic files for system health, performance metrics, network configuration, and troubleshooting insights |
+| [CPInfo Analysis](./packages/cpinfo-analysis/) | `@chkp/cpinfo-analysis-mcp` | Analyze CPInfo diagnostic files for system health, performance metrics, network configuration, and troubleshooting insights |
 | [Exposure Management](./packages/argos-erm/) | `@chkp/argos-erm-mcp` | Monitor, investigate and remediate security threats across alerts, IOCs, assets, vulnerabilities, credential exposure, threat intelligence, and organizational risk assessment |
 | [Policy Insights](./packages/policy-insights/) | `@chkp/policy-insights-mcp` | Query policy insights to tighten Access Control policies |
+| [CloudGuard WAF](./packages/cloudguard-waf/) | `@chkp/cloudguard-waf-mcp` | Query and manage CloudGuard WAF assets, practices, profiles, zones, and behaviors, and publish enforcement changes |
+| [CPView History](./packages/cpview-history-mcp/) | `@chkp/cpview-history-mcp` | Analyze CPView history databases (CPViewDB.dat) for gateway performance, resource utilization, hotspot detection, and incident investigation |
 
 
 ## Example: Setting Up an MCP Server

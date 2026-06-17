@@ -627,6 +627,40 @@ server.tool(
 );
 
 server.tool(
+  'show_packages',
+  'Show all policy packages. Use details-level "full" to see access-layers within each package.',
+  {
+    filter: z.string().optional(),
+    limit: z.number().optional().default(50),
+    offset: z.number().optional().default(0),
+    order: z.array(z.object({ ASC: z.string().optional(), DESC: z.string().optional() })).optional(),
+    show_installation_targets: z.boolean().optional().default(true)
+      .describe('Whether to calculate and show the installation-targets field in the reply.'),
+    details_level: PARAM_DETAILS_LEVEL,
+    domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+    show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
+    domain: PARAM_DOMAIN,
+  },
+  async (args: Record<string, unknown>, extra: any) => {
+    const params: Record<string, any> = {};
+    if (typeof args.filter === 'string' && args.filter.trim() !== '') params.filter = args.filter;
+    if (typeof args.limit === 'number') params.limit = args.limit;
+    if (typeof args.offset === 'number') params.offset = args.offset;
+    if (Array.isArray(args.order) && args.order.length > 0) params.order = args.order;
+    if (typeof args.show_installation_targets === 'boolean') params['show-installation-targets'] = args.show_installation_targets;
+    if (typeof args.details_level === 'string' && args.details_level.trim() !== '') params['details-level'] = args.details_level;
+    if (typeof args.domains_to_process === 'string') { params['domains-to-process'] = [args.domains_to_process]; params['ignore-warnings'] = true; }
+    if (args.show_only_local_domain) params['show-only-local-domain'] = true;
+
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
+
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-packages', params, domain);
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
+  }
+);
+
+server.tool(
   'show_nat_rulebase',
   'Show the NAT rulebase of a given package.',
   {
