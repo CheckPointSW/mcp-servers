@@ -2393,6 +2393,7 @@ server.tool(
 
       // Build API parameters
       const params: Record<string, any> = {
+        'target': gateway,
         'ip-version': ipVersion,
         'source-ip': sourceIp,
         'destination-ip': destinationIp,
