@@ -18,13 +18,13 @@
   "license": "MIT",
   "dependencies": {
     "@chkp/mcp-utils": "*",
-    "@modelcontextprotocol/sdk": "^1.26.0",
-    "axios": "^1.13.5",
-    "commander": "^11.1.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "axios": "^1.16.0",
+    "commander": "^14.0.3",
     "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
+    "@types/node": "^26.0.0",
     "typescript": "^5.0.4"
   }
 }

@@ -59,6 +59,19 @@ export abstract class APIManagerBase {
    * Call an API endpoint
    */
   async callApi(method: string, uri: string, data: Record<string, any>, domain?: string): Promise<Record<string, any>> {
+    return (await this.callApiWithStatus(method, uri, data, domain)).response;
+  }
+
+  /**
+   * Call an API endpoint and return both the HTTP status code and the response body.
+   * Used by callers that need to track the underlying HTTP status (e.g. management-write).
+   */
+  async callApiWithStatus(
+    method: string,
+    uri: string,
+    data: Record<string, any>,
+    domain?: string,
+  ): Promise<{ status: number; response: Record<string, any> }> {
     const sanitizedData = sanitizeData(data);
 
     // domains-to-process must run from the System Domain (root MDS session) — ignore domain routing when set
@@ -66,14 +79,13 @@ export abstract class APIManagerBase {
       ? await this.getDomainApiClientByDomain(domain)
       : this.client;
 
-    // Use the default client for non-domain-specific calls
     const clientResponse = await apiClient.callApi(
       method,
       uri,
       sanitizedData,
       undefined
     );
-    return clientResponse.response;
+    return { status: clientResponse.status, response: clientResponse.response };
   }
 
   /**
@@ -719,12 +731,16 @@ export class APIManagerForBearerToken extends APIManagerBase {
   }
 
   /**
-   * Override callApi to handle SMP-specific API format
+   * Strip the leading slash that SMP API endpoints don't use, then delegate.
+   * Overriding only callApiWithStatus is sufficient: the base callApi
+   * dispatches through this method, so the URL cleaning applies to both paths.
    */
-  async callApi(method: string, uri: string, data: Record<string, any>): Promise<Record<string, any>> {
-    // Remove leading slash if present since SMP APIs don't use it
+  async callApiWithStatus(
+    method: string,
+    uri: string,
+    data: Record<string, any>,
+  ): Promise<{ status: number; response: Record<string, any> }> {
     const cleanUri = uri.replace(/^\//, '');
-    
-    return await super.callApi(method, cleanUri, data);
+    return await super.callApiWithStatus(method, cleanUri, data);
   }
 }
