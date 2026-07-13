@@ -5,6 +5,43 @@ import { CVE_INTEL_API_BASE } from '../constants.js';
 import { parseListParam } from '../schemas.js';
 import type { ServerModule } from './types.js';
 
+// Return the numeric dotted core of a version string, if different.
+//
+// Asset technology versions often carry vendor-specific suffixes that the
+// vulnerability database does not index (e.g. OpenSSH's portable suffix in
+// "9.6p1", or pre-release/build tags like "1.2.3-beta"). The CVE DB matches on
+// the numeric core ("9.6", "1.2.3"), so we derive that core to broaden the
+// search. Returns null when there is nothing to strip (the core equals the
+// input) or no leading numeric component exists.
+function normalizeVersion(version: string): string | null {
+    const match = version.trim().match(/^\d+(?:\.\d+)*/);
+    if (!match) {
+        return null;
+    }
+    const core = match[0];
+    return core !== version.trim() ? core : null;
+}
+
+// Augment versions with their normalized numeric cores, preserving order.
+//
+// The original versions are kept (so exact matches still work) and the
+// normalized variants are appended, de-duplicated. This prevents the
+// asset-to-CVE workflow from silently under-reporting when an asset's reported
+// version format differs from the vulnerability DB's.
+function expandVersions(versions: string[]): string[] {
+    const expanded: string[] = [];
+    for (const version of versions) {
+        if (!expanded.includes(version)) {
+            expanded.push(version);
+        }
+        const normalized = normalizeVersion(version);
+        if (normalized && !expanded.includes(normalized)) {
+            expanded.push(normalized);
+        }
+    }
+    return expanded;
+}
+
 export function registerVulnerabilityTools(
     server: McpServer,
     serverModule: ServerModule
@@ -67,7 +104,12 @@ WHEN TO USE:
 
 WHEN TO USE:
 - User asks about vulnerabilities in specific software
-- User wants to assess risk for particular technology versions`,
+- User wants to assess risk for particular technology versions
+
+TECHNOLOGY MATCHING:
+- Product names should match common software names (case-insensitive)
+- Version strings work best as they appear in CVE databases; vendor suffixes
+  (e.g. OpenSSH "9.6p1") are also searched by their numeric core ("9.6")`,
             inputSchema: {
                 technology_name: z
                     .string()
@@ -121,9 +163,14 @@ WHEN TO USE:
                     );
                 }
 
+                // Broaden matching by also searching the normalized numeric
+                // core of each version (e.g. "9.6p1" -> also "9.6"), which is
+                // what the CVE DB indexes.
+                const expandedVersions = expandVersions(techVersionsList);
+
                 const filters: Record<string, unknown> = {
                     technology_name,
-                    technology_versions: techVersionsList,
+                    technology_versions: expandedVersions,
                 };
 
                 if (cvss_min !== undefined) {

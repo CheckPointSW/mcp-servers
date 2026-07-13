@@ -1,19 +1,22 @@
 {
-  "name": "@chkp/policy-insights-mcp",
-  "version": "0.3.8",
-  "bin": {
-    "policy-insights-mcp": "dist/index.js"
-  },
-  "description": "Official MCP server for Check Point Policy Insights",
+  "name": "@chkp/workforce-ai-mcp",
+  "version": "1.2.0",
+  "description": "Official MCP server for Check Point Workforce AI — AI & Browse security policy management, asset visibility, and app catalog",
   "repository": {
     "type": "git",
     "url": "https://github.com/CheckPointSW/mcp-servers.git",
-    "directory": "packages/policy-insights"
+    "directory": "packages/workforce-ai"
   },
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "workforce-ai-mcp": "dist/index.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "clean": "rimraf dist",
     "build": "npm run build:bundle && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
@@ -21,31 +24,35 @@
     "build:tsc": "npx tsc && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
+    "spec:fetch": "tsx scripts/fetch-spec.ts",
+    "generate-tools": "tsx scripts/generate-tools.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "prepack": "node ../../scripts/strip-bundled-deps.js",
     "postpack": "node ../../scripts/strip-bundled-deps.js restore"
   },
   "dependencies": {
     "@chkp/mcp-utils": "*",
     "@chkp/quantum-infra": "*",
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "commander": "^14.0.3",
-    "axios": "^1.16.0",
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "axios": "^1.13.5",
+    "commander": "^13.1.0",
     "node-machine-id": "^1.1.12",
     "zod": "^3.24.4"
   },
   "devDependencies": {
-    "@types/node": "^26.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.38.0",
-    "@typescript-eslint/parser": "^8.38.0",
-    "eslint": "^8.57.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-prettier": "^5.2.1",
-    "prettier": "^3.6.2",
-    "typescript": "^5.8.3"
+    "@types/node": "^20.0.0",
+    "dotenv": "^16.4.5",
+    "json-schema-to-zod": "^2.6.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.9"
   },
-  "engines": {
-    "node": ">=20.0.0"
-  },
-  "keywords": [],
-  "author": ""
+  "keywords": [
+    "mcp",
+    "checkpoint",
+    "workforce-ai",
+    "genai-security"
+  ],
+  "author": "Check Point"
 }

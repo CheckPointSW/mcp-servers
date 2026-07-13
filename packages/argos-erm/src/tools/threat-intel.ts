@@ -5,6 +5,29 @@ import { KNOWLEDGEBASE_API_BASE } from '../constants.js';
 import { parseListParam, isValidUuid4 } from '../schemas.js';
 import type { ServerModule } from './types.js';
 
+// Default look-back window (in days) used when a caller needs a date range but
+// does not supply one. The news endpoint rejects requests that omit a complete
+// date range (HTTP 422), so we default it client-side for a smooth experience.
+const DEFAULT_DATE_RANGE_DAYS = 30;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function toDateOnly(date: Date): string {
+    return date.toISOString().slice(0, 10);
+}
+
+// Normalize a YYYY-MM-DD (or full ISO) string to ISO 8601 with a Z suffix,
+// assuming UTC when no time/zone is present. Falls back to the original string
+// if it cannot be parsed (legacy behavior).
+function ensureIso(dateStr: string): string {
+    const parsed = new Date(
+        dateStr.includes('T') ? dateStr : `${dateStr}T00:00:00Z`
+    );
+    if (Number.isNaN(parsed.getTime())) {
+        return dateStr;
+    }
+    return parsed.toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
+
 export function registerThreatIntelTools(
     server: McpServer,
     serverModule: ServerModule
@@ -123,19 +146,44 @@ WHEN TO USE:
                 const sectorsList = parseListParam(sectors);
                 const labelsList = parseListParam(labels);
 
-                let dateRange: Record<string, string> | undefined;
-                if (from_date && to_date) {
-                    dateRange = {
-                        from: from_date,
-                        to: to_date,
-                    };
+                // The news endpoint rejects requests without a complete date
+                // range (HTTP 422), so always send both bounds: fill in any
+                // missing side with a sensible default rather than dropping the
+                // filter or relying on server defaults.
+                let fromDate = from_date;
+                let toDate = to_date;
+                if (!fromDate && !toDate) {
+                    // No range supplied: default to the most recent window.
+                    const now = new Date();
+                    toDate = toDateOnly(now);
+                    fromDate = toDateOnly(
+                        new Date(
+                            now.getTime() - DEFAULT_DATE_RANGE_DAYS * MS_PER_DAY
+                        )
+                    );
+                } else if (fromDate && !toDate) {
+                    // Open-ended start: cap at now.
+                    toDate = toDateOnly(new Date());
+                } else if (toDate && !fromDate) {
+                    // Open-ended end: anchor the window relative to the end date.
+                    const anchor = new Date(ensureIso(toDate));
+                    fromDate = toDateOnly(
+                        new Date(
+                            anchor.getTime() -
+                                DEFAULT_DATE_RANGE_DAYS * MS_PER_DAY
+                        )
+                    );
                 }
+                const dateRange: Record<string, string> = {
+                    from: ensureIso(fromDate as string),
+                    to: ensureIso(toDate as string),
+                };
 
                 const fields: Record<string, unknown> = {};
                 if (regionsList) fields.regions = regionsList;
                 if (sectorsList) fields.sectors = sectorsList;
                 if (labelsList) fields.labels = labelsList;
-                if (dateRange) fields.date_range = dateRange;
+                fields.date_range = dateRange;
 
                 const response = await apiManager.post(
                     `${KNOWLEDGEBASE_API_BASE}/news`,

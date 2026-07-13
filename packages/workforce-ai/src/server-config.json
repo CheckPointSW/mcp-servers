@@ -1,0 +1,44 @@
+{
+  "name": "workforce-ai",
+  "description": "Check Point Workforce AI — AI & Browse security policy management, asset visibility, and GenAI app catalog",
+  "options": [
+    {
+      "flag": "--client-id <id>",
+      "description": "CloudInfra API key client ID",
+      "env": "CP_CI_CLIENT_ID",
+      "required": true,
+      "type": "string",
+      "help": "The Client ID of an Infinity Portal API key with the Workforce AI Security (and Browse Security) service."
+    },
+    {
+      "flag": "--access-key <key>",
+      "description": "CloudInfra API key secret",
+      "env": "CP_CI_ACCESS_KEY",
+      "required": true,
+      "type": "string",
+      "help": "The Secret Key of the Infinity Portal API key."
+    },
+    {
+      "flag": "--gateway <url>",
+      "description": "CloudInfra gateway URL (e.g. https://cloudinfra-gw.portal.checkpoint.com)",
+      "env": "CP_CI_GATEWAY",
+      "required": true,
+      "type": "string",
+      "help": "The Authentication URL / gateway shown when creating the API key. EU: https://cloudinfra-gw.portal.checkpoint.com, US: https://cloudinfra-gw-us.portal.checkpoint.com"
+    },
+    {
+      "flag": "--region <region>",
+      "description": "CloudInfra region (optional; auto-detected from --gateway)",
+      "env": "REGION",
+      "type": "string",
+      "help": "Optional region override (EU, US, ...). Normally inferred from the gateway URL."
+    },
+    {
+      "flag": "--write-mode",
+      "description": "Enable write tools (create/modify/delete). Default: read-only.",
+      "env": "WRITE_MODE",
+      "type": "boolean",
+      "help": "Set WRITE_MODE=true to expose the 24 write tools. WARNING: enabling write mode lets the LLM create, modify, and delete security policy rules."
+    }
+  ]
+}

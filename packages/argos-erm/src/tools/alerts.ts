@@ -541,6 +541,20 @@ WHEN TO USE:
                     ],
                 };
             } catch (error) {
+                const httpErr = error as { response?: { status?: number } };
+                // A missing alert is an expected outcome, not an error: honor
+                // the documented contract and return an empty object instead of
+                // surfacing a raw 404 to the caller.
+                if (httpErr.response?.status === 404) {
+                    return {
+                        content: [
+                            {
+                                type: 'text',
+                                text: JSON.stringify({}),
+                            },
+                        ],
+                    };
+                }
                 const msg =
                     error instanceof Error ? error.message : String(error);
                 return {
