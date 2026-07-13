@@ -121,7 +121,7 @@
         "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-prettier": "^5.5.3",
         "jest": "30.3.0",
-        "js-yaml": "^4.2.0",
+        "js-yaml": "^4.3.0",
         "npm-merge-driver": "^2.3.6",
         "nx": "23.0.1",
         "prettier": "^3.8.4",
