@@ -63,7 +63,7 @@ The following MCP servers are available in this repository:
 | [Policy Insights](./packages/policy-insights/) | `@chkp/policy-insights-mcp` | Query policy insights to tighten Access Control policies |
 | [CloudGuard WAF](./packages/cloudguard-waf/) | `@chkp/cloudguard-waf-mcp` | Query and manage CloudGuard WAF assets, practices, profiles, zones, and behaviors, and publish enforcement changes |
 | [CPView History](./packages/cpview-history-mcp/) | `@chkp/cpview-history-mcp` | Analyze CPView history databases (CPViewDB.dat) for gateway performance, resource utilization, hotspot detection, and incident investigation |
-| [Workforce ai](./packages/workforce-ai/) | `@chkp/workforce-ai-mcp` | Query and manage AI & Browse security policy - AI Access, Chats, Agents, and Secure Browsing - plus deployment and user visibility |
+| [Workforce AI](./packages/workforce-ai/) | `@chkp/workforce-ai-mcp` | Query and manage AI & Browse security policy - AI Access, Chats, Agents, and Secure Browsing - plus deployment and user visibility |
 
 
 ## Example: Setting Up an MCP Server
