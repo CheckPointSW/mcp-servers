@@ -57,7 +57,9 @@ MULTI-TENANT:
                 asset_name: z
                     .string()
                     .optional()
-                    .describe('Filter by asset name (partial matching).'),
+                    .describe(
+                        'Filter by exact asset name (e.g. "example.com"). The API matches the full name only; partial names return no results.'
+                    ),
                 discovery_precision: z
                     .number()
                     .default(0)
@@ -133,7 +135,30 @@ MULTI-TENANT:
                     `${ASSET_CONFIG_API_BASE}/assets/`,
                     requestPayload
                 );
-                const assetsData = await response.json();
+
+                // The assets endpoint returns an empty body (HTTP 200, no JSON)
+                // when an asset_name filter matches nothing. Parsing that as
+                // JSON throws, so treat an empty body as an empty result set.
+                const rawBody = await response.text();
+                if (!rawBody || !rawBody.trim()) {
+                    return {
+                        content: [
+                            {
+                                type: 'text',
+                                text: JSON.stringify(
+                                    {
+                                        total_assets: 0,
+                                        page_number,
+                                        assets: [],
+                                    },
+                                    null,
+                                    2
+                                ),
+                            },
+                        ],
+                    };
+                }
+                const assetsData = JSON.parse(rawBody);
 
                 if (typeof assetsData !== 'object' || assetsData === null) {
                     return {

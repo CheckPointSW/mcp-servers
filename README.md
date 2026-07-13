@@ -38,6 +38,7 @@ This monorepo is organized with each Check Point security domain as a separate M
   - **`/policy-insights`** - Policy Insights MCP server
   - **`/cloudguard-waf`** - CloudGuard WAF MCP server for managing web application and APIs firewall assets, policies and configuration
   - **`/cpview-history-mcp`** - CPView History MCP server for analyzing Check Point gateway performance databases
+  - **`/workforce-ai`** - Workforce AI MCP server for AI & Browse policy security management for AI Access, Chats, Agents and Secure Browsing, plus deployment and user visibility
 
 ## Available MCP Servers
 
@@ -62,6 +63,7 @@ The following MCP servers are available in this repository:
 | [Policy Insights](./packages/policy-insights/) | `@chkp/policy-insights-mcp` | Query policy insights to tighten Access Control policies |
 | [CloudGuard WAF](./packages/cloudguard-waf/) | `@chkp/cloudguard-waf-mcp` | Query and manage CloudGuard WAF assets, practices, profiles, zones, and behaviors, and publish enforcement changes |
 | [CPView History](./packages/cpview-history-mcp/) | `@chkp/cpview-history-mcp` | Analyze CPView history databases (CPViewDB.dat) for gateway performance, resource utilization, hotspot detection, and incident investigation |
+| [Workforce ai](./packages/workforce-ai/) | `@chkp/workforce-ai-mcp` | Query and manage AI & Browse security policy - AI Access, Chats, Agents, and Secure Browsing - plus deployment and user visibility |
 
 
 ## Example: Setting Up an MCP Server

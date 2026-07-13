@@ -1,0 +1,17 @@
+# npm-specific files
+.npmrc
+.npmrc.tmp
+npm-debug.log
+.env
+.env.local
+.env.example
+.DS_Store
+*.log
+node_modules/
+src/
+specs/
+scripts/
+__tests__/
+TOOLS.md
+*.tsbuildinfo
+publish-summary.json
