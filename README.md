@@ -36,7 +36,7 @@ This monorepo is organized with each Check Point security domain as a separate M
   - **`/cpinfo-analysis`** - CPInfo Analysis MCP server for Check Point appliance diagnostic file analysis and troubleshooting
   - **`/argos-erm`** - Argos ERM MCP server for external risk management and threat intelligence
   - **`/policy-insights`** - Policy Insights MCP server
-  - **`/cloudguard-waf`** - CloudGuard WAF MCP server for managing web application and APIs firewall assets, policies and configuration
+  - **`/checkpoint-waf`** - Check Point WAF MCP server for managing web application and APIs firewall assets, policies and configuration
   - **`/cpview-history-mcp`** - CPView History MCP server for analyzing Check Point gateway performance databases
   - **`/workforce-ai`** - Workforce AI MCP server for AI & Browse policy security management for AI Access, Chats, Agents and Secure Browsing, plus deployment and user visibility
 
@@ -61,7 +61,7 @@ The following MCP servers are available in this repository:
 | [CPInfo Analysis](./packages/cpinfo-analysis/) | `@chkp/cpinfo-analysis-mcp` | Analyze CPInfo diagnostic files for system health, performance metrics, network configuration, and troubleshooting insights |
 | [Exposure Management](./packages/argos-erm/) | `@chkp/argos-erm-mcp` | Monitor, investigate and remediate security threats across alerts, IOCs, assets, vulnerabilities, credential exposure, threat intelligence, and organizational risk assessment |
 | [Policy Insights](./packages/policy-insights/) | `@chkp/policy-insights-mcp` | Query policy insights to tighten Access Control policies |
-| [CloudGuard WAF](./packages/cloudguard-waf/) | `@chkp/cloudguard-waf-mcp` | Query and manage CloudGuard WAF assets, practices, profiles, zones, and behaviors, and publish enforcement changes |
+| [Check Point WAF](./packages/checkpoint-waf/) | `@chkp/checkpoint-waf-mcp` | Query and manage Check Point WAF assets, practices, profiles, zones, and behaviors, and publish enforcement changes |
 | [CPView History](./packages/cpview-history-mcp/) | `@chkp/cpview-history-mcp` | Analyze CPView history databases (CPViewDB.dat) for gateway performance, resource utilization, hotspot detection, and incident investigation |
 | [Workforce AI](./packages/workforce-ai/) | `@chkp/workforce-ai-mcp` | Query and manage AI & Browse security policy - AI Access, Chats, Agents, and Secure Browsing - plus deployment and user visibility |
 

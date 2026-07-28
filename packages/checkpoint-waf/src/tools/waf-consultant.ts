@@ -1,5 +1,5 @@
 /**
- * waf_consultant - CloudGuard WAF best-practice recommendations
+ * waf_consultant - Check Point WAF best-practice recommendations
  * Uses official docs to ground advice.
  * Supports both GitBook MCP (default) and Check Point Documentation Tool API backends.
  */
@@ -50,11 +50,11 @@ export async function getConsultantAdvice(
     settings?: Settings
 ): Promise<ConsultantAdvice> {
     const configAnalysis = analyzeConfig(params.waf_configuration);
-    const query = `CloudGuard WAF ${params.user_prompt}`;
+    const query = `Check Point WAF ${params.user_prompt}`;
 
     const docSource = settings?.docSource || process.env.DOC_SOURCE || 'gitbook';
 
-    let explanation = 'No documentation found. Refer to CloudGuard WAF docs for best practices.';
+    let explanation = 'No documentation found. Refer to Check Point WAF docs for best practices.';
     let doc_citations: DocCitation[] | undefined = undefined;
     let confidence = 0.5;
     let backend_used: 'gitbook' | 'documentation-tool' = 'gitbook';
@@ -66,7 +66,7 @@ export async function getConsultantAdvice(
             explanation = response;
             doc_citations = [
                 {
-                    title: 'CloudGuard WAF Documentation',
+                    title: 'Check Point WAF Documentation',
                     link: DOCS_BASE,
                     snippet: 'Source: Check Point Documentation Tool',
                 },

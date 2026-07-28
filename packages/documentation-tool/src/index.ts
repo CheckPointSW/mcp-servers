@@ -70,7 +70,7 @@ server.tool(
                 - cloudguard: CloudGuard - Comprehensive cloud security and compliance platform
                 - cloudguardnetwork: CloudGuard Network - Cloud network security solutions
                 - cloudnetworksecurity: CloudGuard Network Security - Advanced cloud network protection
-                - appsec: CloudGuard WAF - Web Application Firewall and application security
+                - appsec: Check Point WAF - Web Application Firewall and application security
 
                 Endpoint & Device Security:
                 - mobile: Harmony Mobile - Mobile device security and threat protection

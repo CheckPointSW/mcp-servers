@@ -36,6 +36,7 @@
     { "path": "./packages/cpview-history-mcp" },
     { "path": "./packages/argos-erm" },
     { "path": "./packages/policy-insights" },
+    { "path": "./packages/checkpoint-waf" },
     { "path": "./packages/cloudguard-waf" },
     { "path": "./packages/workforce-ai" }
   ],

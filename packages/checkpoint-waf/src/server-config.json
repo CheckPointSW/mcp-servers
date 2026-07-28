@@ -1,24 +1,24 @@
 {
-    "name": "cloudguard-waf",
-    "description": "CloudGuard WAF MCP server for Check Point WAF management",
+    "name": "checkpoint-waf",
+    "description": "Check Point WAF MCP server for Check Point WAF management",
     "options": [
         {
             "flag": "--client-id <id>",
-            "description": "CloudGuard WAF client ID for authentication",
+            "description": "Check Point WAF client ID for authentication",
             "env": "WAF_CLIENT_ID",
             "required": true,
             "type": "string"
         },
         {
             "flag": "--access-key <key>",
-            "description": "CloudGuard WAF access key for authentication",
+            "description": "Check Point WAF access key for authentication",
             "env": "WAF_ACCESS_KEY",
             "required": true,
             "type": "string"
         },
         {
             "flag": "--region <region>",
-            "description": "CloudGuard WAF region (EU, US, AU, IN, AE, CA, DEV, or STG)",
+            "description": "Check Point WAF region (EU, US, AU, IN, AE, CA, DEV, or STG)",
             "env": "WAF_REGION",
             "required": false,
             "type": "string",

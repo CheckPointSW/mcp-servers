@@ -1,5 +1,5 @@
 /**
- * CloudGuard WAF GraphQL Queries and Mutations
+ * Check Point WAF GraphQL Queries and Mutations
  * Used by get_objects, manage_objects, call_waf_api, and publish_and_enforce.
  */
 
