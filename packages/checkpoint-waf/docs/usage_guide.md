@@ -1,8 +1,8 @@
-# CloudGuard WAF MCP - Usage Guide
+# Check Point WAF MCP - Usage Guide
 
 ## Executive Summary
 
-This usage guide demonstrates how the CloudGuard WAF MCP server transforms complex WAF security operations into conversational interactions. With examples across 10 user personas, this guide shows how AI assistants can manage Check Point WAF through simple English commands.
+This usage guide demonstrates how the Check Point WAF MCP server transforms complex WAF security operations into conversational interactions. With examples across 10 user personas, this guide shows how AI assistants can manage Check Point WAF through simple English commands.
 
 ---
 
@@ -12,7 +12,7 @@ This usage guide demonstrates how the CloudGuard WAF MCP server transforms compl
 |------|-------------|
 | `get_objects` | Unified retrieval of WAF objects: assets, practices, profiles, agents, zones, behaviors, triggers |
 | `manage_objects` | Unified CRUD operations for WAF objects |
-| `call_waf_api` | Execute raw GraphQL queries/mutations against CloudGuard WAF API |
+| `call_waf_api` | Execute raw GraphQL queries/mutations against Check Point WAF API |
 | `get_enforcement_status` | Get session status, publish state, pending changes count |
 | `publish_and_enforce` | Publish and enforce pending configuration changes (CRITICAL) |
 | `waf_consultant` | Best-practice recommendations based on official documentation |
@@ -465,11 +465,11 @@ Business Outcome: Security coverage gap analysis for architecture improvement
 
 **3. Design Consultation for New Architecture**
 ```
-Natural Language: "I'm designing a zero-trust architecture for our microservices. What does CloudGuard WAF best practice documentation recommend for micro-segmentation?"
+Natural Language: "I'm designing a zero-trust architecture for our microservices. What does Check Point WAF best practice documentation recommend for micro-segmentation?"
 
 Expected Tool: waf_consultant
 
-Parameters: { "user_prompt": "What are CloudGuard WAF best practices for implementing zero-trust micro-segmentation with microservices?", "available_tools": [{"name": "manage_objects", "description": "Create/update WAF objects"}, {"name": "get_objects", "description": "Retrieve WAF objects"}] }
+Parameters: { "user_prompt": "What are Check Point WAF best practices for implementing zero-trust micro-segmentation with microservices?", "available_tools": [{"name": "manage_objects", "description": "Create/update WAF objects"}, {"name": "get_objects", "description": "Retrieve WAF objects"}] }
 
 Business Outcome: Expert-guided zero-trust architecture design decisions
 ```
@@ -669,11 +669,11 @@ Business Outcome: Automated weekly security reporting for platform team
 
 **9. Consult on Kubernetes Integration**
 ```
-Natural Language: "What's the recommended way to integrate CloudGuard WAF with our Kubernetes ingress controllers? We use nginx-ingress."
+Natural Language: "What's the recommended way to integrate Check Point WAF with our Kubernetes ingress controllers? We use nginx-ingress."
 
 Expected Tool: waf_consultant
 
-Parameters: { "user_prompt": "What is the recommended integration approach for CloudGuard WAF with Kubernetes nginx-ingress controllers?", "available_tools": [{"name": "manage_objects", "description": "Create/update WAF objects"}, {"name": "get_objects", "description": "Retrieve WAF objects"}] }
+Parameters: { "user_prompt": "What is the recommended integration approach for Check Point WAF with Kubernetes nginx-ingress controllers?", "available_tools": [{"name": "manage_objects", "description": "Create/update WAF objects"}, {"name": "get_objects", "description": "Retrieve WAF objects"}] }
 
 Business Outcome: Expert guidance on Kubernetes WAF integration patterns
 ```
@@ -752,11 +752,11 @@ Business Outcome: Change management status for governance reporting
 
 **4. Strategic Security Consultation**
 ```
-Natural Language: "What does best practice recommend for a large enterprise migrating from traditional WAF to CloudGuard WAF? We have 200 assets to migrate."
+Natural Language: "What does best practice recommend for a large enterprise migrating from traditional WAF to Check Point WAF? We have 200 assets to migrate."
 
 Expected Tool: waf_consultant
 
-Parameters: { "user_prompt": "What is the recommended migration strategy for a large enterprise with 200 assets moving from traditional WAF to CloudGuard WAF?", "available_tools": [{"name": "get_objects", "description": "Retrieve WAF objects"}, {"name": "manage_objects", "description": "Create/update WAF objects"}] }
+Parameters: { "user_prompt": "What is the recommended migration strategy for a large enterprise with 200 assets moving from traditional WAF to Check Point WAF?", "available_tools": [{"name": "get_objects", "description": "Retrieve WAF objects"}, {"name": "manage_objects", "description": "Create/update WAF objects"}] }
 
 Business Outcome: Strategic migration plan guidance for enterprise WAF transformation
 ```
@@ -1194,7 +1194,7 @@ Natural Language: "What's the best way to configure WAF to detect and block Log4
 
 Expected Tool: waf_consultant
 
-Parameters: { "user_prompt": "How should CloudGuard WAF be configured to detect and block Log4Shell (CVE-2021-44228) exploitation attempts? What practices and behaviors are most effective?", "available_tools": [{"name": "manage_objects", "description": "Create/update WAF objects"}] }
+Parameters: { "user_prompt": "How should Check Point WAF be configured to detect and block Log4Shell (CVE-2021-44228) exploitation attempts? What practices and behaviors are most effective?", "available_tools": [{"name": "manage_objects", "description": "Create/update WAF objects"}] }
 
 Business Outcome: CVE-specific WAF hardening guidance from documentation
 ```
@@ -1256,11 +1256,11 @@ Business Outcome: Unprotected asset identification for immediate remediation
 
 **12. API-Specific Threat Protection**
 ```
-Natural Language: "We're seeing a new OWASP Top 10 attack vector. What does CloudGuard recommend for API-specific protections?"
+Natural Language: "We're seeing a new OWASP Top 10 attack vector. What does Check Point WAF recommend for API-specific protections?"
 
 Expected Tool: waf_consultant
 
-Parameters: { "user_prompt": "What are CloudGuard WAF's recommended protections against OWASP API Security Top 10 threats? How should API-specific practices be configured?", "available_tools": [{"name": "manage_objects", "description": "Create/update WAF objects"}, {"name": "get_objects", "description": "Retrieve WAF objects"}] }
+Parameters: { "user_prompt": "What are Check Point WAF's recommended protections against OWASP API Security Top 10 threats? How should API-specific practices be configured?", "available_tools": [{"name": "manage_objects", "description": "Create/update WAF objects"}, {"name": "get_objects", "description": "Retrieve WAF objects"}] }
 
 Business Outcome: OWASP API security hardening guidance for proactive defense
 ```
@@ -1376,7 +1376,7 @@ Natural Language: "What's the recommended change management process for WAF conf
 
 Expected Tool: waf_consultant
 
-Parameters: { "user_prompt": "What is the recommended change management process for CloudGuard WAF configurations when multiple teams share the same environment? How should changes be staged and approved?", "available_tools": [{"name": "publish_and_enforce", "description": "Publish and enforce changes"}, {"name": "get_enforcement_status", "description": "Check enforcement status"}] }
+Parameters: { "user_prompt": "What is the recommended change management process for Check Point WAF configurations when multiple teams share the same environment? How should changes be staged and approved?", "available_tools": [{"name": "publish_and_enforce", "description": "Publish and enforce changes"}, {"name": "get_enforcement_status", "description": "Check enforcement status"}] }
 
 Business Outcome: Multi-team change management process design guidance
 ```

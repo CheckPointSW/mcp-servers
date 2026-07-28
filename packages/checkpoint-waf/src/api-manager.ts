@@ -53,10 +53,10 @@ interface SessionStatusResponse {
 }
 
 /**
- * API manager for CloudGuard WAF.
+ * API manager for Check Point WAF.
  * Provides GraphQL API access for WAF operations.
  */
-export class CloudGuardWAFAPIManager {
+export class CheckPointWAFAPIManager {
     private readonly wafHost: string;
     private readonly wafEndpoint: string;
     private readonly tokenManager: ExternalTokenManager;
@@ -68,10 +68,10 @@ export class CloudGuardWAFAPIManager {
     }
 
     /**
-     * Create a new CloudGuardWAFAPIManager instance from settings
+     * Create a new CheckPointWAFAPIManager instance from settings
      */
-    static create(settings: Settings): CloudGuardWAFAPIManager {
-        return new CloudGuardWAFAPIManager(settings);
+    static create(settings: Settings): CheckPointWAFAPIManager {
+        return new CheckPointWAFAPIManager(settings);
     }
 
     /**

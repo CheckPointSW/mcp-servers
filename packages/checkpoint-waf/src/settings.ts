@@ -36,7 +36,7 @@ export class Settings extends BaseSettings {
     }
 
     /**
-     * Get CloudGuard WAF API endpoint
+     * Get Check Point WAF API endpoint
      */
     getWafEndpoint(): string {
         return '/app/waf/graphql/V1';
