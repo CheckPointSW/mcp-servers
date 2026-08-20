@@ -8,6 +8,7 @@ import {
 } from "./cpinfo-exceptions.js";
 import { SectionType, SectionInfo } from "./types.js";
 import { createLogger } from "./logger.js";
+import { withUserPath } from "./paths.js";
 
 const logger = createLogger("cpinfo-reader");
 
@@ -20,6 +21,7 @@ export class CpInfoReader {
   public filePath?: string;
   public encoding: BufferEncoding;
   public buildIndexOnLoad: boolean;
+  private callerPath?: string;
   private fileHandle?: fs.FileHandle;
   private fileSize = 0;
   private index?: CpInfoAdvancedIndex;
@@ -31,9 +33,9 @@ export class CpInfoReader {
   }
 
   async loadFile(filePath: string, options: BuildIndexOptions = {}): Promise<void> {
-    logger.info(`Loading cpinfo file: ${filePath}`);
-    this.filePath = filePath;
+    this.callerPath = filePath;
     await this.openFile();
+    logger.info(`Loading cpinfo file: ${this.filePath}`);
 
     if (this.buildIndexOnLoad) {
       logger.info("Building index automatically");
@@ -120,18 +122,21 @@ export class CpInfoReader {
   }
 
   private async openFile(): Promise<void> {
-    if (!this.filePath) {
+    if (!this.callerPath) {
       throw new CpInfoIOError("File path not provided");
     }
 
     try {
-      this.fileHandle = await fs.open(this.filePath, "r");
-      const stats = await this.fileHandle.stat();
-      this.fileSize = stats.size;
-      logger.info(`Opened cpinfo file: ${this.fileSize.toLocaleString()} bytes`);
+      await withUserPath(this.callerPath, async (resolved) => {
+        this.filePath = resolved;
+        this.fileHandle = await fs.open(resolved, "r");
+        const stats = await this.fileHandle.stat();
+        this.fileSize = stats.size;
+        logger.info(`Opened cpinfo file: ${this.fileSize.toLocaleString()} bytes`);
+      });
     } catch (error) {
-      logger.error(`Failed to open file: ${this.filePath}`, error as Error);
-      throw new CpInfoIOError(`Failed to open file: ${(error as Error).message}`);
+      logger.error(`Failed to open file: ${this.filePath ?? this.callerPath}`, error as Error);
+      throw new CpInfoIOError((error as Error).message);
     }
   }
 }

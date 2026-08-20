@@ -76,6 +76,18 @@ All tools accept a `path` argument pointing to a `CPViewDB.dat` SQLite file (typ
 
 Use the `list_cpview_files` tool to discover `*CPViewDB.dat` files under a folder.
 
+### Restricting File Access (`CPVIEW_ALLOWED_ROOTS`)
+
+By default, tool `path`/`folder`/`output_path` arguments may point anywhere on the filesystem the server process can access — appropriate for the default single-user stdio setup, where you're pointing the server at files you already control.
+
+For shared deployments (see [HTTP Transport](#http-transport) below), you can confine every tool's file access to a set of approved directories by setting `CPVIEW_ALLOWED_ROOTS` to a comma-separated list of absolute directories:
+
+```bash
+CPVIEW_ALLOWED_ROOTS=/data/cpview-archives,/mnt/team-share npx @chkp/cpview-history-mcp --transport http
+```
+
+When set, any resolved path (including through symlinks) that falls outside the configured roots is rejected. When unset (the default), this has no effect — behavior is unchanged.
+
 ---
 
 ## Client Configuration
@@ -265,6 +277,13 @@ to upload a file over the MCP connection.
 > behind an authenticated reverse proxy that terminates TLS and enforces
 > authentication.
 
+> **File access in shared deployments:** all connected callers share this one server
+> process and its filesystem access — there is no per-caller isolation. Set
+> [`CPVIEW_ALLOWED_ROOTS`](#restricting-file-access-cpview_allowed_roots) to confine
+> every tool to the intended data directory before exposing HTTP transport to more
+> than one caller. If you start in HTTP mode without it set, the server logs a
+> startup warning to stderr.
+
 ### Starting in HTTP mode
 
 ```bash
@@ -364,6 +383,7 @@ MIT License - see [LICENSE](../../LICENSE) file for details.
 
 1. **Only use client implementations you trust.** Malicious or untrusted clients could misuse access to your files or data improperly.
 2. **Database content is exposed to the model.** CPView history data (process names, interface names, performance metrics) is sent to the AI model during analysis. Ensure that you only use models and providers that comply with your organization's policies for handling sensitive data.
+3. **Confine file access in shared deployments.** When running with HTTP transport for more than one caller, set [`CPVIEW_ALLOWED_ROOTS`](#restricting-file-access-cpview_allowed_roots) so tools can't read or write files outside the intended data directory.
 
 ## 📊 Telemetry and Privacy
 

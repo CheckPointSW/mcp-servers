@@ -1,22 +1,14 @@
 /**
- * Cross-platform path normalization for Windows UNC, local, Linux.
+ * Path resolution and optional directory confinement for caller-supplied file paths.
  */
 
 import path from 'node:path';
-import os from 'node:os';
 import { realpathSync } from 'node:fs';
-
-function expandUser(p: string): string {
-  if (p.startsWith('~/') || p === '~') {
-    return path.join(os.homedir(), p.slice(1));
-  }
-  return p;
-}
 
 /**
  * An error whose message was authored by this module (never derived from a
- * caught fs/driver error), and is therefore always safe to surface to an
- * MCP caller verbatim — it never contains a filesystem path.
+ * caught fs error), and is therefore always safe to surface to an MCP
+ * caller verbatim — it never contains a filesystem path.
  */
 export class SafePathError extends Error {}
 
@@ -29,7 +21,7 @@ let rootsCacheRaw: string | undefined;
 let rootsCache: RootsConfig = { restricted: false, roots: [] };
 
 function loadRootsConfig(): RootsConfig {
-  const raw = process.env.CPVIEW_ALLOWED_ROOTS;
+  const raw = process.env.CPINFO_ALLOWED_ROOTS;
   if (raw === rootsCacheRaw) return rootsCache;
   rootsCacheRaw = raw;
 
@@ -42,10 +34,10 @@ function loadRootsConfig(): RootsConfig {
   const roots: string[] = [];
   for (const candidate of candidates) {
     try {
-      roots.push(realpathSync(path.resolve(expandUser(candidate))));
+      roots.push(realpathSync(path.resolve(candidate)));
     } catch {
       console.error(
-        `[cpview-history-mcp] CPVIEW_ALLOWED_ROOTS: root '${candidate}' is not accessible and will be ignored`
+        `[cpinfo-analysis-mcp] CPINFO_ALLOWED_ROOTS: root '${candidate}' is not accessible and will be ignored`
       );
     }
   }
@@ -53,15 +45,13 @@ function loadRootsConfig(): RootsConfig {
   return rootsCache;
 }
 
-/** True if CPVIEW_ALLOWED_ROOTS is configured (used by index.ts to warn when running unrestricted over HTTP). */
+/** True if CPINFO_ALLOWED_ROOTS is configured (used by index.ts to warn when running unrestricted over HTTP). */
 export function allowedRootsConfigured(): boolean {
   return loadRootsConfig().restricted;
 }
 
 // Walk up from `p` to the deepest existing ancestor, realpath *that* (resolving any
 // symlinks in the existing part of the tree), then rejoin the non-existent tail.
-// This lets confinement work for write targets (e.g. export_csv output) that don't
-// exist yet, without ever falling back to trusting an un-canonicalized path.
 function realpathDeepestExisting(p: string): string {
   let dir = p;
   const tail: string[] = [];
@@ -98,37 +88,24 @@ function assertWithinAllowedRoots(resolved: string): void {
   if (!ok) throw new SafePathError('path is outside the allowed root directory');
 }
 
+/**
+ * Resolve a caller-supplied file path to an absolute path, and — if
+ * CPINFO_ALLOWED_ROOTS is configured — reject it if it (or any symlink it
+ * passes through) resolves outside the configured roots.
+ */
 export function normalizePath(p: string): string {
   if (!p) throw new SafePathError('empty path');
-  let raw = p.trim().replace(/^["']|["']$/g, '');
-  raw = expandUser(raw);
-
-  let resolved: string;
-  // Windows UNC normalization — preserve leading double-slash
-  if (raw.startsWith('\\\\') || raw.startsWith('//')) {
-    if (process.platform === 'win32') {
-      raw = raw.replace(/\//g, '\\');
-      raw = raw.replace(/^\\{2,}/, '\\\\');
-    }
-    resolved = raw;
-  } else {
-    // Otherwise resolve to absolute path
-    resolved = path.resolve(raw);
-  }
-
+  const raw = p.trim().replace(/^["']|["']$/g, '');
+  const resolved = path.resolve(raw);
   assertWithinAllowedRoots(resolved);
   return resolved;
 }
 
-export function isUnc(p: string): boolean {
-  return p.startsWith('\\\\') || p.startsWith('//');
-}
-
 // Map a caught error to a short, generic reason. Never surface e.message
-// directly here — fs and driver errors routinely embed the absolute
-// filesystem path they operated on (the internally-resolved path), and that
-// must never reach an MCP caller. Only a fixed set of known-safe reasons,
-// or a SafePathError message we authored ourselves, are allowed through.
+// directly here — fs errors routinely embed the absolute filesystem path
+// they operated on (the internally-resolved path), and that must never
+// reach an MCP caller. Only a fixed set of known-safe reasons, or a
+// SafePathError message we authored ourselves, are allowed through.
 function safeReason(e: any): string {
   if (e instanceof SafePathError) return e.message;
   switch (e?.code) {
@@ -145,17 +122,23 @@ function safeReason(e: any): string {
 
 /**
  * Resolve a caller-supplied path and run `fn` against the resolved value.
- * Any failure — whether from resolution (including CPVIEW_ALLOWED_ROOTS
+ * Any failure — whether from resolution (including CPINFO_ALLOWED_ROOTS
  * confinement) or from `fn` itself — is reported using the caller's
  * original input, never the internally-resolved path. This is the
  * sanctioned way to touch a caller-supplied path; callers must not call
- * normalizePath() directly and then run filesystem/driver operations
- * outside this wrapper, since any such operation's own error message may
- * embed the resolved path. Throw a SafePathError from within `fn` for a
- * specific, caller-safe reason (e.g. "file not found") instead of a
- * generic Error.
+ * normalizePath() directly and then run filesystem operations outside this
+ * wrapper, since any such operation's own error message may embed the
+ * resolved path.
+ *
+ * Async by design (unlike cpview's synchronous equivalent): all of
+ * cpinfo-analysis's filesystem access (fs.promises.open, etc.) is async, so
+ * `fn`'s returned promise must itself be awaited inside the try/catch —
+ * otherwise a rejection would propagate past this wrapper unsanitized.
  */
-export function withUserPath<T>(callerInput: string, fn: (resolved: string) => T): T {
+export async function withUserPath<T>(
+  callerInput: string,
+  fn: (resolved: string) => Promise<T>
+): Promise<T> {
   let resolved: string;
   try {
     resolved = normalizePath(callerInput);
@@ -163,44 +146,8 @@ export function withUserPath<T>(callerInput: string, fn: (resolved: string) => T
     throw new Error(`could not resolve '${callerInput}': ${safeReason(e)}`);
   }
   try {
-    return fn(resolved);
+    return await fn(resolved);
   } catch (e: any) {
     throw new Error(`could not access '${callerInput}': ${safeReason(e)}`);
   }
-}
-
-export interface ToSqliteUriOptions {
-  immutable?: boolean;
-}
-
-export function toSqliteUri(p: string, opts: ToSqliteUriOptions = {}): string {
-  const immutable = opts.immutable !== false;
-  const norm = normalizePath(p);
-  let uriPath = norm.replace(/\\/g, '/');
-  // Windows drive letters become /C:/...
-  if (/^[A-Za-z]:\//.test(uriPath)) {
-    uriPath = '/' + uriPath;
-  }
-  uriPath = uriPath.replace(/\?/g, '%3F').replace(/#/g, '%23');
-  let params = 'mode=ro';
-  if (immutable) params += '&immutable=1';
-  return `file:${uriPath}?${params}`;
-}
-
-export function looksLikeCpviewDb(p: string): boolean {
-  const name = path.basename(p).toLowerCase();
-  return name.endsWith('.dat') && (name.includes('cpview') || name.endsWith('cpviewdb.dat'));
-}
-
-/**
- * Heuristic: extract gateway hostname from a CPViewDB filename like
- * '<hostname>_<d>_<m>_<yyyy>_<hh>_<mm>.CPViewDB.dat'.
- */
-export function gatewayNameFromFilename(p: string): string | null {
-  const name = path.basename(p);
-  let base = name.replace(/\.CPViewDB\.dat$/i, '');
-  base = base.replace(/\.dat$/i, '');
-  const m = base.match(/^(.+?)_\d+_\d+_\d{4}_\d+_\d+$/);
-  if (m) return m[1];
-  return base || null;
 }

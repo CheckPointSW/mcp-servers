@@ -7,6 +7,7 @@ import http from 'http';
 import { randomUUID } from 'crypto';
 import { ToolPolicyCallback } from './tool-policy.js';
 import { SettingsManager } from './settings-manager.js';
+import { setTransportType } from './telemetry.js';
 
 export interface CliOption {
   flag: string;
@@ -126,9 +127,11 @@ export async function launchMCPServer(
   
   if (transportType === 'http') {
     // Launch Streamable server
+    setTransportType('http');
     await launchHTTPServer(config, serverModule, transportPort);
   } else {
     // Start stdio server
+    setTransportType('stdio');
     const transport = new StdioServerTransport();
     const defaultSessionId = 'default';
     

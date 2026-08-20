@@ -1,6 +1,6 @@
 {
   "name": "@chkp/quantum-gw-cli-mcp",
-  "version": "1.4.8",
+  "version": "1.4.9",
   "description": "Model Context Protocol (MCP) server for Check Point gateway CLI commands and diagnostic tools.",
   "type": "module",
   "main": "dist/index.js",
