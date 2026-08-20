@@ -1,6 +1,6 @@
 {
   "name": "@chkp/workforce-ai-mcp",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Official MCP server for Check Point Workforce AI — AI & Browse security policy management, asset visibility, and app catalog",
   "repository": {
     "type": "git",

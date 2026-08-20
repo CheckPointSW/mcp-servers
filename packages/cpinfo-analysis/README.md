@@ -110,7 +110,19 @@ Each request operates on a single file; submit additional file paths in separate
 - `CPINFO_CACHE_TTL_MS`: Override the idle eviction window (default: 10,800,000 ms ≈ 3 hours).
 
 Cached readers are automatically evicted after the TTL elapses with no tool activity. A background timer enforces this even when clients are idle; evictions are logged at INFO level.
-  
+
+### Restricting File Access (`CPINFO_ALLOWED_ROOTS`)
+
+By default, the `file_path` argument may point anywhere on the filesystem the server process can access — appropriate for the default single-user stdio setup, where you're pointing the server at files you already control.
+
+For shared deployments (see [HTTP Transport](#http-transport) below), you can confine `file_path` to a set of approved directories by setting `CPINFO_ALLOWED_ROOTS` to a comma-separated list of absolute directories:
+
+```bash
+CPINFO_ALLOWED_ROOTS=/data/cpinfo-archives,/mnt/team-share npx @chkp/cpinfo-analysis-mcp --transport http
+```
+
+When set, any resolved path (including through symlinks) that falls outside the configured roots is rejected. When unset (the default), this has no effect — behavior is unchanged.
+
 ---
 
 ## Client Configuration
@@ -295,6 +307,13 @@ to upload a file over the MCP connection.
 > behind an authenticated reverse proxy that terminates TLS and enforces
 > authentication.
 
+> **File access in shared deployments:** all connected callers share this one server
+> process and its filesystem access — there is no per-caller isolation. Set
+> [`CPINFO_ALLOWED_ROOTS`](#restricting-file-access-cpinfo_allowed_roots) to confine
+> `file_path` to the intended data directory before exposing HTTP transport to more
+> than one caller. If you start in HTTP mode without it set, the server logs a
+> startup warning.
+
 ### Starting the server in HTTP mode
 
 ```bash
@@ -436,6 +455,7 @@ MIT License - see [LICENSE](../../LICENSE) file for details.
 
 1. **Only use client implementations you trust.** Malicious or untrusted clients could misuse your credentials or access data improperly.  
 2. **Management data is exposed to the model.** Ensure that you only use models and providers that comply with your organization's policies for handling sensitive data and PII.
+3. **Confine file access in shared deployments.** When running with HTTP transport for more than one caller, set [`CPINFO_ALLOWED_ROOTS`](#restricting-file-access-cpinfo_allowed_roots) so tools can't read files outside the intended data directory.
 
 
 ## 📊 Telemetry and Privacy

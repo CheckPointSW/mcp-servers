@@ -1,6 +1,6 @@
 {
   "name": "@chkp/argos-erm-mcp",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "description": "Argos ERM MCP Server - Check Point Argos External Risk Management",
   "type": "module",
   "main": "dist/index.js",

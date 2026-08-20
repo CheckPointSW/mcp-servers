@@ -5,7 +5,7 @@
 
 import { DatabaseSync } from 'node:sqlite';
 import { existsSync } from 'node:fs';
-import { normalizePath, toSqliteUri } from './paths.js';
+import { SafePathError, toSqliteUri, withUserPath } from './paths.js';
 
 export const TIME_COL = 'Timestamp';
 
@@ -17,37 +17,33 @@ const cache = new Map<string, CacheEntry>();
 const MAX_CACHE = 8;
 
 export function getConn(p: string): DatabaseSync {
-  const norm = normalizePath(p);
-  const existing = cache.get(norm);
-  if (existing) {
-    cache.delete(norm);
-    cache.set(norm, existing);
-    return existing.con;
-  }
-  if (!existsSync(norm)) {
-    throw new Error(`could not open '${norm}': file not found`);
-  }
-  let con: DatabaseSync;
-  try {
-    con = new DatabaseSync(toSqliteUri(norm));
-  } catch (e: any) {
-    throw new Error(`could not open '${norm}': ${e?.message ?? e}`);
-  }
-  try {
-    con.exec('PRAGMA temp_store = MEMORY');
-    con.exec('PRAGMA mmap_size = 268435456');
-  } catch {
-    // tolerate pragma failures
-  }
-  cache.set(norm, { con });
-  while (cache.size > MAX_CACHE) {
-    const firstKey = cache.keys().next().value as string | undefined;
-    if (!firstKey) break;
-    const entry = cache.get(firstKey);
-    cache.delete(firstKey);
-    try { entry?.con.close(); } catch { /* ignore */ }
-  }
-  return con;
+  return withUserPath(p, (norm) => {
+    const existing = cache.get(norm);
+    if (existing) {
+      cache.delete(norm);
+      cache.set(norm, existing);
+      return existing.con;
+    }
+    if (!existsSync(norm)) {
+      throw new SafePathError('file not found');
+    }
+    const con = new DatabaseSync(toSqliteUri(norm));
+    try {
+      con.exec('PRAGMA temp_store = MEMORY');
+      con.exec('PRAGMA mmap_size = 268435456');
+    } catch {
+      // tolerate pragma failures
+    }
+    cache.set(norm, { con });
+    while (cache.size > MAX_CACHE) {
+      const firstKey = cache.keys().next().value as string | undefined;
+      if (!firstKey) break;
+      const entry = cache.get(firstKey);
+      cache.delete(firstKey);
+      try { entry?.con.close(); } catch { /* ignore */ }
+    }
+    return con;
+  });
 }
 
 export function listTables(con: DatabaseSync): string[] {

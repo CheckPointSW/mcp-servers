@@ -1,6 +1,6 @@
 {
   "name": "@chkp/checkpoint-waf-mcp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Check Point WAF MCP server for Check Point WAF management",
   "type": "module",
   "main": "dist/index.js",

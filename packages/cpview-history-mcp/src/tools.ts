@@ -299,15 +299,17 @@ function rgScan(root: string, maxDepth: number, depth = 0): string[] {
 // from each other for composition, e.g. investigate_window).
 // ===================================================================
 
-function toolListCpviewFiles(folder: string, maxDepth = 6): Record<string, any> {
-  let root: string;
+export function toolListCpviewFiles(folder: string, maxDepth = 6): Record<string, any> {
+  let files: string[];
   try {
-    root = P.normalizePath(folder);
+    files = P.withUserPath(folder, (root) => {
+      if (!fs.existsSync(root)) throw new P.SafePathError('folder not found');
+      return rgScan(root, maxDepth);
+    });
   } catch (e: any) {
-    return errPayload(`bad folder: ${e?.message ?? e}`);
+    return errPayload(String(e?.message ?? e));
   }
-  if (!fs.existsSync(root)) return errPayload(`folder not found: ${root}`);
-  const files = rgScan(root, maxDepth);
+  const root = P.normalizePath(folder);
   const results: Array<Record<string, any>> = [];
   for (const p of files) {
     const info: Record<string, any> = {
@@ -350,14 +352,13 @@ function toolListCpviewFiles(folder: string, maxDepth = 6): Record<string, any> 
 }
 
 export function toolInspectDatabase(p: string): Record<string, any> {
-  let norm: string;
   let con: Database;
   try {
-    norm = P.normalizePath(p);
-    con = open(norm);
+    con = open(p);
   } catch (e: any) {
     return errPayload(String(e?.message ?? e), { path: p });
   }
+  const norm = P.normalizePath(p);
   const out: Record<string, any> = { path: norm, gateway: P.gatewayNameFromFilename(norm) };
   try {
     out.size_bytes = fs.statSync(norm).size;
@@ -1389,7 +1390,7 @@ export function toolHealthSummary(p: string, start: T.TimeLike, end: T.TimeLike)
   }
 }
 
-function toolExportCsv(
+export function toolExportCsv(
   p: string,
   outputPath: string,
   table: string | null,
@@ -1431,8 +1432,10 @@ function toolExportCsv(
       if (typeof valid !== 'string') return valid;
       sqlStmt = `SELECT * FROM (${valid}) LIMIT ${limit}`;
     }
-    const outNorm = P.normalizePath(outputPath);
-    fs.mkdirSync(path.dirname(outNorm), { recursive: true });
+    const outNorm = P.withUserPath(outputPath, (norm) => {
+      fs.mkdirSync(path.dirname(norm), { recursive: true });
+      return norm;
+    });
     const stmt = con.prepare(sqlStmt);
     const allRows = stmt.all(...params);
     const ws = fs.createWriteStream(outNorm, { encoding: 'utf-8' });
@@ -1577,15 +1580,14 @@ function toolSqlRead(
 
 // ---- Investigation tools (envelope responses) ----
 
-function toolValidateCpviewDb(p: string): E.EnvelopeOut {
-  let norm: string;
+export function toolValidateCpviewDb(p: string): E.EnvelopeOut {
   let con: Database;
   try {
-    norm = P.normalizePath(p);
-    con = open(norm);
+    con = open(p);
   } catch (e: any) {
     return E.errEnvelope(String(e?.message ?? e), { extra: { path: p } });
   }
+  const norm = P.normalizePath(p);
   const verdict = ANL.validateDb(con);
   const gateway = P.gatewayNameFromFilename(norm);
   const summary = `${verdict.valid ? 'OK' : 'INVALID'} — ${verdict.table_count} tables, schema ${verdict.schema_signature}, gateway '${gateway}'`;

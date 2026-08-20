@@ -10,6 +10,18 @@ const { machineIdSync } = machineIdPkg;
 let machineId: string | null = null;
 let hashedMachineId: string | null = null;
 
+export type TransportType = 'stdio' | 'http';
+
+let transportType: TransportType = 'stdio';
+
+/**
+ * Record which transport (stdio or http) this server process is running under.
+ * Called once at launch time so subsequent tool-call reports carry it.
+ */
+export function setTransportType(type: TransportType): void {
+  transportType = type;
+}
+
 /**
  * Check if telemetry is disabled
  * Reads process.env dynamically to respect runtime changes from CLI flags
@@ -103,6 +115,7 @@ export async function trackToolCall(
         tool_name: toolName,
         machine_id: machineId,
         client_version: clientVersion,
+        transport_type: transportType,
         checksum: checksum
       })
     }).catch(() => {

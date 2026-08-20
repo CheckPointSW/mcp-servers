@@ -204,7 +204,14 @@ export class CpInfoAdvancedIndex {
       this.built = true;
       
       logger.info(`Clean index built: ${this.allSections.length} sections in ${this.stats.processingTime.toFixed(2)}s`);
-    } catch (error) {
+    } catch (error: any) {
+      // fs.open/stat failures embed the (already-resolved) filePath in their
+      // own message — never surface that verbatim to an MCP caller. Other
+      // errors here are internal parsing/logic errors and are safe to pass
+      // through as-is (no path involved).
+      if (error?.syscall === 'open' || error?.syscall === 'stat') {
+        throw new CpInfoIndexError(`Failed to build index: could not open file (${error?.code ?? 'error'})`);
+      }
       throw new CpInfoIndexError(`Failed to build index: ${(error as Error).message}`);
     } finally {
       if (handle) {
