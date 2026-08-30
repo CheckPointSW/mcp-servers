@@ -38,7 +38,8 @@
     { "path": "./packages/policy-insights" },
     { "path": "./packages/checkpoint-waf" },
     { "path": "./packages/cloudguard-waf" },
-    { "path": "./packages/workforce-ai" }
+    { "path": "./packages/workforce-ai" },
+    { "path": "./packages/harmony-email" }
   ],
   "files": []
 }

@@ -1,0 +1,3 @@
+# MIME messages are CRLF by definition; normalising line endings would change
+# what the parser sees and make the structure tests depend on checkout settings.
+*.eml -text

@@ -1,0 +1,95 @@
+{
+    "name": "harmony-email",
+    "description": "Harmony Email & Collaboration MCP Server - investigate email security events, entities and restore requests via the HEC SmartAPI",
+    "options": [
+        {
+            "flag": "--hec-domain <domain>",
+            "description": "Your HEC tenant entry-point hostname or portal URL",
+            "env": "HEC_DOMAIN",
+            "required": true,
+            "type": "string",
+            "help": "The hostname you use to reach the HEC portal, e.g. acme.avanan.net or https://acme.checkpointcloudsec.com/portal. The region, scope and API gateway are derived from it automatically."
+        },
+        {
+            "flag": "--hec-client-id <id>",
+            "description": "API client id (Infinity Portal clientId, or the Avanan appId)",
+            "env": "HEC_CLIENT_ID",
+            "required": true,
+            "type": "string",
+            "help": "For Check Point tenants this is the Infinity Portal API key clientId (Global Settings > API Keys). For Avanan tenants it is the SmartAPI appId."
+        },
+        {
+            "flag": "--hec-secret <secret>",
+            "description": "API secret (Infinity Portal accessKey, or the Avanan secretKey)",
+            "env": "HEC_SECRET",
+            "required": true,
+            "type": "string",
+            "sensitive": true,
+            "help": "The secret half of the API key pair. Shown only once when the key is created. Treat it as a credential: never commit it, never paste it into a chat."
+        },
+        {
+            "flag": "--hec-auth-method <method>",
+            "description": "Force the auth flow: cloudinfra or avanan (default: derived from the domain)",
+            "env": "HEC_AUTH_METHOD",
+            "required": false,
+            "type": "string",
+            "help": "Normally derived from your domain: *.checkpointcloudsec.com uses cloudinfra, *.avanan.net uses avanan. Override only when your credentials do not match the domain type."
+        },
+        {
+            "flag": "--hec-region <region>",
+            "description": "API region override (default: derived from the domain)",
+            "env": "HEC_REGION",
+            "required": false,
+            "type": "string",
+            "help": "For example us-east-1, eu-west-1 or ca-central-1. Set this together with scope and auth method to skip domain resolution entirely."
+        },
+        {
+            "flag": "--hec-scope <scope>",
+            "description": "Tenant scope override, in the form farm:customer (default: derived from the domain)",
+            "env": "HEC_SCOPE",
+            "required": false,
+            "type": "string",
+            "help": "For example mt-prod-cp-us-2:acme. Set this together with region and auth method to skip domain resolution entirely."
+        },
+        {
+            "flag": "--hec-request-timeout <seconds>",
+            "description": "Per-request timeout in seconds (default: 30)",
+            "env": "HEC_REQUEST_TIMEOUT",
+            "required": false,
+            "type": "string",
+            "help": "Raise this only if you routinely query very wide time windows."
+        },
+        {
+            "flag": "--hec-max-retries <count>",
+            "description": "Retries for rate limits and transient upstream errors (default: 3)",
+            "env": "HEC_MAX_RETRIES",
+            "required": false,
+            "type": "string",
+            "help": "Applies to 408, 429 and 5xx responses and to connection failures. Read timeouts are never retried."
+        },
+        {
+            "flag": "--hec-retry-base-seconds <seconds>",
+            "description": "Base delay for exponential backoff (default: 1)",
+            "env": "HEC_RETRY_BASE_SECONDS",
+            "required": false,
+            "type": "string",
+            "help": "Backoff uses full jitter over this base, unless the server sends a Retry-After header."
+        },
+        {
+            "flag": "--hec-max-concurrency <count>",
+            "description": "Maximum concurrent upstream requests (default: 10)",
+            "env": "HEC_MAX_CONCURRENCY",
+            "required": false,
+            "type": "string",
+            "help": "Acts as a client-side rate limit while paginating large queries."
+        },
+        {
+            "flag": "--hec-action-batch-limit <count>",
+            "description": "Maximum entities a single batch action may target (default: 50)",
+            "env": "HEC_ACTION_BATCH_LIMIT",
+            "required": false,
+            "type": "string",
+            "help": "Safety cap on quarantine/restore/deny-restore batches. An oversized batch is rejected outright, never silently truncated."
+        }
+    ]
+}
