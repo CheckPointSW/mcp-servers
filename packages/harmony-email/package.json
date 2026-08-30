@@ -1,0 +1,55 @@
+{
+    "name": "@chkp/harmony-email-mcp",
+    "version": "0.1.0",
+    "description": "Harmony Email & Collaboration MCP Server - investigate email security events, entities and restore requests via the HEC SmartAPI",
+    "type": "module",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "bin": {
+        "harmony-email-mcp": "./dist/index.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/CheckPointSW/mcp-servers.git",
+        "directory": "packages/harmony-email"
+    },
+    "license": "MIT",
+    "engines": {
+        "node": ">=20.0.0"
+    },
+    "scripts": {
+        "build": "npm run build:bundle && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
+        "build:bundle": "node ../../bundle-mcp.js",
+        "build:tsc": "npx tsc && npx shx chmod +x ./dist/index.js && npx shx cp src/server-config.json dist/",
+        "dev": "tsc --watch",
+        "start": "node ./dist/index.js",
+        "clean": "rimraf dist",
+        "test": "jest",
+        "test:watch": "jest --watch",
+        "test:coverage": "jest --coverage",
+        "prepack": "node ../../scripts/strip-bundled-deps.js",
+        "postpack": "node ../../scripts/strip-bundled-deps.js restore"
+    },
+    "dependencies": {
+        "@chkp/mcp-utils": "*",
+        "@modelcontextprotocol/sdk": "^1.29.0",
+        "commander": "^14.0.3",
+        "node-machine-id": "^1.1.12",
+        "postal-mime": "^2.7.5",
+        "zod": "^3.24.4"
+    },
+    "devDependencies": {
+        "@types/jest": "^30.0.0",
+        "@types/node": "^26.0.0",
+        "jest": "^30.2.0",
+        "ts-jest": "^29.4.0",
+        "typescript": "^5.0.4"
+    },
+    "keywords": [
+        "mcp",
+        "model-context-protocol",
+        "checkpoint",
+        "harmony-email",
+        "email-security"
+    ]
+}
