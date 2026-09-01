@@ -1,7 +1,7 @@
 {
     "name": "@chkp/harmony-email-mcp",
-    "version": "0.1.0",
-    "description": "Harmony Email & Collaboration MCP Server - investigate email security events, entities and restore requests via the HEC SmartAPI",
+    "version": "0.1.1",
+    "description": "Email Security MCP Server - investigate email security events, entities and restore requests via the HEC SmartAPI",
     "type": "module",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",

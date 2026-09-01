@@ -1,6 +1,6 @@
 {
     "name": "harmony-email",
-    "description": "Harmony Email & Collaboration MCP Server - investigate email security events, entities and restore requests via the HEC SmartAPI",
+    "description": "Email Security MCP Server - investigate email security events, entities and restore requests via the HEC SmartAPI",
     "options": [
         {
             "flag": "--hec-domain <domain>",

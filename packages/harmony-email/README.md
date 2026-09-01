@@ -1,12 +1,12 @@
-# Check Point Harmony Email & Collaboration MCP
+# Check Point Email Security MCP
 
 ## What is MCP?
 
 Model Context Protocol (MCP) servers expose a structured, machine-readable API for your enterprise data, designed for AI-powered automation, copilots and decision engines. By delivering a clear, contextual slice of your security environment, MCP lets you query, analyze and act on complex systems without building custom SDKs or parsing raw exports.
 
-## Why MCP for Harmony Email & Collaboration?
+## Why MCP for Email Security?
 
-Harmony Email & Collaboration (HEC) protects email and the SaaS apps around it. Answering an everyday question - "did phishing go up this week?", "why was this message quarantined?", "who is waiting on a restore?" - usually means several console screens and a working knowledge of which engine produced which verdict.
+Email Security protects email and the SaaS apps around it. Answering an everyday question - "did phishing go up this week?", "why was this message quarantined?", "who is waiting on a restore?" - usually means several console screens and a working knowledge of which engine produced which verdict.
 
 This server puts that behind an MCP interface, with a SOC-analyst persona and a glossary so the assistant speaks HEC's own vocabulary. Broad questions are answered by server-side aggregators that return counts rather than message bodies, so a month-wide question stays cheap and keeps personal data out of the transcript. Remediation is available, and every remediation tool previews before it acts.
 
