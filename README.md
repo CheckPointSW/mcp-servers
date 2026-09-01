@@ -39,7 +39,7 @@ This monorepo is organized with each Check Point security domain as a separate M
   - **`/checkpoint-waf`** - Check Point WAF MCP server for managing web application and APIs firewall assets, policies and configuration
   - **`/cpview-history-mcp`** - CPView History MCP server for analyzing Check Point gateway performance databases
   - **`/workforce-ai`** - Workforce AI MCP server for AI & Browse policy security management for AI Access, Chats, Agents and Secure Browsing, plus deployment and user visibility
-  - **`/harmony-email`** - Harmony Email & Collaboration MCP server for investigating email security events, entities and restore requests
+  - **`/harmony-email`** - Email Security MCP server for investigating email security events, entities and restore requests
 
 ## Available MCP Servers
 
@@ -65,7 +65,7 @@ The following MCP servers are available in this repository:
 | [Check Point WAF](./packages/checkpoint-waf/) | `@chkp/checkpoint-waf-mcp` | Query and manage Check Point WAF assets, practices, profiles, zones, and behaviors, and publish enforcement changes |
 | [CPView History](./packages/cpview-history-mcp/) | `@chkp/cpview-history-mcp` | Analyze CPView history databases (CPViewDB.dat) for gateway performance, resource utilization, hotspot detection, and incident investigation |
 | [Workforce AI](./packages/workforce-ai/) | `@chkp/workforce-ai-mcp` | Query and manage AI & Browse security policy - AI Access, Chats, Agents, and Secure Browsing - plus deployment and user visibility |
-| [Harmony Email & Collaboration](./packages/harmony-email/) | `@chkp/harmony-email-mcp` | Investigate email security activity - query and summarize events and entities, inspect a single message end to end, manage restore requests, and quarantine or restore email |
+| [Email Security](./packages/harmony-email/) | `@chkp/harmony-email-mcp` | Investigate email security activity - query and summarize events and entities, inspect a single message end to end, manage restore requests, and quarantine or restore email |
 
 
 ## Example: Setting Up an MCP Server
