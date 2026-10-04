@@ -115,9 +115,10 @@ async function requestAlerts(
 
 async function fanoutAlerts(
     apiManager: ArgosERMAPIManager,
-    opts: AlertQueryOptions
+    opts: AlertQueryOptions,
+    extra?: unknown
 ): Promise<AlertResult> {
-    const regions = allRegions();
+    const regions = allRegions(extra);
     const regionCount = Math.max(regions.length, 1);
     const perRegionLimit = Math.max(
         10,
@@ -176,26 +177,28 @@ async function routeAlertQuery(
     apiManager: ArgosERMAPIManager,
     mcpServer: McpServer,
     customerId: string | undefined,
-    opts: AlertQueryOptions
+    opts: AlertQueryOptions,
+    extra?: unknown
 ): Promise<AlertResult> {
     const resolved = await ensureSessionCustomer(
         apiManager,
         mcpServer,
-        customerId
+        customerId,
+        extra
     );
 
     if (resolved !== ALL_SENTINEL && resolved !== UNSET_SENTINEL) {
-        const region = customerRegion(resolved);
+        const region = customerRegion(resolved, extra);
         const basePath = region === 'EU' ? EU_ALERT_API_BASE : ALERT_API_BASE;
-        const envName = findCustomerDisplayName(resolved);
+        const envName = findCustomerDisplayName(resolved, extra);
         return requestAlerts(apiManager, basePath, [envName], opts);
     }
 
-    if (hasMixedRegions()) {
-        return fanoutAlerts(apiManager, opts);
+    if (hasMixedRegions(extra)) {
+        return fanoutAlerts(apiManager, opts, extra);
     }
 
-    const regions = allRegions();
+    const regions = allRegions(extra);
     const basePath = regions[0] === 'EU' ? EU_ALERT_API_BASE : ALERT_API_BASE;
     return requestAlerts(apiManager, basePath, null, opts);
 }
@@ -387,7 +390,8 @@ MULTI-TENANT:
                         toCreatedDate: to_created_date,
                         limit,
                         page,
-                    }
+                    },
+                    extra
                 );
 
                 if (

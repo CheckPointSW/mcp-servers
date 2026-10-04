@@ -425,6 +425,7 @@ export interface ByEmailBulkData {
 
 export interface ByDomainRequest {
     domain: string;
+    mask_password: boolean;
 }
 
 export interface ByEmailBulkRequest {

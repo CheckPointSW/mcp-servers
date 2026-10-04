@@ -91,11 +91,24 @@ function wrapServerWithTracking(server: any, createServerFn: () => any): {
             }
         }
 
-        // Apply tool policy if it was set on the original server
-        if (typeof server.setToolPolicy === 'function' && typeof newServer.setToolPolicy === 'function') {
-            const toolPolicy = (server as any)._toolPolicyCallback;
-            if (toolPolicy) {
-                newServer.setToolPolicy(toolPolicy);
+        // Carry the tool policy onto the new instance and apply it. Each
+        // per-session server is a fresh instance whose replayed tools all start
+        // enabled, so a policy has to be both set and applied here for the
+        // session to honour it — `setToolPolicy` only stores the callback, while
+        // `applyToolPolicy` is what disables the tools the policy rejects.
+        //
+        // This is the right place for it: the registrations have just been
+        // replayed, so the tools exist to be disabled, and the instance is not
+        // yet connected. Disabling a tool on a connected server emits a
+        // tools/list_changed notification and would leave the tool briefly
+        // visible to the client.
+        const toolPolicy = typeof server.getToolPolicy === 'function'
+            ? server.getToolPolicy()
+            : undefined;
+        if (toolPolicy && typeof newServer.setToolPolicy === 'function') {
+            newServer.setToolPolicy(toolPolicy);
+            if (typeof newServer.applyToolPolicy === 'function') {
+                newServer.applyToolPolicy();
             }
         }
 

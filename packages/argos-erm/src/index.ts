@@ -4,12 +4,13 @@ import {
     launchMCPServer,
     createServerModule,
     createMcpServer,
+    SessionContext,
 } from '@chkp/mcp-utils';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Settings } from './config.js';
 import { ArgosERMAPIManager } from './client.js';
-import { seedSessionFromEnv } from './session.js';
+import { configureInitialCustomerId } from './session.js';
 import { registerAlertTools } from './tools/alerts.js';
 import { registerAssetTools } from './tools/assets.js';
 import { registerAnalyticsTools } from './tools/analytics.js';
@@ -33,11 +34,15 @@ const serverModule = createServerModule(
     ArgosERMAPIManager
 );
 
-// Seed session from env var if present (backward compat)
-const envCustomerId = process.env.ARGOS_CUSTOMER_ID || '';
-if (envCustomerId) {
-    seedSessionFromEnv(envCustomerId);
-}
+// A new session starts on the customer configured for it: ARGOS_CUSTOMER_ID or
+// --argos-customer-id for the stdio session, the ARGOS-CUSTOMER-ID header for
+// an HTTP session. Absent that, the session starts unselected and prompts.
+configureInitialCustomerId((extra) => {
+    const settings = SessionContext.getSettings(serverModule, extra) as
+        | Settings
+        | undefined;
+    return settings?.argosCustomerId || undefined;
+});
 
 // Register all prompts
 registerPrompts(server);

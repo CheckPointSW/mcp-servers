@@ -8,14 +8,15 @@ import type { ServerModule } from './types.js';
 
 async function lookupDomains(
     apiManager: ArgosERMAPIManager,
-    domains: string[]
+    domains: string[],
+    maskPassword: boolean
 ): Promise<Record<string, unknown>[]> {
     const results: Record<string, unknown>[] = [];
     for (const domain of domains) {
         try {
             const response = await apiManager.post(
                 `${EXPOSED_CREDENTIALS_API_BASE}/by_domain/`,
-                { domain }
+                { domain, mask_password: maskPassword }
             );
             results.push(await response.json());
         } catch (e) {
@@ -71,7 +72,7 @@ INPUT TYPES:
                     .boolean()
                     .default(true)
                     .describe(
-                        'If True (default), passwords are masked in results.'
+                        'If True (default), passwords are masked in results for both domain and email lookups.'
                     ),
             },
         },
@@ -102,7 +103,11 @@ INPUT TYPES:
                 const results: Record<string, unknown> = {};
 
                 if (domains.length > 0) {
-                    results.domains = await lookupDomains(apiManager, domains);
+                    results.domains = await lookupDomains(
+                        apiManager,
+                        domains,
+                        mask_password
+                    );
                 }
                 if (emails.length > 0) {
                     results.emails = await lookupEmails(

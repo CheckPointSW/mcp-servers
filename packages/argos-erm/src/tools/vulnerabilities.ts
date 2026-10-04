@@ -107,14 +107,18 @@ WHEN TO USE:
 - User wants to assess risk for particular technology versions
 
 TECHNOLOGY MATCHING:
-- Product names should match common software names (case-insensitive)
+- technology_name is matched against the CPE product token, without the
+  vendor: use "http_server" (not "Apache HTTP Server"), "log4j" (not
+  "Apache Log4j"), "nginx", "openssh". Matching is case-insensitive.
+- A vendor-prefixed or spaced product name (e.g. "Apache HTTP Server")
+  may return zero results; retry with the CPE product token.
 - Version strings work best as they appear in CVE databases; vendor suffixes
   (e.g. OpenSSH "9.6p1") are also searched by their numeric core ("9.6")`,
             inputSchema: {
                 technology_name: z
                     .string()
                     .describe(
-                        'Software product name (e.g., "Apache HTTP Server", "MySQL").'
+                        'CPE product token without the vendor (e.g., "http_server", "log4j", "nginx", "openssh"). Case-insensitive.'
                     ),
                 technology_versions: z
                     .union([z.string(), z.array(z.string())])
