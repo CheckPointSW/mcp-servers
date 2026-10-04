@@ -30,6 +30,9 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
+      # npm trusted publishing (OIDC) requires npm >= 11.5.1; Node 22 bundles npm 10
+      - run: npm install -g npm@11.21.0
+
       - run: npm ci
 
       - name: Build all packages
@@ -38,7 +41,8 @@ jobs:
 
       - name: Create Release Pull Request or Publish
         id: changesets
-        continue-on-error: true  # git push tags will fail on GitHub-hosted runner due to IP allowlist; handled in tag-and-release job
+        # No continue-on-error: with createGithubReleases: false the action pushes no tags,
+        # so a failure here is a real publish failure. Tags are pushed in tag-and-release.
         uses: changesets/action@6a0a831ff30acef54f2c6aa1cbbc1096b066edaf # v1
         with:
           publish: npm run release
@@ -47,7 +51,7 @@ jobs:
           # This action only publishes packages whose version has no git tag yet.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # No NPM token: publishing authenticates via npm trusted publishing (OIDC, id-token: write)
           NPM_CONFIG_PROVENANCE: true
 
   tag-and-release:
