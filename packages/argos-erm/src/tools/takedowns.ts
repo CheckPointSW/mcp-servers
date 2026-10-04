@@ -3,11 +3,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { SessionContext } from '@chkp/mcp-utils';
 import { TAKEDOWN_API_BASE } from '../constants.js';
 import { parseListParam } from '../schemas.js';
-import {
-    resolveSpecificCustomerId,
-    populateCustomers,
-    getCustomers,
-} from '../session.js';
+import { resolveSpecificCustomerId } from '../session.js';
 import type { ServerModule } from './types.js';
 
 export function registerTakedownTools(
@@ -90,16 +86,12 @@ RETURNS:
                     serverModule,
                     extra
                 );
-
-                if (getCustomers().length === 0) {
-                    await populateCustomers(apiManager);
-                }
-
                 const resolved = await resolveSpecificCustomerId(
                     apiManager,
                     'Takedown requests',
                     customer_id,
-                    server
+                    server,
+                    extra
                 );
 
                 const filters: Record<string, unknown> = {};

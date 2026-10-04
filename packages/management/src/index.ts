@@ -11,6 +11,7 @@ import {
 } from '@chkp/mcp-utils';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { Address4, Address6 } from 'ip-address';
 import {
   parseRulebaseWithInlineLayers,
   formatAsTable,
@@ -1931,6 +1932,380 @@ server.tool(
     const apiManager = SessionContext.getAPIManager(serverModule, extra);
     const resp = await apiManager.callApi('POST', 'show-dynamic-objects', params, domain);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
+  }
+);
+
+// Tool: show_data_centers
+server.tool(
+  'show_data_centers',
+  'Retrieve the Data Center Server objects (CloudGuard Controller connections to AWS/Azure/GCP/VMware etc.), including their connectivity status.',
+  {
+    limit: z.number().optional().default(50),
+    offset: z.number().optional().default(0),
+    order: z.array(z.string()).optional(),
+    details_level: PARAM_DETAILS_LEVEL,
+    domain: PARAM_DOMAIN,
+  },
+  async (args: Record<string, unknown>, extra: any) => {
+    const limit = typeof args.limit === 'number' ? args.limit : 50;
+    const offset = typeof args.offset === 'number' ? args.offset : 0;
+    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
+    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
+
+    const params: Record<string, any> = { limit, offset };
+    if (order) params.order = order;
+    if (details_level) params['details-level'] = details_level;
+
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-data-centers', params, domain);
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
+  }
+);
+
+// Tool: show_data_center_object
+server.tool(
+  'show_data_center_object',
+  'Retrieve a single imported Data Center object by uid or name. Key field for CloudGuard Controller troubleshooting: "deleted" - when true, the object no longer exists (or is inaccessible) in the Data Center Server, yet may still be referenced by policy, which typically explains enforcement/controller sync issues.',
+  {
+    uid: z.string().optional(),
+    name: z.string().optional(),
+    details_level: PARAM_DETAILS_LEVEL,
+    domain: PARAM_DOMAIN,
+  },
+  async (args: Record<string, unknown>, extra: any) => {
+    const uid = typeof args.uid === 'string' && args.uid.trim() !== '' ? args.uid : undefined;
+    const name = typeof args.name === 'string' && args.name.trim() !== '' ? args.name : undefined;
+    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
+
+    const params: Record<string, any> = {};
+    if (uid) params.uid = uid;
+    if (name) params.name = name;
+    if (details_level) params['details-level'] = details_level;
+
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-data-center-object', params, domain);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+  }
+);
+
+// Tool: show_data_center_objects
+server.tool(
+  'show_data_center_objects',
+  'Retrieve the imported Data Center objects (optionally narrowed by free-text/IP filter). Each entry can carry the "deleted" flag - true means the object vanished from the Data Center but is still imported/referenced, the usual suspect in CloudGuard Controller issues. Note: this command has no per-data-center scoping; use show_data_center_content to browse one Data Center Server.',
+  {
+    filter: z.string().optional(),
+    limit: z.number().optional().default(50),
+    offset: z.number().optional().default(0),
+    order: z.array(z.string()).optional(),
+    details_level: PARAM_DETAILS_LEVEL,
+    domain: PARAM_DOMAIN,
+  },
+  async (args: Record<string, unknown>, extra: any) => {
+    const limit = typeof args.limit === 'number' ? args.limit : 50;
+    const offset = typeof args.offset === 'number' ? args.offset : 0;
+    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
+    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
+
+    const params: Record<string, any> = { limit, offset };
+    if (typeof args.filter === 'string' && args.filter.trim() !== '') params.filter = args.filter;
+    if (order) params.order = order;
+    if (details_level) params['details-level'] = details_level;
+
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-data-center-objects', params, domain);
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
+  }
+);
+
+// Tool: show_data_center_content
+server.tool(
+  'show_data_center_content',
+  'Browse the live content of a Data Center Server (what currently exists on the AWS/Azure/GCP/VMware side, importable or already imported). Useful to compare against imported objects when diagnosing CloudGuard Controller sync problems.',
+  {
+    data_center_name: z.string().optional(),
+    data_center_uid: z.string().optional(),
+    filter: z.string().optional(),
+    limit: z.number().optional().default(50),
+    offset: z.number().optional().default(0),
+    domain: PARAM_DOMAIN,
+  },
+  async (args: Record<string, unknown>, extra: any) => {
+    const limit = typeof args.limit === 'number' ? args.limit : 50;
+    const offset = typeof args.offset === 'number' ? args.offset : 0;
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
+
+    const params: Record<string, any> = { limit, offset };
+    if (typeof args.data_center_name === 'string' && args.data_center_name.trim() !== '') params['data-center-name'] = args.data_center_name;
+    if (typeof args.data_center_uid === 'string' && args.data_center_uid.trim() !== '') params['data-center-uid'] = args.data_center_uid;
+    if (typeof args.filter === 'string' && args.filter.trim() !== '') {
+      params.filter = { text: args.filter };
+    }
+
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-data-center-content', params, domain);
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
+  }
+);
+
+// Tool: show_data_center_query
+server.tool(
+  'show_data_center_query',
+  'Retrieve a single Data Center Query by uid or name. A query dynamically selects Data Center objects (by data centers + query rules such as tags/names), so its definition explains which objects the CloudGuard Controller imports and enforces.',
+  {
+    uid: z.string().optional(),
+    name: z.string().optional(),
+    details_level: PARAM_DETAILS_LEVEL,
+    domain: PARAM_DOMAIN,
+  },
+  async (args: Record<string, unknown>, extra: any) => {
+    const uid = typeof args.uid === 'string' && args.uid.trim() !== '' ? args.uid : undefined;
+    const name = typeof args.name === 'string' && args.name.trim() !== '' ? args.name : undefined;
+    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
+
+    const params: Record<string, any> = {};
+    if (uid) params.uid = uid;
+    if (name) params.name = name;
+    if (details_level) params['details-level'] = details_level;
+
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-data-center-query', params, domain);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
+  }
+);
+
+// Tool: show_data_center_queries
+server.tool(
+  'show_data_center_queries',
+  'Retrieve the Data Center Queries (dynamic selections of Data Center objects by data centers + query rules). Useful in CloudGuard Controller troubleshooting to see which queries exist and what each one matches.',
+  {
+    limit: z.number().optional().default(50),
+    offset: z.number().optional().default(0),
+    order: z.array(z.string()).optional(),
+    details_level: PARAM_DETAILS_LEVEL,
+    domain: PARAM_DOMAIN,
+  },
+  async (args: Record<string, unknown>, extra: any) => {
+    const limit = typeof args.limit === 'number' ? args.limit : 50;
+    const offset = typeof args.offset === 'number' ? args.offset : 0;
+    const order = Array.isArray(args.order) ? args.order as string[] : undefined;
+    const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
+
+    const params: Record<string, any> = { limit, offset };
+    if (order) params.order = order;
+    if (details_level) params['details-level'] = details_level;
+
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+    const resp = await apiManager.callApi('POST', 'show-data-center-queries', params, domain);
+    return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
+  }
+);
+
+// ---- Data Center IP lookup (composite) -------------------------------------
+// The management API has no direct "find by IP" for Data Center entities, so
+// this tool sweeps the imported objects and the queries and correlates both
+// against the requested IP.
+
+// Containment is delegated to ip-address rather than hand-rolled bit math: it
+// handles v4/v6 correctly and rejects the malformed inputs a regex lets through.
+const ipMatchesValue = (ip: string, value: string): boolean => {
+  const v = value.trim();
+  if (!v) return false;
+  if (v === ip) return true;
+  if (!v.includes('/')) return false;
+  try {
+    const addr = parseAddress(ip);
+    const net = parseAddress(v.split('/')[0]);
+    // A v4 address is never inside a v6 prefix (or vice versa).
+    if (!addr || !net || addr.v4 !== net.v4) return false;
+    return addr.isInSubnet(parseSubnet(v, addr.v4)!);
+  } catch {
+    return false;
+  }
+};
+
+const parseAddress = (value: string): (Address4 | Address6) | null => {
+  try {
+    return new Address4(value);
+  } catch {
+    try {
+      return new Address6(value);
+    } catch {
+      return null;
+    }
+  }
+};
+
+const parseSubnet = (cidr: string, isV4: boolean): (Address4 | Address6) | null => {
+  try {
+    return isV4 ? new Address4(cidr) : new Address6(cidr);
+  } catch {
+    return null;
+  }
+};
+
+const splitPropertyValues = (value: unknown): string[] =>
+  String(value ?? '')
+    .split(/[,;]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+server.tool(
+  'find_data_center_ip_usage',
+  'Find which imported Data Center objects carry a given IP and which Data Center Queries relate to it. By default this is one cheap server-side lookup (exact IP match). Set deep=true to also find objects whose CIDR/subnet property CONTAINS the IP (e.g. the VPC/vnet the address sits in) - that sweeps objects client-side, bounded by max_scan, and the result reports whether the sweep was truncated. Queries match either directly (an "IP Address" rule covering the IP) or via a matched object. Prime CloudGuard Controller triage entry point - follow up on matched objects with where_used and check their "deleted" flag.',
+  {
+    ip: z.string(),
+    deep: z.boolean().optional().default(false),
+    max_scan: z.number().optional().default(2000),
+    domain: PARAM_DOMAIN,
+  },
+  async (args: Record<string, unknown>, extra: any) => {
+    const ip = String(args.ip ?? '').trim();
+    if (!ip) return { content: [{ type: 'text', text: 'Error: ip is required' }] };
+    const deep = args.deep === true;
+    const maxScan = typeof args.max_scan === 'number' && args.max_scan > 0 ? args.max_scan : 2000;
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
+    const apiManager = SessionContext.getAPIManager(serverModule, extra);
+
+    // show-data-center-objects takes no per-data-center scoping (the management
+    // rejects data-center-name/-uid here), so a deep sweep is bounded by
+    // max_scan alone and must report when it truncated.
+    const scopeParams: Record<string, any> = {};
+
+    // Pages until `total` is reached or `limit` entities have been collected.
+    // Returns the truncation state so the caller never reports a partial sweep
+    // as if it were exhaustive.
+    const fetchAll = async (
+      command: string,
+      limit: number,
+    ): Promise<{ items: any[]; total: number; truncated: boolean }> => {
+      const collected: any[] = [];
+      let offset = 0;
+      let total = 0;
+      for (;;) {
+        // Page size is clamped to the remaining budget so `limit` is honoured
+        // exactly, not rounded up to the next page boundary.
+        const pageSize = Math.min(500, Math.max(1, limit - collected.length));
+        const page: any = await apiManager.callApi(
+          'POST', command, { ...scopeParams, limit: pageSize, offset, 'details-level': 'full' }, domain,
+        );
+        const objects = page?.objects || [];
+        collected.push(...objects);
+        total = page?.total ?? collected.length;
+        offset += pageSize;
+        if (collected.length >= total || objects.length === 0 || collected.length >= limit) break;
+      }
+      return { items: collected, total, truncated: collected.length < total };
+    };
+
+    // Authoritative exact-match path: the management does the matching and
+    // returns only hits, so this is one request regardless of estate size.
+    const filtered: any = await apiManager.callApi(
+      'POST', 'show-data-center-objects',
+      { ...scopeParams, filter: ip, limit: 500, 'details-level': 'full' }, domain,
+    );
+    const filteredObjects: any[] = filtered?.objects || [];
+
+    // Containment can only be evaluated locally, so it is opt-in.
+    const swept = deep
+      ? await fetchAll('show-data-center-objects', maxScan)
+      : { items: [] as any[], total: 0, truncated: false };
+
+    const byUid = new Map<string, any>();
+    for (const o of [...filteredObjects, ...swept.items]) if (o?.uid) byUid.set(o.uid, o);
+    const filteredUids = new Set(filteredObjects.map((o: any) => o.uid));
+
+    const matchedObjects = [...byUid.values()].flatMap((o: any) => {
+      const props: any[] = o['additional-properties'] || [];
+      const matchedProps = props.filter((p: any) =>
+        splitPropertyValues(p.value).some((v) => ipMatchesValue(ip, v)),
+      );
+      const viaFilter = filteredUids.has(o.uid);
+      if (!matchedProps.length && !viaFilter) return [];
+      return [{
+        name: o.name,
+        uid: o.uid,
+        type: o.type,
+        deleted: o.deleted ?? false,
+        'data-center': o['data-center'],
+        'name-in-data-center': o['name-in-data-center'],
+        'matched-properties': matchedProps,
+        'matched-by': [
+          ...(viaFilter ? ['server-side IP filter (exact)'] : []),
+          ...(matchedProps.length && !viaFilter ? ['property scan (CIDR containment)'] : []),
+        ],
+      }];
+    });
+
+    // Queries are few by nature, so they are always swept in full.
+    const queriesResult = await fetchAll('show-data-center-queries', 2000);
+    const queries = queriesResult.items;
+
+    const queryCoversDataCenter = (q: any, o: any): boolean => {
+      if (q['using-all-data-center']) return true;
+      const scope: any[] = q['data-centers'] || [];
+      const dc = o['data-center'] || {};
+      return scope.some((d: any) => d?.uid === dc.uid || d?.name === dc.name || d === dc.uid || d === dc.name);
+    };
+
+    // Non-IP rule values are compared on whole-token equality, not substring:
+    // a rule value of "1" must not match a property like "vpc-14022".
+    const tokenize = (s: unknown): string[] =>
+      String(s ?? '').toLowerCase().split(/[^a-z0-9._:-]+/).filter(Boolean);
+
+    const ruleMatchesObject = (rule: any, o: any): boolean => {
+      const values: string[] = (rule.values || []).map(String);
+      const props: any[] = o['additional-properties'] || [];
+      const propValues = props.flatMap((p: any) => splitPropertyValues(p.value));
+      const identifiers = [o.name, o['name-in-data-center'], ...propValues].filter(Boolean).map((s: any) => String(s).toLowerCase());
+      const tokens = new Set(identifiers.flatMap(tokenize));
+      return values.some((v) => {
+        if (propValues.some((pv) => ipMatchesValue(ip, pv)) && ipMatchesValue(ip, v)) return true;
+        const needle = v.toLowerCase();
+        return identifiers.includes(needle) || tokens.has(needle);
+      });
+    };
+
+    const matchedQueries = queries.flatMap((q: any) => {
+      const rules: any[] = q['query-rules'] || [];
+      const ipRules = rules.filter((r: any) =>
+        /ip/i.test(String(r.key || '')) && (r.values || []).some((v: any) => ipMatchesValue(ip, String(v))),
+      );
+      const viaObjects = matchedObjects.filter((o: any) => {
+        const full = byUid.get(o.uid);
+        return full && queryCoversDataCenter(q, full) && rules.length > 0 && rules.every((r: any) => ruleMatchesObject(r, full));
+      });
+      if (!ipRules.length && !viaObjects.length) return [];
+      return [{
+        name: q.name,
+        uid: q.uid,
+        'using-all-data-center': q['using-all-data-center'] ?? false,
+        'match-basis': [
+          ...ipRules.map((r: any) => `rule "${r.key}" directly covers ${ip}`),
+          ...viaObjects.map((o: any) => `all rules match object "${o.name}"`),
+        ],
+        'query-rules': rules.map((r: any) => ({ key: r.key, values: r.values })),
+      }];
+    });
+
+    const result = {
+      ip,
+      mode: deep ? 'deep (server-side filter + client-side containment sweep)' : 'fast (server-side exact filter only)',
+      'objects-scanned': deep ? swept.items.length : filteredObjects.length,
+      'objects-available': deep ? swept.total : undefined,
+      truncated: deep ? swept.truncated : false,
+      'queries-scanned': queries.length,
+      'matched-objects': matchedObjects,
+      'matched-queries': matchedQueries,
+      note: deep && swept.truncated
+        ? `INCOMPLETE: scanned ${swept.items.length} of ${swept.total} objects (max_scan=${maxScan}). Raise max_scan before treating "no match" as conclusive.`
+        : 'Query matching via objects correlates rule values against object properties on whole-token equality; direct "IP Address" rule matches are exact.',
+    };
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
   }
 );
 

@@ -8,12 +8,13 @@ import { randomUUID } from 'crypto';
 import { ToolPolicyCallback } from './tool-policy.js';
 import { SettingsManager } from './settings-manager.js';
 import { setTransportType } from './telemetry.js';
+import { booleanOptionDefault } from './cli-options.js';
 
 export interface CliOption {
   flag: string;
   description: string;
   env?: string;
-  default?: string;
+  default?: string | boolean;
   type?: 'string' | 'boolean';
 }
 
@@ -40,6 +41,76 @@ export interface ServerModule {
 export type TransportType = 'stdio' | 'http';
 
 /**
+ * Derive the key commander uses in `opts()` from a configured flag string.
+ * `'--write-mode'` -> `'writeMode'`, `'--client-id <id>'` -> `'clientId'`.
+ *
+ * `negated` reports whether the flag is one of commander's negatable `--no-*`
+ * forms. Commander strips that prefix and keys the option under the remaining
+ * name — `'--no-verify-tls'` becomes `verifyTls`, defaulting to true and set to
+ * false when the flag is passed — so the prefix has to be stripped here too or
+ * the derived key would never match anything in `opts()`.
+ */
+function optionKey(flag: string): { key: string; negated: boolean } | undefined {
+  const long = flag.split(/[,\s]+/).find(part => part.startsWith('--'));
+  if (!long) return undefined;
+  const negated = long.startsWith('--no-');
+  return {
+    key: long
+      .replace(/^--(no-)?/, '')
+      .replace(/-([a-z])/g, (_match, char: string) => char.toUpperCase()),
+    negated,
+  };
+}
+
+/**
+ * Mirror boolean CLI flags onto the environment variable they declare.
+ *
+ * `server-config.json` pairs each flag with an `env` name, so the two are
+ * interchangeable ways to set the same thing. Commander resolves the flag into
+ * its own options object, so mirroring it back keeps both spellings equivalent
+ * for code that reads `process.env` directly — a tool policy, for instance,
+ * which is applied at launch and has no access to the parsed options.
+ *
+ * Restricted to boolean options on purpose. String options carry credentials
+ * (`--client-id`, `--access-key`), and putting those in the process environment
+ * would expose them to every child process and to anything that dumps the
+ * environment on error. Feature flags carry no such risk.
+ *
+ * Negatable `--no-*` flags are rejected rather than guessed at. Their meaning is
+ * inverted — the flag being present makes the option false — so whether that
+ * should write `'true'` or `'false'` depends entirely on how the env var is
+ * named. `--no-telemetry`/`TELEMETRY_DISABLED` is the case in point: the flag
+ * being present has to write `'true'`. Only the author of the pairing knows
+ * which way round it goes, so this throws at launch instead of silently doing
+ * nothing, which is the failure this mirroring exists to fix.
+ *
+ * Exported for testing.
+ */
+export function mirrorBooleanFlagsToEnv(
+  config: ServerConfig,
+  options: Record<string, unknown>
+): void {
+  for (const option of config.options) {
+    if (option.type !== 'boolean' || !option.env) continue;
+    const derived = optionKey(option.flag);
+    if (!derived) continue;
+    if (derived.negated) {
+      throw new Error(
+        `Option '${option.flag}' in the configuration for '${config.name}' is a negatable ` +
+        `flag paired with env var '${option.env}', which cannot be mirrored automatically: ` +
+        `commander keys it as '${derived.key}' and inverts its meaning, so whether the flag ` +
+        `being present should set '${option.env}' to 'true' or 'false' depends on how that ` +
+        `variable is named. Mirror it explicitly in launchMCPServer instead, the way ` +
+        `--no-telemetry does for TELEMETRY_DISABLED.`
+      );
+    }
+    if (options[derived.key] === true) {
+      process.env[option.env] = 'true';
+    }
+  }
+}
+
+/**
  * Launch an MCP server with configuration-driven CLI options
  * @param configPath Path to the server configuration JSON file
  * @param serverModule The server module containing server, Settings, and pkg
@@ -64,7 +135,7 @@ export async function launchMCPServer(
     const defaultValue = envValue || option.default;
     
     if (option.type === 'boolean') {
-      const boolDefault = envValue === 'true' || option.default === 'true';
+      const boolDefault = booleanOptionDefault(envValue, option.default);
       program.option(option.flag, option.description, boolDefault);
     } else {
       program.option(option.flag, option.description, defaultValue);
@@ -100,7 +171,11 @@ export async function launchMCPServer(
   if (options.telemetryUrl) {
     process.env.TELEMETRY_URL = options.telemetryUrl;
   }
-  
+
+  // Make boolean flags equivalent to their declared env vars. Must run before
+  // the tool policy is applied, since a policy may read one of them.
+  mirrorBooleanFlagsToEnv(config, options);
+
   // Initialize settings from CLI args
   if (!serverModule.settingsManager) {
     throw new Error('ServerModule must have a settingsManager. Create it with createServerModule.');

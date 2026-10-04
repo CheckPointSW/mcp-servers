@@ -1,6 +1,11 @@
 import { ExternalTokenManager } from '@chkp/quantum-infra';
 import { Settings } from './settings.js';
 import {
+    auditWriteDecision,
+    classifyGraphQLDocument,
+    WriteOperationBlockedError,
+} from './graphql-guard.js';
+import {
     PUBLISH_CHANGES,
     ENFORCE_POLICY,
     GET_SESSION_STATUS,
@@ -75,7 +80,51 @@ export class CheckPointWAFAPIManager {
     }
 
     /**
-     * Execute a GraphQL query or mutation
+     * Execute a GraphQL document supplied by the caller.
+     *
+     * Every path that forwards an arbitrary, caller-controlled document must
+     * go through here rather than executeGraphQL, so that adding a new entry
+     * point later cannot reintroduce the read-only bypass. executeGraphQL
+     * stays unguarded for the server's own fixed queries and mutations, which
+     * are gated by tool registration instead.
+     */
+    async executeUserGraphQL<T = Record<string, unknown>>(
+        query: string,
+        variables: Record<string, unknown> = {},
+        {
+            allowWrites,
+            auditTool = 'call_waf_api',
+        }: { allowWrites: boolean; auditTool?: string }
+    ): Promise<T> {
+        const classification = classifyGraphQLDocument(query);
+        if (!classification.readOnly) {
+            const detail =
+                classification.reason === 'write-operations'
+                    ? `reason=write-operations operations=${classification.operations.join(',')}`
+                    : 'reason=unparseable';
+
+            if (!allowWrites) {
+                auditWriteDecision('blocked', auditTool, detail);
+                throw new WriteOperationBlockedError(classification);
+            }
+
+            if (classification.reason === 'write-operations') {
+                auditWriteDecision(
+                    'permitted',
+                    auditTool,
+                    `operations=${classification.operations.join(',')}`
+                );
+            }
+        }
+
+        return this.executeGraphQL<T>(query, variables);
+    }
+
+    /**
+     * Execute a GraphQL query or mutation.
+     *
+     * Raw transport with no read-only enforcement — for the server's own fixed
+     * documents only. Use executeUserGraphQL for caller-supplied documents.
      */
     async executeGraphQL<T = Record<string, unknown>>(
         query: string,
@@ -121,18 +170,20 @@ export class CheckPointWAFAPIManager {
     }
 
     /**
-     * Legacy callApi method - delegates to executeGraphQL
+     * Legacy callApi method - delegates to executeUserGraphQL
      */
     async callApi(
         _method: string,
         _uri: string,
         data: Record<string, unknown>
     ): Promise<Record<string, unknown>> {
-        // If data contains a query, execute it as GraphQL
+        // If data contains a query, execute it as GraphQL. The document is
+        // caller-supplied, so it goes through the read-only gate.
         if (data.query) {
-            return this.executeGraphQL(
+            return this.executeUserGraphQL(
                 data.query as string,
-                (data.variables as Record<string, unknown>) || {}
+                (data.variables as Record<string, unknown>) || {},
+                { allowWrites: this.settings.allowWrites, auditTool: 'callApi' }
             );
         }
 

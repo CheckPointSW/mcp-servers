@@ -5,7 +5,11 @@ import { createMcpServer, launchMCPServer, createServerModule, SessionContext } 
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { CheckPointWAFAPIManager } from './api-manager.js';
-import { Settings } from './settings.js';
+import { Settings, processAllowsWrites } from './settings.js';
+import {
+    auditWriteDecision,
+    WriteOperationBlockedError,
+} from './graphql-guard.js';
 import { runGetObjects } from './tools/get-objects.js';
 import { runManageObjects } from './tools/manage-objects.js';
 import { runWafConsultant } from './tools/waf-consultant.js';
@@ -15,7 +19,25 @@ const { server, pkg } = createMcpServer(import.meta.url, {
 });
 
 // Read-only is the default; pass --allow-writes or WAF_ALLOW_WRITES=true to register write tools and enable mutations
-const readOnlyMode = !process.argv.includes('--allow-writes') && process.env.WAF_ALLOW_WRITES !== 'true' && process.env.WAF_ALLOW_WRITES !== '1' && process.env.WAF_ALLOW_WRITES !== 'yes';
+const readOnlyMode = !processAllowsWrites;
+
+/**
+ * Refusal returned when a write tool is reached by a session that does not
+ * have write access. The registration gate below is process-wide, so under
+ * HTTP transport a session that did not opt in still needs this check.
+ */
+const writeAccessDenied = (tool: string) => {
+    auditWriteDecision('blocked', tool, 'reason=session-lacks-write-access');
+    return {
+        content: [
+            {
+                type: 'text',
+                text: '❌ Write operations are disabled for this session. Pass --allow-writes or set WAF_ALLOW_WRITES=true to enable write operations.',
+            },
+        ],
+        isError: true,
+    };
+};
 
 // Create a multi-user server module
 const serverModule = createServerModule(
@@ -35,7 +57,11 @@ Use this for any WAF operations like querying assets, practices, profiles, zones
 Example queries:
 - Get assets: { getAssets { status assets { id name assetType } } }
 - Get practices: { getPractices { id name practiceType } }
-- Get profiles: { getProfiles { id name profileType } }`,
+- Get profiles: { getProfiles { id name profileType } }${
+        readOnlyMode
+            ? '\n\nThis server is running in read-only mode: only query operations are accepted. Mutations and subscriptions are rejected.'
+            : ''
+    }`,
     {
         query: z
             .string()
@@ -52,28 +78,17 @@ Example queries:
         extra: { sessionId?: string }
     ) => {
         try {
-            // Block mutations unless write operations are enabled (per-session check covers HTTP transport)
             const settings = SessionContext.getSettings(serverModule, extra) as Settings;
-            if (!settings.allowWrites && query.trim().toLowerCase().startsWith('mutation')) {
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: '❌ Write operations are disabled. GraphQL mutations are not allowed in read-only mode. Pass --allow-writes or set WAF_ALLOW_WRITES=true to enable mutations.',
-                        },
-                    ],
-                    isError: true,
-                };
-            }
 
             const apiManager = SessionContext.getAPIManager(
                 serverModule,
                 extra
             );
 
-            const result = await apiManager.executeGraphQL(
+            const result = await apiManager.executeUserGraphQL(
                 query,
-                variables || {}
+                variables || {},
+                { allowWrites: settings.allowWrites }
             );
 
             return {
@@ -85,6 +100,12 @@ Example queries:
                 ],
             };
         } catch (error) {
+            if (error instanceof WriteOperationBlockedError) {
+                return {
+                    content: [{ type: 'text', text: error.message }],
+                    isError: true,
+                };
+            }
             console.error('GraphQL API error:', error);
             return {
                 content: [
@@ -170,6 +191,11 @@ server.tool(
         { confirmPublishAndEnforce }: { confirmPublishAndEnforce: boolean },
         extra: { sessionId?: string }
     ) => {
+        const settings = SessionContext.getSettings(serverModule, extra) as Settings;
+        if (!settings.allowWrites) {
+            return writeAccessDenied('publish_and_enforce');
+        }
+
         // Require explicit confirmation to prevent accidental publishing
         if (!confirmPublishAndEnforce) {
             return {
@@ -182,6 +208,8 @@ server.tool(
                 isError: true,
             };
         }
+
+        auditWriteDecision('permitted', 'publish_and_enforce', 'confirmed=true');
 
         try {
             const apiManager = SessionContext.getAPIManager(
@@ -322,6 +350,16 @@ server.tool(
         data: z.record(z.any()).optional().describe('Object-specific data for create/update.'),
     },
     async (params, extra: { sessionId?: string }) => {
+        const settings = SessionContext.getSettings(serverModule, extra) as Settings;
+        if (!settings.allowWrites) {
+            return writeAccessDenied('manage_objects');
+        }
+
+        auditWriteDecision(
+            'permitted',
+            'manage_objects',
+            `object_type=${params.object_type} action=${params.action}`
+        );
         const apiManager = SessionContext.getAPIManager(serverModule, extra);
         return runManageObjects(apiManager, params);
     }

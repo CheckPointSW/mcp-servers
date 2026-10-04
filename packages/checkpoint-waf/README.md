@@ -66,6 +66,10 @@ To obtain these credentials, log in to the [Check Point Infinity Portal](https:/
 
 - `WAF_ALLOW_WRITES`: Enable write operations (default: unset = read-only). Set to `true` to expose `manage_objects` and `publish_and_enforce` and allow GraphQL mutations via `call_waf_api`. Equivalent to passing `--allow-writes` on the command line.
 
+  `true` is the only accepted value — `1`, `yes` and other spellings leave the server read-only and log a warning at startup. Use `--allow-writes` if you prefer a flag.
+
+  In read-only mode, documents passed to `call_waf_api` are parsed and only `query` operations are accepted; mutations and subscriptions are rejected, as is any document that fails to parse. Under HTTP transport the per-session `WAF-ALLOW-WRITES` header can only *drop* write access — it cannot grant it to a server that was launched read-only.
+
 ---
 
 ## Client Configuration
