@@ -8,7 +8,8 @@ import { randomUUID } from 'crypto';
 import { ToolPolicyCallback } from './tool-policy.js';
 import { SettingsManager } from './settings-manager.js';
 import { setTransportType } from './telemetry.js';
-import { booleanOptionDefault } from './cli-options.js';
+import { booleanOptionDefault, operatorValues, optionKey, resolveTransportType } from './cli-options.js';
+import { sessionLogLabel } from './debug-view.js';
 
 export interface CliOption {
   flag: string;
@@ -36,31 +37,15 @@ export interface ServerModule {
   pkg: { version: string };
   toolPolicyCallback?: ToolPolicyCallback; // Optional tool policy callback
   createServerInstance?: () => any; // Factory function to create new server instances for HTTP sessions
+  /**
+   * Called before serving HTTP. Returns why this server must not serve HTTP
+   * (startup then fails with that message), or null to proceed.
+   */
+  httpStartupCheck?: () => string | null;
 }
 
 export type TransportType = 'stdio' | 'http';
 
-/**
- * Derive the key commander uses in `opts()` from a configured flag string.
- * `'--write-mode'` -> `'writeMode'`, `'--client-id <id>'` -> `'clientId'`.
- *
- * `negated` reports whether the flag is one of commander's negatable `--no-*`
- * forms. Commander strips that prefix and keys the option under the remaining
- * name — `'--no-verify-tls'` becomes `verifyTls`, defaulting to true and set to
- * false when the flag is passed — so the prefix has to be stripped here too or
- * the derived key would never match anything in `opts()`.
- */
-function optionKey(flag: string): { key: string; negated: boolean } | undefined {
-  const long = flag.split(/[,\s]+/).find(part => part.startsWith('--'));
-  if (!long) return undefined;
-  const negated = long.startsWith('--no-');
-  return {
-    key: long
-      .replace(/^--(no-)?/, '')
-      .replace(/-([a-z])/g, (_match, char: string) => char.toUpperCase()),
-    negated,
-  };
-}
 
 /**
  * Mirror boolean CLI flags onto the environment variable they declare.
@@ -176,12 +161,21 @@ export async function launchMCPServer(
   // the tool policy is applied, since a policy may read one of them.
   mirrorBooleanFlagsToEnv(config, options);
 
+  // Decide the transport once and publish it as MCP_TRANSPORT_TYPE, so code
+  // that reads the env var (settings validation, which runs next) agrees with
+  // the launcher even when it was chosen with --transport.
+  const transportType = resolveTransportType(options.transport);
+  process.env.MCP_TRANSPORT_TYPE = transportType;
+
   // Initialize settings from CLI args
   if (!serverModule.settingsManager) {
     throw new Error('ServerModule must have a settingsManager. Create it with createServerModule.');
   }
   
   const settings = serverModule.settingsManager.createFromArgs(options);
+  // HTTP sessions take basic keys, and the connection set when the caller
+  // sends none of it, from the operator's values.
+  serverModule.settingsManager.setOperatorValues?.(operatorValues(config.options, options));
   
   // Apply tool policy if a callback was provided
   // This must happen after all tools are registered but before connecting
@@ -189,9 +183,6 @@ export async function launchMCPServer(
     console.error('[launchMCPServer] Applying tool policy before connecting');
     serverModule.server.applyToolPolicy();
   }
-  
-  // Determine transport type from options or environment variable
-  const transportType = (options.transport || process.env.MCP_TRANSPORT_TYPE || 'stdio').toLowerCase() === 'http' ? 'http' : 'stdio';
   
   // Always try to read transport-port from CLI args or environment variable
   const transportPort = options.transportPort 
@@ -201,6 +192,11 @@ export async function launchMCPServer(
       : 3000;
   
   if (transportType === 'http') {
+    const refusal = serverModule.httpStartupCheck?.();
+    if (refusal) {
+      throw new Error(refusal);
+    }
+
     // Launch Streamable server
     setTransportType('http');
     await launchHTTPServer(config, serverModule, transportPort);
@@ -286,7 +282,7 @@ async function launchHTTPServer(
             // Reuse existing transport for the session
             const verbose = SettingsManager.globalDebugState;
             if (verbose) {
-              console.error('[launchHTTPServer] Verbose: Reusing existing transport for session:', sessionId);
+              console.error('[launchHTTPServer] Verbose: Reusing existing transport for session:', sessionLogLabel(sessionId));
             }
             transport = transports[sessionId];
 
@@ -310,7 +306,7 @@ async function launchHTTPServer(
               onsessioninitialized: (sid: string) => {
                 const verbose = SettingsManager.globalDebugState;
                 if (verbose) {
-                  console.error('[launchHTTPServer] Verbose: New session initialized:', sid);
+                  console.error('[launchHTTPServer] Verbose: New session initialized:', sessionLogLabel(sid));
                 }
                 // Store the transport by session ID
                 transports[sid] = transport;
@@ -602,13 +598,6 @@ function headersToEnvVars(
 
   if (verbose) {
     console.error('[headersToEnvVars] Verbose: Final result keys:', Object.keys(result));
-    console.error('[headersToEnvVars] Verbose: Final result (sanitized):',
-      Object.fromEntries(
-        Object.entries(result).map(([k, v]) =>
-          [k, (k.toLowerCase().includes('key') || k.toLowerCase().includes('token') || k.toLowerCase().includes('password')) ? '***' : v]
-        )
-      )
-    );
   }
 
   return result;

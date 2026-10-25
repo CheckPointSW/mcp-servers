@@ -41,8 +41,8 @@ This server puts that behind an MCP interface, with a SOC-analyst persona and a 
 
 **Anti-Phishing exceptions**
 
-20. **list_ap_exceptions** - the whitelist, blacklist or spam whitelist
-21. **get_ap_exception** - one entry by id
+20. **list_ap_exceptions** - the whitelist, blacklist or spam whitelist; each entry gives `id`, `type`, `match` (the criteria that are set, with their matching mode), `comment`, `actionNeeded`, `ignoringSpfCheck`, `actor` and `updatedAt`
+21. **get_ap_exception** - one entry by id, same fields
 
 ### 4 prompts and a glossary
 

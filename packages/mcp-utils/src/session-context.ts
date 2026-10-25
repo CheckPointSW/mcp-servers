@@ -1,3 +1,5 @@
+import { sessionLogLabel } from './debug-view.js';
+
 /**
  * Helper class to extract and manage session information for MCP tool callbacks.
  * This class provides utility methods to ensure tool callbacks can get the correct
@@ -76,22 +78,20 @@ export class SessionContext {
   /**
    * Get the current session ID from the MCP extra context
    * @param extra Extra context passed to MCP tool callbacks
-   * @returns The session ID or DEFAULT_SESSION_ID if not available
+   * @returns The session ID, or DEFAULT_SESSION_ID under stdio
+   * @throws Under HTTP transport when the context carries no session ID
    */
   static getSessionId(extra?: any): string {
-    if (!extra) return this.DEFAULT_SESSION_ID;
-    
-    // Try to get session ID from the transport
-    if (extra.transport && extra.transport.sessionId) {
-      return extra.transport.sessionId;
+    const sessionId = extra?.transport?.sessionId || extra?.sessionId;
+    if (sessionId) return sessionId;
+
+    // Under HTTP every request belongs to its own session. The default
+    // session holds the server's own startup settings (stdio's only session),
+    // so a lookup without a session must fail rather than fall back to it.
+    // The launcher sets MCP_TRANSPORT_TYPE to the transport it resolved.
+    if (process.env.MCP_TRANSPORT_TYPE === 'http') {
+      throw new Error('No MCP session in this request context; HTTP transport requires one');
     }
-    
-    // Check if sessionId is directly in extra
-    if (extra.sessionId) {
-      return extra.sessionId;
-    }
-    
-    // Default to the default session ID (stdio mode)
     return this.DEFAULT_SESSION_ID;
   }
   
@@ -249,12 +249,12 @@ export class SessionContext {
         }
       }
       
-      console.error(`Using cached user data for session: ${sessionId}, key: ${options.cacheKey}`);
+      console.error(`Using cached user data for ${sessionLogLabel(sessionId)}, key: ${options.cacheKey}`);
       return { cancelled: false, data: dataToReturn };
     }
     
     // No valid cached data, prompt user
-    console.error(`Prompting user for data for session: ${sessionId}, key: ${options.cacheKey}`);
+    console.error(`Prompting user for data for ${sessionLogLabel(sessionId)}, key: ${options.cacheKey}`);
     
     let result;
     if (options.showLoginDialog) {

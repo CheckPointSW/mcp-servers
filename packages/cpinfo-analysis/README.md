@@ -115,13 +115,13 @@ Cached readers are automatically evicted after the TTL elapses with no tool acti
 
 By default, the `file_path` argument may point anywhere on the filesystem the server process can access — appropriate for the default single-user stdio setup, where you're pointing the server at files you already control.
 
-For shared deployments (see [HTTP Transport](#http-transport) below), you can confine `file_path` to a set of approved directories by setting `CPINFO_ALLOWED_ROOTS` to a comma-separated list of absolute directories:
+To confine `file_path` to a set of approved directories, set `CPINFO_ALLOWED_ROOTS` to a comma-separated list of absolute directories. It is **required** for [HTTP transport](#http-transport): the server refuses to start in HTTP mode without it.
 
 ```bash
 CPINFO_ALLOWED_ROOTS=/data/cpinfo-archives,/mnt/team-share npx @chkp/cpinfo-analysis-mcp --transport http
 ```
 
-When set, any resolved path (including through symlinks) that falls outside the configured roots is rejected. When unset (the default), this has no effect — behavior is unchanged.
+When set, any resolved path (including through symlinks) that falls outside the configured roots is rejected. When unset, stdio mode is unrestricted and HTTP mode does not start.
 
 ---
 
@@ -310,16 +310,15 @@ to upload a file over the MCP connection.
 > **File access in shared deployments:** all connected callers share this one server
 > process and its filesystem access — there is no per-caller isolation. Set
 > [`CPINFO_ALLOWED_ROOTS`](#restricting-file-access-cpinfo_allowed_roots) to confine
-> `file_path` to the intended data directory before exposing HTTP transport to more
-> than one caller. If you start in HTTP mode without it set, the server logs a
-> startup warning.
+> `file_path` to the intended data directory. HTTP mode requires it: without it the
+> server logs an error and exits.
 
 ### Starting the server in HTTP mode
 
 ```bash
-MCP_TRANSPORT_TYPE=http MCP_TRANSPORT_PORT=3000 npx @chkp/cpinfo-analysis-mcp
+CPINFO_ALLOWED_ROOTS=/data/cpinfo-archives MCP_TRANSPORT_TYPE=http MCP_TRANSPORT_PORT=3000 npx @chkp/cpinfo-analysis-mcp
 # or
-npx @chkp/cpinfo-analysis-mcp --transport http --transport-port 3000
+CPINFO_ALLOWED_ROOTS=/data/cpinfo-archives npx @chkp/cpinfo-analysis-mcp --transport http --transport-port 3000
 ```
 
 The server exposes:
@@ -455,7 +454,7 @@ MIT License - see [LICENSE](../../LICENSE) file for details.
 
 1. **Only use client implementations you trust.** Malicious or untrusted clients could misuse your credentials or access data improperly.  
 2. **Management data is exposed to the model.** Ensure that you only use models and providers that comply with your organization's policies for handling sensitive data and PII.
-3. **Confine file access in shared deployments.** When running with HTTP transport for more than one caller, set [`CPINFO_ALLOWED_ROOTS`](#restricting-file-access-cpinfo_allowed_roots) so tools can't read files outside the intended data directory.
+3. **Confine file access in shared deployments.** HTTP transport requires [`CPINFO_ALLOWED_ROOTS`](#restricting-file-access-cpinfo_allowed_roots), so tools can't read files outside the intended data directory.
 
 
 ## 📊 Telemetry and Privacy

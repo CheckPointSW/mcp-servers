@@ -1,4 +1,5 @@
 import { SettingsManager } from './settings-manager.js';
+import { sessionLogLabel } from './debug-view.js';
 
 /**
  * Factory class for creating and managing API managers for different sessions.
@@ -31,7 +32,7 @@ export class APIManagerFactory {
     const sid = sessionId || this.defaultSessionId;
 
     if (verbose) {
-      console.error('[APIManagerFactory.getAPIManager] Verbose: Getting API manager for session:', sid);
+      console.error('[APIManagerFactory.getAPIManager] Verbose: Getting API manager for session:', sessionLogLabel(sid));
     }
 
     if (!this.apiManagerMap.has(sid)) {

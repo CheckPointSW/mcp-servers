@@ -1,6 +1,18 @@
 // API client implementation for Check Point MCP servers
 import axios from 'axios';
 import https from 'https';
+import { debugLoggableKeys, debugView } from '@chkp/mcp-utils';
+
+/**
+ * Management API request parameters whose values debug output may print.
+ * Anything else, including login credentials and any parameter not listed
+ * here, is shown as "(hidden, N chars)".
+ */
+const DEBUG_LOGGABLE_REQUEST_KEYS = debugLoggableKeys([
+  'details-level', 'domain', 'filter', 'layer', 'limit', 'name', 'offset',
+  'order', 'package', 'show-membership', 'targets', 'task-id', 'type', 'uid',
+  'use-object-dictionary',
+]);
 
 /**
  * Enum representing the types of authentication tokens
@@ -367,14 +379,18 @@ export abstract class APIClientBase {
         console.error('Headers:', error.response.headers);
         console.error('Data:', error.response.data);
 
-        // Print the request details when debug is enabled
+        // Print the request details when debug is enabled. Only allowlisted
+        // values are printed: headers and bodies carry the session ID and
+        // login credentials.
         if (this.debug) {
           console.error('Debug mode: Printing request details:');
           console.error('Request Method:', method);
           console.error('Request URL:', url);
-          console.error('Request Headers:', config.headers);
-          console.error('Request Data:', config.data);
-          console.error('Request Params:', config.params);
+          console.error('Request Headers:', debugView(config.headers));
+          console.error('Request Data:', debugView(
+            config.data && typeof config.data === 'object' ? config.data : { body: config.data },
+            DEBUG_LOGGABLE_REQUEST_KEYS
+          ));
         }
       }
       

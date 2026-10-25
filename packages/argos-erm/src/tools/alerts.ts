@@ -3,7 +3,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { SessionContext } from '@chkp/mcp-utils';
 import {
     ALERT_API_BASE,
-    EU_ALERT_API_BASE,
+    ALERT_API_BASE_BY_REGION,
     ALL_SENTINEL,
     UNSET_SENTINEL,
 } from '../constants.js';
@@ -60,6 +60,15 @@ function trimAlerts(data: Record<string, any>): void {
             );
         }
     );
+}
+
+/**
+ * Map a customer region to its alert API base path. A missing or
+ * unrecognised region falls back to US.
+ */
+function alertBasePath(region: string | null | undefined): string {
+    if (!region) return ALERT_API_BASE;
+    return ALERT_API_BASE_BY_REGION[region] ?? ALERT_API_BASE;
 }
 
 async function requestAlerts(
@@ -129,7 +138,7 @@ async function fanoutAlerts(
     const regionResults: AlertResult[] = [];
 
     for (const region of regions) {
-        const basePath = region === 'EU' ? EU_ALERT_API_BASE : ALERT_API_BASE;
+        const basePath = alertBasePath(region);
         try {
             const result = await requestAlerts(
                 apiManager,
@@ -188,8 +197,7 @@ async function routeAlertQuery(
     );
 
     if (resolved !== ALL_SENTINEL && resolved !== UNSET_SENTINEL) {
-        const region = customerRegion(resolved, extra);
-        const basePath = region === 'EU' ? EU_ALERT_API_BASE : ALERT_API_BASE;
+        const basePath = alertBasePath(customerRegion(resolved, extra));
         const envName = findCustomerDisplayName(resolved, extra);
         return requestAlerts(apiManager, basePath, [envName], opts);
     }
@@ -199,7 +207,7 @@ async function routeAlertQuery(
     }
 
     const regions = allRegions(extra);
-    const basePath = regions[0] === 'EU' ? EU_ALERT_API_BASE : ALERT_API_BASE;
+    const basePath = alertBasePath(regions[0]);
     return requestAlerts(apiManager, basePath, null, opts);
 }
 

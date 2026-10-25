@@ -2,12 +2,21 @@ import { getHeaderValue } from '@chkp/mcp-utils';
 import { Settings as BaseSettings } from '@chkp/quantum-infra';
 
 export class Settings extends BaseSettings {
+  /**
+   * Keys whose values debug output may print (see debugView in mcp-utils).
+   * Anything not listed, including every credential, is shown hidden.
+   */
+  static override readonly debugLoggableKeys: readonly string[] = [
+    ...BaseSettings.debugLoggableKeys, 'infinity-portal-url',
+  ];
 
+
+  // Takes only what it is given; fromArgs reads the environment.
   constructor({
-    clientId = process.env.CLIENT_ID,
-    secretKey = process.env.SECRET_KEY,
-    infinityPortalUrl = process.env.INFINITY_PORTAL_URL,
-    region = process.env.REGION || 'EU',
+    clientId,
+    secretKey,
+    infinityPortalUrl,
+    region = 'EU',
     ...baseArgs
   }: {
     clientId?: string;
@@ -60,11 +69,12 @@ export class Settings extends BaseSettings {
         'or --region (EU, US, STG, or LOCAL)'
       );
     }
+    const env = process.env;
     return new Settings({
-      clientId: options.clientId,
-      secretKey: options.secretKey,
-      infinityPortalUrl: options.infinityPortalUrl,
-      region: options.region
+      clientId: options.clientId ?? env.CLIENT_ID,
+      secretKey: options.secretKey ?? env.SECRET_KEY,
+      infinityPortalUrl: options.infinityPortalUrl ?? env.INFINITY_PORTAL_URL,
+      region: options.region ?? (env.REGION || undefined)
     });
   }
 

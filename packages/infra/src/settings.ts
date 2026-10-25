@@ -12,6 +12,22 @@ export type Region = 'EU' | 'US' | 'AU' | 'IN' | 'AE' | 'CA' | 'DEV' |'STG' | 'L
  * Settings for the MCP servers
  */
 export class Settings {
+  /**
+   * Keys whose values debug output may print (see debugView in mcp-utils).
+   * Anything not listed, including every credential, is shown hidden.
+   */
+  static readonly debugLoggableKeys: readonly string[] = [
+    'management-host', 'management-port', 's1c-url', 'gateway-url', 'region',
+    'dev-port', 'cloud-connected', 'write-mode',
+  ];
+
+  /**
+   * Headers an HTTP session may mix with the operator's values (see
+   * connection-source in mcp-utils). Every other header fromHeaders reads is
+   * part of the connection set, which comes from one source only.
+   */
+  static readonly basicKeys: readonly string[] = ['REGION'];
+
   public apiKey?: string;
   public username?: string;
   public password?: string;
@@ -61,20 +77,22 @@ export class Settings {
     return undefined;
   }
 
+  // Takes only what it is given: the environment is read by fromArgs, so
+  // settings built from request headers never pick up the process's values.
   constructor({
-    apiKey = process.env.API_KEY,
-    username = process.env.USERNAME,
-    password = process.env.PASSWORD,
-    s1cUrl = process.env.S1C_URL,
-    managementHost = process.env.MANAGEMENT_HOST,
-    managementPort = process.env.MANAGEMENT_PORT || '443',
-    cloudInfraToken = process.env.CLOUD_INFRA_TOKEN,
-    cloudConnected = process.env.CLOUD_CONNECTED === 'true',
+    apiKey,
+    username,
+    password,
+    s1cUrl,
+    managementHost,
+    managementPort = '443',
+    cloudInfraToken,
+    cloudConnected = false,
     sid,
-    clientId = process.env.CLIENT_ID,
-    secretKey = process.env.SECRET_KEY,
-    region = (process.env.REGION as Region) || 'EU',
-    devPort = process.env.DEV_PORT || '8006',
+    clientId,
+    secretKey,
+    region = 'EU',
+    devPort = '8006',
     gatewayUrl,
   }: {
     apiKey?: string;
@@ -309,19 +327,22 @@ export class Settings {
       }
     }
 
+    const env = process.env;
     return new Settings({
-      apiKey: args.apiKey,
-      username: args.username,
-      password: args.password,
-      s1cUrl: args.s1cUrl,
-      managementHost: args.managementHost,
-      managementPort: args.managementPort,
-      cloudInfraToken: args.cloudInfraToken,
-      cloudConnected: args.cloudConnected,
-      clientId: args.clientId,
-      secretKey: args.secretKey,
-      region: typeof args.region === 'string' ? args.region.trim().toUpperCase() as Region : undefined,
-      devPort: args.devPort,
+      apiKey: args.apiKey ?? env.API_KEY,
+      username: args.username ?? env.USERNAME,
+      password: args.password ?? env.PASSWORD,
+      s1cUrl: args.s1cUrl ?? env.S1C_URL,
+      managementHost: args.managementHost ?? env.MANAGEMENT_HOST,
+      managementPort: args.managementPort ?? (env.MANAGEMENT_PORT || undefined),
+      cloudInfraToken: args.cloudInfraToken ?? env.CLOUD_INFRA_TOKEN,
+      cloudConnected: args.cloudConnected ?? env.CLOUD_CONNECTED === 'true',
+      clientId: args.clientId ?? env.CLIENT_ID,
+      secretKey: args.secretKey ?? env.SECRET_KEY,
+      region: typeof args.region === 'string'
+        ? args.region.trim().toUpperCase() as Region
+        : (env.REGION as Region) || undefined,
+      devPort: args.devPort ?? (env.DEV_PORT || undefined),
       gatewayUrl: args.gatewayUrl,
     });
   }
@@ -373,13 +394,6 @@ export class Settings {
                           extractedValues.s1cUrl || extractedValues.managementHost || extractedValues.cloudInfraToken;
       if (!hasAnyValue) {
         console.error('[Settings.fromHeaders] Verbose: WARNING - No authentication values found in headers');
-        console.error('[Settings.fromHeaders] Verbose: Full headers object (sanitized):',
-          Object.fromEntries(
-            Object.entries(headers).map(([k, v]) =>
-              [k, (k.toLowerCase().includes('key') || k.toLowerCase().includes('token') || k.toLowerCase().includes('password')) ? '***' : v]
-            )
-          )
-        );
       }
     }
 

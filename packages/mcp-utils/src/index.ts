@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-export { booleanOptionDefault } from './cli-options.js';
+export { booleanOptionDefault, resolveTransportType } from './cli-options.js';
+export { debugLoggableKeys, debugView, normalizeDebugKey, sessionLogLabel } from './debug-view.js';
 export { launchMCPServer } from './launcher.js';
 export type { ServerConfig, ServerModule, CliOption } from './launcher.js';
 export { SettingsManager } from './settings-manager.js';

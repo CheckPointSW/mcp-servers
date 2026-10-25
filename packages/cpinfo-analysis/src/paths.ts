@@ -45,9 +45,22 @@ function loadRootsConfig(): RootsConfig {
   return rootsCache;
 }
 
-/** True if CPINFO_ALLOWED_ROOTS is configured (used by index.ts to warn when running unrestricted over HTTP). */
+/** True if CPINFO_ALLOWED_ROOTS is configured. */
 export function allowedRootsConfigured(): boolean {
   return loadRootsConfig().restricted;
+}
+
+/**
+ * Registered as the server's httpStartupCheck. HTTP transport serves every
+ * connected caller from this one process, so it requires CPINFO_ALLOWED_ROOTS to confine
+ * their file access. Returns the reason to refuse, or null.
+ */
+export function httpStartupRefusal(): string | null {
+  if (allowedRootsConfigured()) return null;
+  return (
+    'HTTP transport requires CPINFO_ALLOWED_ROOTS: set it to a comma-separated list of ' +
+    'absolute directories that tools may access.'
+  );
 }
 
 // Walk up from `p` to the deepest existing ancestor, realpath *that* (resolving any

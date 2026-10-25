@@ -1,6 +1,6 @@
 {
   "name": "@chkp/policy-insights-mcp",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "bin": {
     "policy-insights-mcp": "dist/index.js"
   },

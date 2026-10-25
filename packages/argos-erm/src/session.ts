@@ -7,10 +7,12 @@ import {
 } from './constants.js';
 import type { ArgosERMAPIManager } from './client.js';
 
+export type CustomerRegion = 'US' | 'EU' | 'AU';
+
 export interface CustomerInfo {
     customer_id: string;
     display_name: string;
-    region: 'US' | 'EU';
+    region: CustomerRegion;
 }
 
 export interface Session {
@@ -161,7 +163,7 @@ export async function populateCustomers(
     const customers = (data?.customers ?? []) as Array<{
         customer_id: string;
         customer_name: string;
-        region: 'US' | 'EU';
+        region: CustomerRegion;
     }>;
     state.customers = customers.map((c) => ({
         customer_id: c.customer_id,
