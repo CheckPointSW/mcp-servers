@@ -9,6 +9,12 @@ let globalSettings: Settings | null = null;
  * Settings for the MCP servers
  */
 export class Settings {
+  /**
+   * Keys whose values debug output may print (see debugView in mcp-utils).
+   * Anything not listed, including every credential, is shown hidden.
+   */
+  static readonly debugLoggableKeys: readonly string[] = ['management-host', 'origin'];
+
   public managementHost?: string;
   public origin?: string;
   public apiKey?: string;
@@ -27,16 +33,17 @@ export class Settings {
    */
   static getSettings(): Settings {
     if (!globalSettings) {
-      globalSettings = new Settings();
+      globalSettings = Settings.fromArgs({});
       // Also set the global reference for access from other modules
       (globalThis as any).cpMcpSettings = globalSettings;
     }
     return globalSettings;
   }
+  // Takes only what it is given; fromArgs reads the environment.
   constructor({
-    managementHost = process.env.MANAGEMENT_HOST,
-    origin = process.env.ORIGIN,
-    apiKey = process.env.API_KEY
+    managementHost,
+    origin,
+    apiKey
   }: {
     managementHost?: string;
     origin?: string;
@@ -71,9 +78,9 @@ export class Settings {
    */
   static fromArgs(args: Record<string, any>): Settings {
     return new Settings({
-      managementHost: args.managementHost,
-      origin: args.origin,
-      apiKey: args.apiKey
+      managementHost: args.managementHost ?? process.env.MANAGEMENT_HOST,
+      origin: args.origin ?? process.env.ORIGIN,
+      apiKey: args.apiKey ?? process.env.API_KEY
     });
   }
   

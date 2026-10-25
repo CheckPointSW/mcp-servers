@@ -271,6 +271,7 @@ server.tool(
     details_level: z.string().optional(),
     domains_to_process: z.enum(['ALL_DOMAINS_ON_THIS_SERVER', 'CURRENT_DOMAIN']).optional(),
     show_only_local_domain: z.boolean().optional().default(false),
+    domain: z.string().optional().describe('Domain name for Multi-Domain environments.'),
   },
   async (args: Record<string, unknown>, extra: any) => {
     const limit = typeof args.limit === 'number' ? args.limit : 50;
@@ -278,12 +279,13 @@ server.tool(
     const order = Array.isArray(args.order) ? args.order as string[] : undefined;
     const details_level = typeof args.details_level === 'string' ? args.details_level : undefined;
     const domains_to_process = typeof args.domains_to_process === 'string' ? args.domains_to_process : undefined;
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
     const params: Record<string, any> = { limit, offset };
     if (order) params.order = order;
     if (details_level) params['details-level'] = details_level;
     if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
     if (args.show_only_local_domain) params['show-only-local-domain'] = true;
-    const resp = await runApi('POST', 'show-gateways-and-servers', params, extra);
+    const resp = await runApi('POST', 'show-gateways-and-servers', params, extra, domain);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );

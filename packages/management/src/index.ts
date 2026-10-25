@@ -2580,7 +2580,9 @@ server.tool(
       order: z.array(z.string()).optional(),
       details_level: PARAM_DETAILS_LEVEL,
       domains_to_process: PARAM_DOMAINS_TO_PROCESS,
+      show_only_local_domain: PARAM_SHOW_ONLY_LOCAL_DOMAIN,
       type: z.string().optional(),
+      domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     const uids = Array.isArray(args.uids) ? args.uids as string[] : undefined;
@@ -2600,7 +2602,8 @@ server.tool(
     if (domains_to_process) { params['domains-to-process'] = [domains_to_process]; params['ignore-warnings'] = true; }
     if (args.show_only_local_domain) params['show-only-local-domain'] = true;
     if (type) params.type = type;
-    const resp = await runApi('POST', 'show-objects', params, extra);
+    const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
+    const resp = await runApi('POST', 'show-objects', params, extra, domain);
     return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
@@ -2610,14 +2613,16 @@ server.tool(
   'management__show_object',
   'Retrieve a generic object by UID.',
   {
-    uid: z.string()
+    uid: z.string(),
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
       const uid = args.uid as string;
       const params: Record<string, any> = {}
       params.uid = uid
       params['details-level'] = 'full'
-      const resp = await runApi('POST', 'show-object', params, extra);
+      const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
+      const resp = await runApi('POST', 'show-object', params, extra, domain);
       return { content: [{ type: 'text', text: formatWithPaginationHint(resp) }] };
   }
 );
@@ -2634,15 +2639,17 @@ server.tool(
     from_date: z.string().optional(),
     to_date: z.string().optional(),
     format: z.enum(['detailed', 'summary']).optional().default('detailed'),
+    domain: PARAM_DOMAIN,
   },
   async (args: Record<string, unknown>, extra: any) => {
     try {
       // Get API manager for this session
       const apiManager = SessionContext.getAPIManager(serverModule, extra);
-      
+      const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
+
       // Create API call wrapper function
       const apiCallWrapper = async (functionCall: { name: string; arguments: Record<string, any> }) => {
-        const response = await apiManager.callApi('POST', functionCall.name, functionCall.arguments, extra);
+        const response = await apiManager.callApi('POST', functionCall.name, functionCall.arguments, domain);
         return [200, response] as [number, any];
       };
 

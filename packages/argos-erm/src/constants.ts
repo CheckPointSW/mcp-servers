@@ -1,6 +1,13 @@
 // API Base Paths
 export const ALERT_API_BASE = '/alert/api/v1';
 export const EU_ALERT_API_BASE = '/eu/alert/api/v1';
+export const AU_ALERT_API_BASE = '/au/alert/api/v1';
+
+export const ALERT_API_BASE_BY_REGION: Record<string, string> = {
+    US: ALERT_API_BASE,
+    EU: EU_ALERT_API_BASE,
+    AU: AU_ALERT_API_BASE,
+};
 export const ASSET_CONFIG_API_BASE = '/asset-configuration/external/api/v1';
 export const IOC_API_BASE = '/ioc/api/v1';
 export const CVE_INTEL_API_BASE = '/cve-intel/external/api/v1';

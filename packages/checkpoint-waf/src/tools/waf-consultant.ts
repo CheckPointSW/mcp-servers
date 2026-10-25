@@ -52,7 +52,7 @@ export async function getConsultantAdvice(
     const configAnalysis = analyzeConfig(params.waf_configuration);
     const query = `Check Point WAF ${params.user_prompt}`;
 
-    const docSource = settings?.docSource || process.env.DOC_SOURCE || 'gitbook';
+    const docSource = settings?.docSource || 'gitbook';
 
     let explanation = 'No documentation found. Refer to Check Point WAF docs for best practices.';
     let doc_citations: DocCitation[] | undefined = undefined;

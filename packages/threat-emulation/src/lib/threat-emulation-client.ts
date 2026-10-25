@@ -7,8 +7,9 @@ import { getHeaderValue } from '@chkp/mcp-utils';
 export class ThreatEmulationSettings {
     apiKey?: string;
 
+    // Takes only what it is given; fromArgs reads the environment.
     constructor({
-    apiKey = process.env.API_KEY
+    apiKey
   }: {
     apiKey?: string;
   } = {}) {
@@ -18,7 +19,7 @@ export class ThreatEmulationSettings {
 
   static fromArgs(options: any): ThreatEmulationSettings {
     return new ThreatEmulationSettings({
-      apiKey: options.apiKey
+      apiKey: options.apiKey ?? process.env.API_KEY
     });
   }
 

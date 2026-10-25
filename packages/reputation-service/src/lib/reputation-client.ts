@@ -4,8 +4,9 @@ import { getHeaderValue } from '@chkp/mcp-utils';
 export class ReputationSettings {
     apiKey?: string;
 
+    // Takes only what it is given; fromArgs reads the environment.
     constructor({
-    apiKey = process.env.API_KEY
+    apiKey
   }: {
     apiKey?: string;
   } = {}) {
@@ -15,7 +16,7 @@ export class ReputationSettings {
 
   static fromArgs(options: any): ReputationSettings {
     return new ReputationSettings({
-      apiKey: options.apiKey
+      apiKey: options.apiKey ?? process.env.API_KEY
     });
   }
 
@@ -28,7 +29,9 @@ export class ReputationSettings {
 }
 
 
-let tokenCached = '';
+// Tokens are cached per API key: in HTTP mode each session brings its own key,
+// and one session must never reuse a token obtained with another's.
+const tokenCache = new Map<string, string>();
 
 export class ReputationClient {
     private settings: ReputationSettings;
@@ -54,11 +57,17 @@ export class ReputationClient {
                 return Date.now() >= expTime;
             };
 
-            if (!tokenCached || isTokenExpired(tokenCached)) {
+            const apiKey = this.settings.apiKey || '';
+            if (!apiKey) {
+                throw new Error('API key is required (via --api-key, API_KEY env var, or API-KEY header)');
+            }
+
+            let token = tokenCache.get(apiKey);
+            if (!token || isTokenExpired(token)) {
                 // First get token
                 const tokenResponse = await axios.get(this.BASE_AUTH_URL, {
                     headers: {
-                        'Client-Key': this.settings.apiKey
+                        'Client-Key': apiKey
                     }
                 });
 
@@ -66,7 +75,8 @@ export class ReputationClient {
                     throw new Error(`Failed to get token: ${tokenResponse.status}`);
                 }
 
-                tokenCached = tokenResponse.data;
+                token = tokenResponse.data as string;
+                tokenCache.set(apiKey, token);
             }
 
             // Then query reputation
@@ -82,8 +92,8 @@ export class ReputationClient {
                 }]
             }, {
                 headers: {
-                    'Client-Key': this.settings.apiKey || '',
-                    'token': tokenCached,
+                    'Client-Key': apiKey,
+                    'token': token,
                     'Content-Type': 'application/json'
                 }
             });

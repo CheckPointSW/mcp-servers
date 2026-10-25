@@ -270,30 +270,100 @@ export const EXCEPTION_TYPES = [
 ] as const;
 export type ExceptionTypeName = (typeof EXCEPTION_TYPES)[number];
 
-export const apExceptionSchema = z
-    .object({
-        id: z.string(),
-        type: z
-            .enum(EXCEPTION_TYPES)
-            .nullish()
-            .transform((v) => orNull(v)),
-        value: looseString,
-        actor: looseString,
-        createdAt: looseString,
-        updatedAt: looseString,
-    })
-    .passthrough()
-    .transform((raw) => ({
-        id: raw.id,
-        type: raw.type,
-        value: raw.value,
-        actor: raw.actor,
-        createdAt: raw.createdAt,
-        updatedAt: raw.updatedAt,
-    }));
+// What an exception matches on, as named by the HEC API. The matching mode
+// (exact, contains, ...) comes from a sibling `<name>Matching` field.
+const AP_EXCEPTION_CRITERIA = [
+    ['senderEmail', 'senderEmailMatching'],
+    ['senderName', 'senderNameMatching'],
+    ['senderDomain', 'senderDomainMatching'],
+    ['senderIp', null],
+    ['senderClientIp', null],
+    ['recipient', 'recipientMatching'],
+    ['domain', null],
+    ['linkDomains', 'linkDomainMatching'],
+    ['subject', 'subjectMatching'],
+    ['attachmentMd5', null],
+] as const;
 
-export type APException = z.infer<typeof apExceptionSchema>;
+const nonEmpty = (v: unknown): v is string => typeof v === 'string' && v !== '';
 
-export function toApException(raw: unknown): APException {
-    return apExceptionSchema.parse(raw);
+/**
+ * The entry id of a raw HEC exception row. HEC sends it as `entityId`, possibly
+ * numeric; `id` is accepted too. Empty values count as missing.
+ */
+export function exceptionIdOf(row: unknown): string | null {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
+    const { id, entityId } = row as Record<string, unknown>;
+    for (const v of [id, entityId]) {
+        if (nonEmpty(v)) return v;
+        if (typeof v === 'number') return String(v);
+    }
+    return null;
 }
+
+function withExceptionId(raw: unknown): unknown {
+    const id = exceptionIdOf(raw);
+    return id === null ? raw : { ...(raw as Record<string, unknown>), id };
+}
+
+const apExceptionRowSchema = z.preprocess(
+    withExceptionId,
+    z
+        .object({
+            id: z.string(),
+            comment: looseString,
+            actionNeeded: looseString,
+            ignoringSpfCheck: z.unknown().transform((v) => {
+                if (typeof v === 'boolean') return v;
+                if (v === 1 || v === 'true') return true;
+                if (v === 0 || v === 'false') return false;
+                return null;
+            }),
+            editedBy: looseString,
+            addedBy: looseString,
+            updateTime: looseString,
+        })
+        .passthrough()
+);
+
+function criteriaOf(row: Record<string, unknown>) {
+    const match: Record<string, { value: unknown; matching: string | null }> =
+        {};
+    for (const [field, modeField] of AP_EXCEPTION_CRITERIA) {
+        const value = row[field];
+        if (
+            value === null ||
+            value === undefined ||
+            value === '' ||
+            (Array.isArray(value) && value.length === 0)
+        ) {
+            continue;
+        }
+        const mode = modeField ? row[modeField] : null;
+        match[field] = {
+            value,
+            matching: typeof mode === 'string' ? mode : null,
+        };
+    }
+    return match;
+}
+
+/**
+ * Shape one HEC exception row. `type` is not part of the row, so the caller
+ * passes the list it was read from.
+ */
+export function toApException(raw: unknown, type: ExceptionTypeName) {
+    const row = apExceptionRowSchema.parse(raw);
+    return {
+        id: row.id,
+        type,
+        match: criteriaOf(row),
+        comment: row.comment,
+        actionNeeded: row.actionNeeded,
+        ignoringSpfCheck: row.ignoringSpfCheck,
+        actor: nonEmpty(row.editedBy) ? row.editedBy : row.addedBy,
+        updatedAt: row.updateTime,
+    };
+}
+
+export type APException = ReturnType<typeof toApException>;

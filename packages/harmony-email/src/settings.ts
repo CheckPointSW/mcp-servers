@@ -116,6 +116,47 @@ export interface SettingsInit {
  * server are still accepted so existing .env files keep working.
  */
 export class Settings {
+    /**
+     * Keys whose values debug output may print (see debugView in mcp-utils).
+     * Anything not listed, including every credential, is shown hidden.
+     * Lists both the header/CLI names (hec-*) and the property names.
+     */
+    static readonly debugLoggableKeys: readonly string[] = [
+        'hec-domain', 'domain', 'hec-region', 'region', 'hec-scope', 'scope',
+        'hec-auth-method', 'auth-method', 'hec-request-timeout', 'request-timeout',
+        'hec-max-retries', 'max-retries', 'hec-retry-base-seconds', 'retry-base-seconds',
+        'hec-max-concurrency', 'max-concurrency', 'hec-action-batch-limit',
+        'action-batch-limit',
+    ];
+
+    /**
+     * Headers an HTTP session may mix with the operator's values (see
+     * connection-source in mcp-utils): the numeric tunables, which are
+     * deployment-wide rather than per tenant, under both spellings.
+     */
+    static readonly basicKeys: readonly string[] = [
+        'HEC-REQUEST-TIMEOUT', 'HEC-MAX-RETRIES', 'HEC-RETRY-BASE-SECONDS',
+        'HEC-MAX-CONCURRENCY', 'HEC-ACTION-BATCH-LIMIT',
+    ];
+
+    /**
+     * The Python server's names for the tunables (alias -> canonical), so a
+     * caller's SMARTAPI-MCP-* header overrides the operator's HEC_* value.
+     */
+    static readonly headerAliases: Readonly<Record<string, string>> = {
+        'SMARTAPI-MCP-REQUEST-TIMEOUT': 'HEC-REQUEST-TIMEOUT',
+        'SMARTAPI-MCP-MAX-RETRIES': 'HEC-MAX-RETRIES',
+        'SMARTAPI-MCP-RETRY-BASE-SECONDS': 'HEC-RETRY-BASE-SECONDS',
+        'SMARTAPI-MCP-MAX-CONCURRENCY': 'HEC-MAX-CONCURRENCY',
+        'SMARTAPI-MCP-ACTION-BATCH-LIMIT': 'HEC-ACTION-BATCH-LIMIT',
+    };
+
+    /**
+     * An HTTP session never uses the operator's tenant: a client must not be
+     * able to act as whichever tenant the operator configured.
+     */
+    static readonly operatorSettingsOverHttp = false;
+
     public domain = '';
     public clientId = '';
     public secret = '';
@@ -129,48 +170,19 @@ export class Settings {
     public actionBatchLimit: number;
     public debug: string | string[] | boolean | undefined;
 
+    // Takes only what it is given; fromArgs reads the environment.
     constructor({
-        domain = firstOf(
-            process.env.HEC_DOMAIN,
-            process.env.SMARTAPI_MCP_DOMAIN
-        ),
-        clientId = firstOf(
-            process.env.HEC_CLIENT_ID,
-            process.env.SMARTAPI_MCP_CLIENT_ID
-        ),
-        secret = firstOf(
-            process.env.HEC_SECRET,
-            process.env.SMARTAPI_MCP_SECRET
-        ),
-        authMethod = firstOf(
-            process.env.HEC_AUTH_METHOD,
-            process.env.SMARTAPI_MCP_AUTH_METHOD
-        ),
-        region = firstOf(
-            process.env.HEC_REGION,
-            process.env.SMARTAPI_MCP_REGION
-        ),
-        scope = firstOf(process.env.HEC_SCOPE, process.env.SMARTAPI_MCP_SCOPE),
-        requestTimeout = firstOf(
-            process.env.HEC_REQUEST_TIMEOUT,
-            process.env.SMARTAPI_MCP_REQUEST_TIMEOUT
-        ),
-        maxRetries = firstOf(
-            process.env.HEC_MAX_RETRIES,
-            process.env.SMARTAPI_MCP_MAX_RETRIES
-        ),
-        retryBaseSeconds = firstOf(
-            process.env.HEC_RETRY_BASE_SECONDS,
-            process.env.SMARTAPI_MCP_RETRY_BASE_SECONDS
-        ),
-        maxConcurrency = firstOf(
-            process.env.HEC_MAX_CONCURRENCY,
-            process.env.SMARTAPI_MCP_MAX_CONCURRENCY
-        ),
-        actionBatchLimit = firstOf(
-            process.env.HEC_ACTION_BATCH_LIMIT,
-            process.env.SMARTAPI_MCP_ACTION_BATCH_LIMIT
-        ),
+        domain,
+        clientId,
+        secret,
+        authMethod,
+        region,
+        scope,
+        requestTimeout,
+        maxRetries,
+        retryBaseSeconds,
+        maxConcurrency,
+        actionBatchLimit,
     }: SettingsInit = {}) {
         this.domain = domain || '';
         this.clientId = clientId || '';
@@ -209,31 +221,32 @@ export class Settings {
     }
 
     static fromArgs(options: Record<string, string | undefined>): Settings {
+        const env = process.env;
         return new Settings({
-            domain: options.hecDomain,
-            clientId: options.hecClientId,
-            secret: options.hecSecret,
-            authMethod: options.hecAuthMethod,
-            region: options.hecRegion,
-            scope: options.hecScope,
-            requestTimeout: options.hecRequestTimeout,
-            maxRetries: options.hecMaxRetries,
-            retryBaseSeconds: options.hecRetryBaseSeconds,
-            maxConcurrency: options.hecMaxConcurrency,
-            actionBatchLimit: options.hecActionBatchLimit,
+            domain: options.hecDomain ?? firstOf(env.HEC_DOMAIN, env.SMARTAPI_MCP_DOMAIN),
+            clientId: options.hecClientId ?? firstOf(env.HEC_CLIENT_ID, env.SMARTAPI_MCP_CLIENT_ID),
+            secret: options.hecSecret ?? firstOf(env.HEC_SECRET, env.SMARTAPI_MCP_SECRET),
+            authMethod: options.hecAuthMethod ?? firstOf(env.HEC_AUTH_METHOD, env.SMARTAPI_MCP_AUTH_METHOD),
+            region: options.hecRegion ?? firstOf(env.HEC_REGION, env.SMARTAPI_MCP_REGION),
+            scope: options.hecScope ?? firstOf(env.HEC_SCOPE, env.SMARTAPI_MCP_SCOPE),
+            requestTimeout: options.hecRequestTimeout ??
+                firstOf(env.HEC_REQUEST_TIMEOUT, env.SMARTAPI_MCP_REQUEST_TIMEOUT),
+            maxRetries: options.hecMaxRetries ?? firstOf(env.HEC_MAX_RETRIES, env.SMARTAPI_MCP_MAX_RETRIES),
+            retryBaseSeconds: options.hecRetryBaseSeconds ??
+                firstOf(env.HEC_RETRY_BASE_SECONDS, env.SMARTAPI_MCP_RETRY_BASE_SECONDS),
+            maxConcurrency: options.hecMaxConcurrency ??
+                firstOf(env.HEC_MAX_CONCURRENCY, env.SMARTAPI_MCP_MAX_CONCURRENCY),
+            actionBatchLimit: options.hecActionBatchLimit ??
+                firstOf(env.HEC_ACTION_BATCH_LIMIT, env.SMARTAPI_MCP_ACTION_BATCH_LIMIT),
         });
     }
 
     /**
-     * Per-request settings, built from headers alone.
-     *
-     * Every tenant-scoped field is passed as an explicit empty string when its
-     * header is absent, because `undefined` would hand the field back to the
-     * constructor's env default. Under HTTP transport that would let a request
-     * with no credentials inherit the server process's own tenant and act as
-     * it, so the empty string is what makes a header-less request fail closed.
-     * The numeric tunables are deployment-wide, not per tenant, so they keep
-     * their defaults.
+     * Per-request settings, built from headers alone. A missing tenant-scoped
+     * header leaves its field empty, so a request without credentials fails
+     * closed. The numeric tunables are deployment-wide, not per tenant: they
+     * are basic keys, so the operator's values apply when the caller sends
+     * none.
      */
     static fromHeaders(headers: Record<string, string | string[]>): Settings {
         return new Settings({
@@ -243,11 +256,26 @@ export class Settings {
             authMethod: getHeaderValue(headers, 'HEC-AUTH-METHOD') ?? '',
             region: getHeaderValue(headers, 'HEC-REGION') ?? '',
             scope: getHeaderValue(headers, 'HEC-SCOPE') ?? '',
-            requestTimeout: getHeaderValue(headers, 'HEC-REQUEST-TIMEOUT'),
-            maxRetries: getHeaderValue(headers, 'HEC-MAX-RETRIES'),
-            retryBaseSeconds: getHeaderValue(headers, 'HEC-RETRY-BASE-SECONDS'),
-            maxConcurrency: getHeaderValue(headers, 'HEC-MAX-CONCURRENCY'),
-            actionBatchLimit: getHeaderValue(headers, 'HEC-ACTION-BATCH-LIMIT'),
+            requestTimeout: firstOf(
+                getHeaderValue(headers, 'HEC-REQUEST-TIMEOUT'),
+                getHeaderValue(headers, 'SMARTAPI-MCP-REQUEST-TIMEOUT')
+            ),
+            maxRetries: firstOf(
+                getHeaderValue(headers, 'HEC-MAX-RETRIES'),
+                getHeaderValue(headers, 'SMARTAPI-MCP-MAX-RETRIES')
+            ),
+            retryBaseSeconds: firstOf(
+                getHeaderValue(headers, 'HEC-RETRY-BASE-SECONDS'),
+                getHeaderValue(headers, 'SMARTAPI-MCP-RETRY-BASE-SECONDS')
+            ),
+            maxConcurrency: firstOf(
+                getHeaderValue(headers, 'HEC-MAX-CONCURRENCY'),
+                getHeaderValue(headers, 'SMARTAPI-MCP-MAX-CONCURRENCY')
+            ),
+            actionBatchLimit: firstOf(
+                getHeaderValue(headers, 'HEC-ACTION-BATCH-LIMIT'),
+                getHeaderValue(headers, 'SMARTAPI-MCP-ACTION-BATCH-LIMIT')
+            ),
         });
     }
 }

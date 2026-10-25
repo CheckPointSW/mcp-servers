@@ -18,6 +18,7 @@ WHEN TO USE:
 PURPOSE:
 - \`whitelist\` always allows, \`blacklist\` always blocks, \`spam_whitelist\` allows through the spam filter only
 - Each entry can match by sender email, domain or IP, recipient, subject, link domain, or attachment hash
+- Each entry returns \`id\`, \`type\`, \`match\` (only the criteria that are set, each as {value, matching}; matching is exact, contains, endswith...), \`comment\`, \`actionNeeded\` (the verdict the entry applies, e.g. phishing), \`ignoringSpfCheck\`, \`actor\` (who last edited it) and \`updatedAt\`
 - Read-only`;
 
 const GET_DESCRIPTION = `Fetch one Anti-Phishing exception entry by id.
@@ -26,7 +27,8 @@ WHEN TO USE:
 - Drilling into a specific entry surfaced by \`list_ap_exceptions\`
 
 PURPOSE:
-- \`exc_id\` is the entry id from \`list_ap_exceptions\`; \`exc_type\` must match the list it came from
+- \`exc_id\` is the entry \`id\` from \`list_ap_exceptions\`; \`exc_type\` must match the list it came from
+- Returns the same fields as a \`list_ap_exceptions\` entry
 - Read-only`;
 
 const excTypeSchema = z
@@ -57,7 +59,11 @@ export function registerExceptionTools(
                     args.exc_type,
                     args.scope
                 );
-                return { exceptions: rows.map(toApException) };
+                return {
+                    exceptions: rows.map((row) =>
+                        toApException(row, args.exc_type)
+                    ),
+                };
             })
     );
 
@@ -82,7 +88,8 @@ export function registerExceptionTools(
                         args.exc_type,
                         args.exc_id,
                         args.scope
-                    )
+                    ),
+                    args.exc_type
                 );
             })
     );

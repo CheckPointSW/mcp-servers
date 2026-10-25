@@ -4,6 +4,7 @@ import {
     SmartApiError,
     UpstreamError,
 } from './core/errors.js';
+import { exceptionIdOf } from './tools/shared/schemas.js';
 import type {
     ExceptionType,
     HarmonyEmailAPIManager,
@@ -75,8 +76,8 @@ function firstExceptionId(
         ['blacklist', blacklist],
     ];
     for (const [excType, rows] of candidates) {
-        const value = rows?.[0]?.id ?? rows?.[0]?.exceptionId;
-        if (typeof value === 'string') return [excType, value];
+        const value = exceptionIdOf(rows?.[0]);
+        if (value !== null) return [excType, value];
     }
     return [null, null];
 }

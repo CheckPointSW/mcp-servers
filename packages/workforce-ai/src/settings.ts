@@ -16,6 +16,14 @@ import { getHeaderValue } from '@chkp/mcp-utils';
  * the base class resolves it to a region default when omitted.
  */
 export class Settings extends InfraSettings {
+  /**
+   * Keys whose values debug output may print (see debugView in mcp-utils).
+   * Anything not listed, including every credential, is shown hidden.
+   */
+  static override readonly debugLoggableKeys: readonly string[] = [
+    ...InfraSettings.debugLoggableKeys, 'cp-ci-gateway', 'gateway',
+  ];
+
   static fromArgs(args: Record<string, any>): Settings {
     Settings.requireCreds(args.clientId, args.accessKey, args.gateway);
     return new Settings({
@@ -23,7 +31,9 @@ export class Settings extends InfraSettings {
       secretKey: args.accessKey,
       gatewayUrl: args.gateway,
       region:
-        typeof args.region === 'string' ? (args.region.trim().toUpperCase() as Region) : undefined,
+        typeof args.region === 'string'
+          ? (args.region.trim().toUpperCase() as Region)
+          : ((process.env.REGION as Region) || undefined),
     });
   }
 

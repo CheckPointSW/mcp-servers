@@ -13,7 +13,7 @@ import { Settings } from "./settings.js";
 import { CpInfoService } from "./cpinfo-service.js";
 import { registerCpinfoTools } from "./tool-handlers.js";
 import { logger } from "./logger.js";
-import { allowedRootsConfigured } from "./paths.js";
+import { allowedRootsConfigured, httpStartupRefusal } from "./paths.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -30,22 +30,7 @@ logger.info(`Working directory: ${process.cwd()}`);
 
 // Warm the allowed-roots cache now so a bad CPINFO_ALLOWED_ROOTS entry is
 // reported at boot rather than on the first tool call.
-const rootsConfigured = allowedRootsConfigured();
-
-const isHttpTransport =
-  (process.env.MCP_TRANSPORT_TYPE ?? "").toLowerCase() === "http" ||
-  process.argv.some((a, i) => a.toLowerCase() === "--transport=http" ||
-    (a === "--transport" && (process.argv[i + 1] ?? "").toLowerCase() === "http"));
-
-if (isHttpTransport && !rootsConfigured) {
-  logger.warning("================================================================");
-  logger.warning("WARNING: starting in HTTP transport mode without CPINFO_ALLOWED_ROOTS set.");
-  logger.warning("Any MCP client connected to this server can read any path this process");
-  logger.warning("account can access on this host — there is no directory confinement.");
-  logger.warning("Set CPINFO_ALLOWED_ROOTS to a comma-separated list of absolute directories");
-  logger.warning("to restrict tool file access before exposing this server to multiple callers.");
-  logger.warning("================================================================");
-}
+allowedRootsConfigured();
 
 const serverModule = createServerModule(
   server,
@@ -53,6 +38,7 @@ const serverModule = createServerModule(
   pkg,
   CpInfoAPIManager
 );
+serverModule.httpStartupCheck = httpStartupRefusal;
 
 const runApi = createApiRunner(serverModule);
 
