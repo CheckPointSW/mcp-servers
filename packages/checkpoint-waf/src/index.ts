@@ -69,7 +69,7 @@ Example queries:
                 'The GraphQL query or mutation to execute (e.g., "{ getAssets { status assets { id name } } }")'
             ),
         variables: z
-            .record(z.any())
+            .record(z.string(), z.any())
             .optional()
             .describe('Optional variables for the GraphQL query'),
     },
@@ -301,7 +301,7 @@ server.tool(
             .describe(
                 'Natural language description of what objects you need (e.g., "show me all my assets", "list security practices").'
             ),
-        filters: z.record(z.any()).optional().describe('Optional filters: matchSearch, sortBy, practiceType, etc.'),
+        filters: z.record(z.string(), z.any()).optional().describe('Optional filters: matchSearch, sortBy, practiceType, etc.'),
         auto_detect: z.boolean().optional().describe('Enable auto-detection from user_intent (default: true).'),
     },
     async (params, extra: { sessionId?: string }) => {
@@ -347,7 +347,7 @@ server.tool(
         id: z.string().optional().describe('Required for update/delete.'),
         practiceId: z.string().optional().describe('Practice ID for connecting behaviors/triggers to a practice. Required for WebUserResponse and TrustedSource behaviors. Do NOT pass for Exception behaviors (causes error). Optional for triggers.'),
         ownerId: z.string().optional().describe('Asset ID that owns the object. Required for Local visibility practices and behaviors. Local behaviors (with ownerId) cascade-delete when the owning asset is deleted and cannot be independently deleted via deleteBehavior.'),
-        data: z.record(z.any()).optional().describe('Object-specific data for create/update.'),
+        data: z.record(z.string(), z.any()).optional().describe('Object-specific data for create/update.'),
     },
     async (params, extra: { sessionId?: string }) => {
         const settings = SessionContext.getSettings(serverModule, extra) as Settings;
@@ -372,7 +372,7 @@ server.tool(
     'Check Point WAF consultant. Provides best-practice recommendations and guidance based on WAF configuration. Uses official Check Point WAF documentation to explain settings and suggest next actions or tools.',
     {
         user_prompt: z.string().describe("The user's request or question."),
-        waf_configuration: z.record(z.any()).optional().describe("The user's WAF configuration or relevant subset."),
+        waf_configuration: z.record(z.string(), z.any()).optional().describe("The user's WAF configuration or relevant subset."),
         agent_uncertainty: z.string().optional().describe('What the agent is unsure about.'),
         available_tools: z
             .array(z.object({ name: z.string(), description: z.string() }))

@@ -2747,7 +2747,7 @@ server.tool(
       z.string().describe('Protocol name: UDP, TCP, or ICMP'),
       z.number().int().min(0).max(255).describe('IANA protocol number')
     ]).describe('IP protocol either as string (UDP/TCP/ICMP) or IANA protocol number'),
-    protocol_options: z.record(z.any()).describe('Protocol-specific options (e.g., for TCP/UDP: source-port, destination-port; for ICMP: type, code)'),
+    protocol_options: z.record(z.string(), z.any()).describe('Protocol-specific options (e.g., for TCP/UDP: source-port, destination-port; for ICMP: type, code)'),
     incoming_interface: z.string().describe('Incoming interface name for the packet. Use "localhost" to simulate local outgoing connection'),
     ip_version: z.enum(['4', '6']).optional().default('4').describe('IP version: 4 for IPv4, 6 for IPv6'),
     application: z.union([

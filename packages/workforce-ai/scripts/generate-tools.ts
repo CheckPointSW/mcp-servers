@@ -137,14 +137,19 @@ function accessModeOf(spec: any, tool: ToolEntry): string {
 function generateToolsFile(tools: ToolEntry[]): string {
   const mapEntries = tools
     .map((tool) => {
-      let zodCode = jsonSchemaToZod(tool.inputSchema, { target: 'zod3' });
-      // Fix json-schema-to-zod bug: oneOf handler emits Zod v4 syntax even with target 'zod3'
+      let zodCode = jsonSchemaToZod(tool.inputSchema, { zodVersion: 4 });
+      // json-schema-to-zod still emits Zod 3 string formats; map them to their Zod 4 equivalents
       zodCode = zodCode
-        .replace(/z\.core\.\$ZodIssue/g, 'z.ZodIssue')
-        // Fix oneOf: replace invalid_union (needs unionErrors in zod3) with custom
-        .replace(/code: "invalid_union",/g, 'code: "custom",')
-        // Remove dangling errors property not valid in zod3
-        .replace(/errors: \[errors\],\n\s*/g, '');
+        // .ip({ version }) was removed in Zod 4
+        .replace(
+          /z\.string\(\)\.ip\(\{ version: "v([46])"(?:, message: ("(?:[^"\\]|\\.)*"))? \}\)/g,
+          (_m, version, message) => `z.ipv${version}(${message ?? ''})`,
+        )
+        // Zod 4's .uuid() enforces RFC 9562 variant bits; z.guid() keeps the Zod 3 behavior
+        .replace(/z\.string\(\)\.uuid\(/g, 'z.guid(');
+      if (zodCode.includes('.ip(')) {
+        throw new Error(`Unsupported string format "ip" in ${tool.name}; use ipv4 or ipv6`);
+      }
       return `
   [
     '${tool.name}',
