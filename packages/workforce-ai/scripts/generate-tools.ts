@@ -138,7 +138,7 @@ function generateToolsFile(tools: ToolEntry[]): string {
   const mapEntries = tools
     .map((tool) => {
       let zodCode = jsonSchemaToZod(tool.inputSchema, { zodVersion: 4 });
-      // json-schema-to-zod still emits Zod 3 string formats; map them to their Zod 4 equivalents
+      // json-schema-to-zod still emits some Zod 3 constructs; map them to their Zod 4 equivalents
       zodCode = zodCode
         // .ip({ version }) was removed in Zod 4
         .replace(
@@ -146,7 +146,11 @@ function generateToolsFile(tools: ToolEntry[]): string {
           (_m, version, message) => `z.ipv${version}(${message ?? ''})`,
         )
         // Zod 4's .uuid() enforces RFC 9562 variant bits; z.guid() keeps the Zod 3 behavior
-        .replace(/z\.string\(\)\.uuid\(/g, 'z.guid(');
+        .replace(/z\.string\(\)\.uuid\(/g, 'z.guid(')
+        // Zod 4's .default() skips validating the default; .prefault() keeps the Zod 3 behavior,
+        // so a spec default that fails its own schema (e.g. a uuid defaulting to "") still
+        // rejects an omitted field instead of sending the invalid default upstream
+        .replace(/\.default\(/g, '.prefault(');
       if (zodCode.includes('.ip(')) {
         throw new Error(`Unsupported string format "ip" in ${tool.name}; use ipv4 or ipv6`);
       }
