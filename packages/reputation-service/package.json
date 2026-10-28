@@ -23,7 +23,8 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "axios": "^1.16.0",
     "commander": "^14.0.3",
-    "node-machine-id": "^1.1.12"
+    "node-machine-id": "^1.1.12",
+    "zod": "^4.6.7"
   },
   "repository": {
     "type": "git",
@@ -37,8 +38,7 @@
     "@types/commander": "^2.12.0",
     "@types/node": "^26.0.0",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.4",
-    "zod": "^3.24.4"
+    "typescript": "^5.0.4"
   },
   "keywords": [],
   "author": "",
