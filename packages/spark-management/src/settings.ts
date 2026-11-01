@@ -74,7 +74,7 @@ export class Settings extends BaseSettings {
       clientId: options.clientId ?? env.CLIENT_ID,
       secretKey: options.secretKey ?? env.SECRET_KEY,
       infinityPortalUrl: options.infinityPortalUrl ?? env.INFINITY_PORTAL_URL,
-      region: options.region ?? (env.REGION || undefined)
+      region: BaseSettings.hostedRegion(env, options.region ?? env.REGION) ?? options.region ?? (env.REGION || undefined)
     });
   }
 

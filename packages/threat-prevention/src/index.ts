@@ -6,7 +6,10 @@ import {
   createServerModule,
   createApiRunner,
   SessionContext,
-  createMcpServer
+  createMcpServer,
+  toolErrorFrom,
+  McpErrorCode,
+  toolError
 } from '@chkp/mcp-utils';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -46,38 +49,15 @@ server.tool(
       // Get API manager for this session
       const apiManager = SessionContext.getAPIManager(serverModule, extra);
       
-      // Check if environment is MDS
-      const isMds = await apiManager.isMds();
-      
-      if (!isMds) {
-        return { 
-          content: [{ 
-            type: 'text', 
-            text: 'Management server is up and running. The environment is NOT part of Multi Domain system, there is no need to use domain parameters in tool calls.' 
-          }] 
-        };
-      } else {
-        // Get domains for MDS environment
-        const domains = await apiManager.getDomains();
-        
-        // Format domain information
-        const domainList = domains.map((domain: { name: string; type: string }) => `${domain.name} (${domain.type})`).join(', ');
-        
-        return { 
-          content: [{ 
-            type: 'text', 
-            text: `Management server is up and running. The environment is part of Multi Domain system. You need to use the domain parameter for calling APIs, if you are not sure which to use, ask the user. The domains in the system are: ${domainList}` 
-          }] 
-        };
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const environment = await apiManager.describeDomainEnvironment();
       return { 
         content: [{ 
           type: 'text', 
-          text: `Error initializing management connection: ${errorMessage}` 
+          text: `Management server is up and running. ${environment}` 
         }] 
       };
+    } catch (error) {
+        return toolErrorFrom(error, 'Error initializing management connection');
     }
   }
 );
@@ -761,7 +741,7 @@ server.tool(
       (Array.isArray(cve) ? cve : [cve]).filter((c) => typeof c === 'string').map((c: string) => c.trim()).filter(Boolean)
     ));
     if (cves.length === 0) {
-      return { content: [{ type: 'text', text: 'Error: `cve` must be a CVE string or a non-empty array of CVE strings.' }] };
+      return toolError(McpErrorCode.VALIDATION_ERROR, '`cve` must be a CVE string or a non-empty array of CVE strings.');
     }
 
     const responses: any[] = [];

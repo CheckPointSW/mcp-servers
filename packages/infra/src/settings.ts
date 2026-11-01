@@ -6,7 +6,33 @@ import { getHeaderValue, SettingsManager } from '@chkp/mcp-utils';
 /**
  * Region type definition
  */
-export type Region = 'EU' | 'US' | 'AU' | 'IN' | 'AE' | 'CA' | 'DEV' |'STG' | 'LOCAL';
+export type Region = 'EU' | 'US' | 'AU' | 'IN' | 'AE' | 'CA' | 'JP' | 'DEV' |'STG' | 'LOCAL';
+
+/**
+ * Infinity Portal gateway for each region. STG is listed before DEV and LOCAL,
+ * which share its gateway, so a gateway host maps back to STG.
+ */
+const REGION_GATEWAYS: Record<Region, string> = {
+  EU: 'https://cloudinfra-gw.portal.checkpoint.com',
+  US: 'https://cloudinfra-gw-us.portal.checkpoint.com',
+  AU: 'https://cloudinfra-gw.ap.portal.checkpoint.com',
+  IN: 'https://cloudinfra-gw.in.portal.checkpoint.com',
+  AE: 'https://cloudinfra-gw.ae.portal.checkpoint.com',
+  CA: 'https://cloudinfra-gw.ca.portal.checkpoint.com',
+  JP: 'https://cloudinfra-gw.jp.portal.checkpoint.com',
+  STG: 'https://dev-cloudinfra-gw.kube1.iaas.checkpoint.com',
+  DEV: 'https://dev-cloudinfra-gw.kube1.iaas.checkpoint.com',
+  LOCAL: 'https://dev-cloudinfra-gw.kube1.iaas.checkpoint.com',
+};
+
+/** Every supported region code (uppercase), for packages that validate a region themselves. */
+export const REGIONS: readonly Region[] = Object.freeze(Object.keys(REGION_GATEWAYS) as Region[]);
+
+const GATEWAY_HOST_REGIONS = new Map<string, Region>();
+for (const [region, url] of Object.entries(REGION_GATEWAYS) as [Region, string][]) {
+  const host = new URL(url).hostname;
+  if (!GATEWAY_HOST_REGIONS.has(host)) GATEWAY_HOST_REGIONS.set(host, region);
+}
 
 /**
  * Settings for the MCP servers
@@ -17,7 +43,7 @@ export class Settings {
    * Anything not listed, including every credential, is shown hidden.
    */
   static readonly debugLoggableKeys: readonly string[] = [
-    'management-host', 'management-port', 's1c-url', 'gateway-url', 'region',
+    'management-host', 'management-port', 'management-domain', 's1c-url', 'gateway-url', 'region',
     'dev-port', 'cloud-connected', 'write-mode',
   ];
 
@@ -34,6 +60,7 @@ export class Settings {
   public s1cUrl?: string;
   public managementHost?: string;
   public managementPort?: string;
+  public managementDomain?: string; // MDS domain to log in to, for credentials without System Domain access
   public cloudInfraToken?: string;
   public cloudConnected?: boolean;
   public sid?: string;              // Pre-authenticated session ID (X-chkp-sid)
@@ -68,9 +95,59 @@ export class Settings {
   }
 
   /**
+   * The region whose gateway is exactly this https URL's host, or undefined
+   * for any other host. Only hosts in REGION_GATEWAYS are recognised.
+   */
+  static regionForGatewayHost(url?: string): Region | undefined {
+    if (!url) return undefined;
+    try {
+      const parsed = new URL(url.trim());
+      if (parsed.protocol !== 'https:') return undefined;
+      return GATEWAY_HOST_REGIONS.get(parsed.hostname.toLowerCase());
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * The region of the Check Point MCP hosting environment this process runs
+   * in, from the CLOUDINFRA_HOST gateway the platform sets on every pod.
+   * Undefined outside the platform, or when the host is not a known gateway.
+   *
+   * It takes precedence over REGION: the platform sets REGION to its own
+   * location code (`eu`, `apse2`, ...), and staging pods set REGION=eu while
+   * using the staging gateway. A `requested` region that already uses the
+   * hosted gateway is returned as is, since STG, DEV and LOCAL share a gateway
+   * but servers treat them differently. Read from the process environment
+   * only, never from request headers.
+   */
+  static hostedRegion(env: Record<string, unknown> = process.env, requested?: unknown): Region | undefined {
+    const host = env.CLOUDINFRA_HOST;
+    const hosted = typeof host === 'string' ? Settings.regionForGatewayHost(host) : undefined;
+    if (!hosted) return undefined;
+    const asked = typeof requested === 'string' ? requested.trim().toUpperCase() : '';
+    const askedGateway = Object.prototype.hasOwnProperty.call(REGION_GATEWAYS, asked)
+      ? REGION_GATEWAYS[asked as Region]
+      : undefined;
+    return askedGateway === REGION_GATEWAYS[hosted] ? asked as Region : hosted;
+  }
+
+  /**
+   * Operator values for HTTP sessions (see SettingsManager.setOperatorValues):
+   * REGION becomes the hosting environment's region when there is one, so a
+   * session's default region matches its pod.
+   */
+  static adjustOperatorValues(values: Record<string, unknown>): Record<string, unknown> {
+    const region = Settings.hostedRegion(values, values.REGION);
+    return region ? { ...values, REGION: region } : values;
+  }
+
+  /**
    * Detect the region from a gateway base URL
    */
   static detectRegionFromUrl(url: string): Region | undefined {
+    const exact = Settings.regionForGatewayHost(url);
+    if (exact) return exact;
     if (url.includes('cloudinfra-gw-us.portal.checkpoint.com')) return 'US';
     if (url.includes('cloudinfra-gw.portal.checkpoint.com')) return 'EU';
     if (url.includes('dev-cloudinfra-gw')) return 'STG';
@@ -86,6 +163,7 @@ export class Settings {
     s1cUrl,
     managementHost,
     managementPort = '443',
+    managementDomain,
     cloudInfraToken,
     cloudConnected = false,
     sid,
@@ -101,6 +179,7 @@ export class Settings {
     s1cUrl?: string;
     managementHost?: string;
     managementPort?: string;
+    managementDomain?: string;
     cloudInfraToken?: string;
     cloudConnected?: boolean;
     sid?: string;
@@ -120,6 +199,7 @@ export class Settings {
         s1cUrl,
         managementHost,
         managementPort,
+        managementDomain,
         cloudInfraToken: cloudInfraToken ? '***' : undefined,
         clientId,
         secretKey: secretKey ? '***' : undefined,
@@ -134,6 +214,7 @@ export class Settings {
     this.s1cUrl = s1cUrl;
     this.managementHost = managementHost;
     this.managementPort = managementPort;
+    this.managementDomain = managementDomain?.trim() || undefined;
     this.cloudInfraToken = cloudInfraToken;
     this.cloudConnected = cloudConnected;
     this.sid = sid;
@@ -163,33 +244,14 @@ export class Settings {
    * Check if the provided string is a valid region
    */
   private isValidRegion(region: string): region is Region {
-    return ['EU', 'US', 'AU', 'IN', 'AE', 'CA', 'DEV', 'STG', 'LOCAL'].includes(region.toUpperCase() as Region);
+    return REGIONS.includes(region.toUpperCase() as Region);
   }
 
   /**
    * Get the base gateway URL for a given region
    */
   private getRegionGatewayUrl(region: Region): string {
-    switch (region) {
-      case 'EU':
-        return 'https://cloudinfra-gw.portal.checkpoint.com';
-      case 'US':
-        return 'https://cloudinfra-gw-us.portal.checkpoint.com';
-      case 'AU':
-        return 'https://cloudinfra-gw.ap.portal.checkpoint.com';
-      case 'IN':
-        return 'https://cloudinfra-gw.in.portal.checkpoint.com';
-      case 'AE':
-        return 'https://cloudinfra-gw.ae.portal.checkpoint.com';
-      case 'CA':
-        return 'https://cloudinfra-gw.ca.portal.checkpoint.com';
-      case 'STG':
-      case 'DEV':
-      case 'LOCAL':
-        return 'https://dev-cloudinfra-gw.kube1.iaas.checkpoint.com';
-      default:
-        return '';
-    }
+    return REGION_GATEWAYS[region] ?? '';
   }
 
   /**
@@ -335,13 +397,14 @@ export class Settings {
       s1cUrl: args.s1cUrl ?? env.S1C_URL,
       managementHost: args.managementHost ?? env.MANAGEMENT_HOST,
       managementPort: args.managementPort ?? (env.MANAGEMENT_PORT || undefined),
+      managementDomain: args.managementDomain ?? env.MANAGEMENT_DOMAIN,
       cloudInfraToken: args.cloudInfraToken ?? env.CLOUD_INFRA_TOKEN,
       cloudConnected: args.cloudConnected ?? env.CLOUD_CONNECTED === 'true',
       clientId: args.clientId ?? env.CLIENT_ID,
       secretKey: args.secretKey ?? env.SECRET_KEY,
-      region: typeof args.region === 'string'
+      region: Settings.hostedRegion(env, args.region ?? env.REGION) ?? (typeof args.region === 'string'
         ? args.region.trim().toUpperCase() as Region
-        : (env.REGION as Region) || undefined,
+        : (env.REGION as Region) || undefined),
       devPort: args.devPort ?? (env.DEV_PORT || undefined),
       gatewayUrl: args.gatewayUrl,
     });
@@ -366,6 +429,7 @@ export class Settings {
       s1cUrl: getHeaderValue(headers, 'S1C-URL'),
       managementHost: getHeaderValue(headers, 'MANAGEMENT-HOST'),
       managementPort: getHeaderValue(headers, 'MANAGEMENT-PORT'),
+      managementDomain: getHeaderValue(headers, 'MANAGEMENT-DOMAIN'),
       cloudInfraToken: getHeaderValue(headers, 'CLOUD-INFRA-TOKEN'),
       cloudConnected: getHeaderValue(headers, 'CLOUD-CONNECTED'),
       sid: getHeaderValue(headers, 'X-chkp-sid'),
@@ -404,6 +468,7 @@ export class Settings {
       s1cUrl: extractedValues.s1cUrl,
       managementHost: extractedValues.managementHost,
       managementPort: extractedValues.managementPort,
+      managementDomain: extractedValues.managementDomain,
       cloudInfraToken: extractedValues.cloudInfraToken,
       cloudConnected: extractedValues.cloudConnected === 'true',
       sid: extractedValues.sid,

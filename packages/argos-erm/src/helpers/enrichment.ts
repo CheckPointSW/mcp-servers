@@ -1,4 +1,6 @@
 import type { ArgosERMAPIManager } from '../client.js';
+import { itemError } from './item-error.js';
+import { readJsonObject } from './response.js';
 
 export function enrichAlertsWithIocFlag(data: Record<string, unknown>): void {
     const alerts = (data.alerts ?? []) as Record<string, unknown>[];
@@ -45,12 +47,20 @@ export async function enrichAssetsWithTechnologies(
         ],
     };
 
-    const techResponse = await apiManager.post(
-        `${apiBase}/assets/technologies`,
-        techPayload
-    );
-    const techData = await techResponse.json();
-    const assetsTechnologies = techData.assets_technologies ?? {};
+    // Technologies are optional detail on assets that were already retrieved, so
+    // a failure is recorded beside them rather than failing the call.
+    let assetsTechnologies: Record<string, unknown>;
+    try {
+        const techResponse = await apiManager.post(
+            `${apiBase}/assets/technologies`,
+            techPayload
+        );
+        const techData = await readJsonObject(techResponse);
+        assetsTechnologies = techData.assets_technologies ?? {};
+    } catch (e) {
+        assetsData._technologies_error = itemError(e);
+        return;
+    }
 
     for (const asset of assets) {
         const id = asset.id;

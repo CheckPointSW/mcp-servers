@@ -5,7 +5,8 @@ import {
     launchMCPServer,
     createServerModule,
     createApiRunner,
-    createMcpServer
+    createMcpServer,
+  toolErrorFrom
 } from '@chkp/mcp-utils';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -117,14 +118,7 @@ server.tool(
                 ],
             };
         } catch (error) {
-            return {
-                content: [
-                    {
-                        type: 'text',
-                        text: `API Error: ${(error as Error).message}`,
-                    },
-                ],
-            };
+            return toolErrorFrom(error, 'API Error');
         }
     }
 );

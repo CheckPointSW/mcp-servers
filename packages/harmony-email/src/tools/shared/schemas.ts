@@ -28,11 +28,15 @@ export function compact<T extends Record<string, unknown>>(obj: T): Partial<T> {
     ) as Partial<T>;
 }
 
+// Loose fields are .optional(): zod 4 rejects a missing z.unknown() key, but
+// upstream omits absent fields and we map them to null like the Python models.
 const looseString = z
     .unknown()
+    .optional()
     .transform((v) => (typeof v === 'string' ? v : null));
 const looseRecord = z
     .unknown()
+    .optional()
     .transform((v) =>
         v !== null && typeof v === 'object' && !Array.isArray(v)
             ? (v as Record<string, unknown>)
@@ -60,10 +64,10 @@ export function normalizeSeverity(value: unknown): string | null {
 
 export const eventSchema = z
     .object({
-        eventId: z.unknown(),
+        eventId: z.unknown().optional(),
         type: looseString,
         state: looseString,
-        severity: z.unknown(),
+        severity: z.unknown().optional(),
         saas: looseString,
         description: looseString,
         entityId: looseString,
@@ -106,6 +110,7 @@ const sectoolResultSchema = z
         statusDescription: looseString,
         verdict: z
             .unknown()
+            .optional()
             .transform((v) => (typeof v === 'string' ? v : 'unknown')),
     })
     .passthrough()
@@ -313,7 +318,7 @@ const apExceptionRowSchema = z.preprocess(
             id: z.string(),
             comment: looseString,
             actionNeeded: looseString,
-            ignoringSpfCheck: z.unknown().transform((v) => {
+            ignoringSpfCheck: z.unknown().optional().transform((v) => {
                 if (typeof v === 'boolean') return v;
                 if (v === 1 || v === 'true') return true;
                 if (v === 0 || v === 'false') return false;

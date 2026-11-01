@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { isJsonObject } from './helpers/json.js';
 
 function isRetryableError(error: unknown): boolean {
     const err = error as Record<string, unknown>;
@@ -23,29 +24,119 @@ function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * A request-schema field name or list index: the parts of a validation error
+ * location kept in a message. A location continues into the request's own
+ * values for a keyed field, so it is cut at the first part that is not one.
+ */
+const LOCATION_PART = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/**
+ * A FastAPI validation error list as `field → path: message` pairs.
+ *
+ * Only each item's location and message are kept. Items also echo the
+ * rejected request back (`input`, `ctx`), which can carry customer data, so
+ * nothing else is ever included, and an item without a string message is
+ * skipped rather than serialized.
+ */
 export function formatValidationErrors(detail: unknown[]): string {
     return detail
         .map((item) => {
-            if (typeof item === 'object' && item !== null) {
-                const obj = item as Record<string, unknown>;
-                const locArr = Array.isArray(obj.loc) ? obj.loc : [];
-                const loc = locArr.slice(1).join(' → ');
-                const msg =
-                    typeof obj.msg === 'string'
-                        ? obj.msg
-                        : JSON.stringify(item);
-                return loc ? `${loc}: ${msg}` : msg;
+            if (typeof item === 'string') return item.trim();
+            if (!isJsonObject(item) || typeof item.msg !== 'string') return '';
+            const msg = item.msg.trim();
+            if (!msg) return '';
+            const parts: string[] = [];
+            for (const part of Array.isArray(item.loc)
+                ? item.loc.slice(1)
+                : []) {
+                if (typeof part === 'number') parts.push(String(part));
+                else if (typeof part === 'string' && LOCATION_PART.test(part))
+                    parts.push(part);
+                else break;
             }
-            return typeof item === 'string' ? item : JSON.stringify(item);
+            return parts.length ? `${parts.join(' → ')}: ${msg}` : msg;
         })
+        .filter((text) => text !== '')
         .join('; ');
 }
 
+/** A non-empty explanation in one error-body field, never serializing it. */
+function fieldText(value: unknown): string {
+    if (typeof value === 'string') return value.trim();
+    if (Array.isArray(value)) return formatValidationErrors(value);
+    // One level down, for a body such as `{"detail": {"error": "..."}}`.
+    if (isJsonObject(value)) {
+        for (const key of ['message', 'error', 'msg'] as const) {
+            const nested = value[key];
+            if (typeof nested === 'string' && nested.trim())
+                return nested.trim();
+        }
+    }
+    return '';
+}
+
+/**
+ * The upstream's explanation in an error body: the first of `detail`,
+ * `message` and `error` that holds a non-empty message. Nothing else in the
+ * body is used, since the rest can echo request or customer data. Empty when
+ * there is no such field.
+ */
 export function extractDetailFromBody(data: Record<string, unknown>): string {
-    const detail = data.detail ?? data.message ?? data.error;
-    if (detail === undefined) return JSON.stringify(data);
-    if (Array.isArray(detail)) return formatValidationErrors(detail);
-    return typeof detail === 'string' ? detail : JSON.stringify(detail);
+    for (const key of ['detail', 'message', 'error'] as const) {
+        const text = fieldText(data[key]);
+        if (text) return text;
+    }
+    return '';
+}
+
+/** Longest upstream error detail kept in an error message. */
+const MAX_ERROR_DETAIL_LENGTH = 500;
+
+/**
+ * Most of an error body read in search of its detail. Room for a validation
+ * error that echoes a large request back; a larger body is a page, not a
+ * message, and is not read further.
+ */
+const MAX_ERROR_BODY_BYTES = 256 * 1024;
+
+/** The body as text, or undefined when it is absent, unreadable or too large. */
+async function readSmallBody(response: Response): Promise<string | undefined> {
+    const reader = response.body?.getReader();
+    if (!reader) return undefined;
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    try {
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done) return Buffer.concat(chunks).toString('utf8');
+            size += value.byteLength;
+            if (size > MAX_ERROR_BODY_BYTES) return undefined;
+            chunks.push(value);
+        }
+    } catch {
+        return undefined;
+    } finally {
+        // Releases the rest of the body; a failure here changes nothing.
+        reader.cancel().catch(() => undefined);
+    }
+}
+
+/**
+ * The upstream's explanation of a failed request, from a JSON error body.
+ * Read here, once, so it is kept when the request is retried and the final
+ * error wraps this one. Empty when there is none.
+ */
+async function errorDetail(response: Response): Promise<string> {
+    const body = await readSmallBody(response);
+    if (body === undefined) return '';
+    let data: unknown;
+    try {
+        data = JSON.parse(body);
+    } catch {
+        return '';
+    }
+    return isJsonObject(data) ? extractDetailFromBody(data) : '';
 }
 
 type QueryParamValue = string | number | boolean;
@@ -110,10 +201,11 @@ export class ArgosERMAPIManager {
             json?: Record<string, unknown>;
         } = {}
     ): Promise<Response> {
-        let lastError: Error | undefined;
-        const maxAttempts = 1 + this.retries;
+        // Every attempt returns or throws; the last one always throws, so the
+        // loop has no exit of its own.
+        const lastAttempt = Math.max(0, this.retries);
 
-        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        for (let attempt = 0; ; attempt++) {
             try {
                 const url = new URL(endpoint, this.baseUrl);
                 if (options.params) {
@@ -143,27 +235,49 @@ export class ArgosERMAPIManager {
                     fetchOptions.body = JSON.stringify(options.json);
                 }
 
-                const response = await fetch(url.toString(), fetchOptions);
-                clearTimeout(timeoutId);
+                let response: Response;
+                let detail = '';
+                try {
+                    response = await fetch(url.toString(), fetchOptions);
+                    if (!response.ok) {
+                        // Read while the request timeout still applies. The
+                        // body is consumed here; the error keeps the response
+                        // for its status.
+                        detail = await errorDetail(response);
+                    }
+                } finally {
+                    clearTimeout(timeoutId);
+                }
 
                 if (!response.ok) {
+                    const shown =
+                        detail.length > MAX_ERROR_DETAIL_LENGTH
+                            ? `${detail.slice(0, MAX_ERROR_DETAIL_LENGTH)}...`
+                            : detail;
                     const error = new Error(
-                        `HTTP ${response.status}: ${response.statusText}`
-                    ) as Error & { response: Response };
+                        `HTTP ${response.status}: ${response.statusText}${shown ? ` - ${shown}` : ''}`
+                    ) as Error & { response: Response; detail: string };
                     error.response = response;
+                    // In full, for callers that act on what upstream said.
+                    error.detail = detail;
                     throw error;
                 }
 
                 return response;
             } catch (error: unknown) {
-                lastError = error as Error;
-
                 if (!isRetryableError(error)) {
                     throw error;
                 }
 
-                if (attempt === maxAttempts - 1) {
-                    throw new Error('Request failed after all retries.');
+                if (attempt >= lastAttempt) {
+                    // The last attempt's error is kept as the cause, so the
+                    // failure is classified by what actually went wrong.
+                    throw Object.assign(
+                        new Error('Request failed after all retries'),
+                        {
+                            cause: error,
+                        }
+                    );
                 }
 
                 const delayMs =
@@ -171,8 +285,6 @@ export class ArgosERMAPIManager {
                 await sleep(delayMs);
             }
         }
-
-        throw lastError || new Error('Request failed after all retries.');
     }
 
     async get(

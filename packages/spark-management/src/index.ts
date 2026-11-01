@@ -5,7 +5,8 @@ import {
   launchMCPServer, 
   createServerModule, 
   createApiRunner,
-  createMcpServer
+  createMcpServer,
+  toolErrorFrom
 } from '@chkp/mcp-utils';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -57,14 +58,7 @@ server.tool(
         ],
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error showing gateway: ${(error as Error).message}`
-          },
-        ],
-      };
+        return toolErrorFrom(error, 'Error showing gateway');
     }
   }
 );
@@ -94,14 +88,7 @@ server.tool(
         ],
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error showing gateway fields: ${(error as Error).message}`
-          },
-        ],
-      };
+        return toolErrorFrom(error, 'Error showing gateway fields');
     }
   }
 );
@@ -130,14 +117,7 @@ server.tool(
         ],
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error showing gateway attributes: ${(error as Error).message}`
-          },
-        ],
-      };
+        return toolErrorFrom(error, 'Error showing gateway attributes');
     }
   }
 );
@@ -162,14 +142,7 @@ server.tool(
         ],
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error getting gateway administrator: ${(error as Error).message}`
-          },
-        ],
-      };
+        return toolErrorFrom(error, 'Error getting gateway administrator');
     }
   }
 );
@@ -193,14 +166,7 @@ server.tool(
         ],
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error getting gateway administrators: ${(error as Error).message}`
-          },
-        ],
-      };
+        return toolErrorFrom(error, 'Error getting gateway administrators');
     }
   }
 );
@@ -225,14 +191,7 @@ server.tool(
         ],
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error getting gateway user: ${(error as Error).message}`
-          },
-        ],
-      };
+        return toolErrorFrom(error, 'Error getting gateway user');
     }
   }
 );
@@ -256,14 +215,7 @@ server.tool(
         ],
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error getting gateway users: ${(error as Error).message}`
-          },
-        ],
-      };
+        return toolErrorFrom(error, 'Error getting gateway users');
     }
   }
 );
@@ -292,14 +244,7 @@ server.tool(
         ],
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error getting gateway geolocation: ${(error as Error).message}`
-          },
-        ],
-      };
+        return toolErrorFrom(error, 'Error getting gateway geolocation');
     }
   }
 );
@@ -382,14 +327,7 @@ server.tool(
         ],
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error getting gateway list: ${(error as Error).message}`
-          },
-        ],
-      };
+        return toolErrorFrom(error, 'Error getting gateway list');
     }
   }
 );
@@ -418,14 +356,7 @@ server.tool(
         ],
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error showing plan: ${(error as Error).message}`
-          },
-        ],
-      };
+        return toolErrorFrom(error, 'Error showing plan');
     }
   }
 );
@@ -461,14 +392,7 @@ server.tool(
         ],
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error getting plan list: ${(error as Error).message}`
-          },
-        ],
-      };
+        return toolErrorFrom(error, 'Error getting plan list');
     }
   }
 );
@@ -498,14 +422,7 @@ server.tool(
         ],
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error showing plan fields: ${(error as Error).message}`
-          },
-        ],
-      };
+        return toolErrorFrom(error, 'Error showing plan fields');
     }
   }
 );
@@ -530,14 +447,7 @@ server.tool(
         ],
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error getting plan administrator: ${(error as Error).message}`
-          },
-        ],
-      };
+        return toolErrorFrom(error, 'Error getting plan administrator');
     }
   }
 );
@@ -561,14 +471,7 @@ server.tool(
         ],
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error getting plan administrators: ${(error as Error).message}`
-          },
-        ],
-      };
+        return toolErrorFrom(error, 'Error getting plan administrators');
     }
   }
 );
@@ -593,14 +496,7 @@ server.tool(
         ],
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error getting plan user: ${(error as Error).message}`
-          },
-        ],
-      };
+        return toolErrorFrom(error, 'Error getting plan user');
     }
   }
 );
@@ -624,14 +520,7 @@ server.tool(
         ],
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error getting plan users: ${(error as Error).message}`
-          },
-        ],
-      };
+        return toolErrorFrom(error, 'Error getting plan users');
     }
   }
 );
@@ -660,14 +549,7 @@ server.tool(
         ],
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error showing user: ${(error as Error).message}`
-          },
-        ],
-      };
+        return toolErrorFrom(error, 'Error showing user');
     }
   }
 );
@@ -689,14 +571,7 @@ server.tool(
         ],
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error getting portal settings: ${(error as Error).message}`
-          },
-        ],
-      };
+        return toolErrorFrom(error, 'Error getting portal settings');
     }
   }
 );

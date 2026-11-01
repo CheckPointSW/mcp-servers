@@ -1,6 +1,6 @@
 {
   "name": "@chkp/documentation-mcp",
-  "version": "1.4.13",
+  "version": "1.4.16",
   "description": "Check Point Documentation Tool Service - API integration with Check Point Documentation Tool",
   "type": "module",
   "main": "dist/index.js",
@@ -25,7 +25,8 @@
     "dev": "tsc --watch",
     "start": "node dist/index.js",
     "prepack": "node ../../scripts/strip-bundled-deps.js",
-    "postpack": "node ../../scripts/strip-bundled-deps.js restore"
+    "postpack": "node ../../scripts/strip-bundled-deps.js restore",
+    "test": "jest"
   },
   "dependencies": {
     "@chkp/mcp-utils": "*",
@@ -34,11 +35,14 @@
     "commander": "^14.0.3",
     "axios": "^1.16.0",
     "node-machine-id": "^1.1.12",
-    "zod": "^3.24.4"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/node": "^26.0.0",
     "dotenv": "^17.2.2",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.0",
     "tsx": "^4.22.4",
     "typescript": "^5.0.4"
   }

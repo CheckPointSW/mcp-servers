@@ -1,5 +1,23 @@
 import { z } from 'zod';
-import { SmartApiError } from '../../core/errors.js';
+import {
+    classifyError,
+    classifyHttpStatus,
+    McpErrorCode,
+    toolError,
+} from '@chkp/mcp-utils';
+import {
+    AmbiguousActionError,
+    AuthError,
+    AuthorizationError,
+    ConfigError,
+    NotFoundError,
+    RateLimitError,
+    SmartApiError,
+    TransportError,
+    UpstreamError,
+    UpstreamTimeoutError,
+    ValidationError,
+} from '../../core/errors.js';
 import { log } from '../../core/redact.js';
 
 /** The MCP tool-result shape this repo returns from every handler. */
@@ -13,6 +31,67 @@ export function jsonResult(payload: unknown): ToolResult {
     return { content: [{ type: 'text', text: JSON.stringify(payload) }] };
 }
 
+type Classification = NonNullable<Parameters<typeof toolError>[2]> & {
+    code: McpErrorCode;
+};
+
+/** Place a SmartAPI failure in the shared error taxonomy. Subclasses first. */
+function classifySmartApiError(error: SmartApiError): Classification {
+    if (error instanceof AuthError) return { code: McpErrorCode.AUTH_FAILED };
+    if (error instanceof AuthorizationError)
+        return { code: McpErrorCode.PERMISSION_DENIED };
+    if (error instanceof NotFoundError) return { code: McpErrorCode.NOT_FOUND };
+    // Includes ScrollExpiredError: the fix is to re-issue without scrollId.
+    if (error instanceof ValidationError)
+        return { code: McpErrorCode.VALIDATION_ERROR };
+    // Missing or unresolvable tenant settings, reported as every package
+    // reports a server it cannot run as configured.
+    if (error instanceof ConfigError) return { code: McpErrorCode.INTERNAL };
+    if (error instanceof RateLimitError) {
+        return {
+            code: McpErrorCode.RATE_LIMITED,
+            ...(error.retryAfterSeconds !== null
+                ? { details: { retry_after_seconds: error.retryAfterSeconds } }
+                : {}),
+        };
+    }
+    if (error instanceof UpstreamError) {
+        // No status means HTTP 200 with success=false: upstream answered and
+        // reported the operation itself as failed.
+        if (error.status === null)
+            return { code: McpErrorCode.OPERATION_FAILED };
+        return {
+            ...classifyHttpStatus(error.status),
+            upstreamStatus: error.status,
+        };
+    }
+    // Not retried here, so not advertised as retryable: a hanging upstream
+    // call should fail once rather than multiply the timeout.
+    if (error instanceof UpstreamTimeoutError)
+        return { code: McpErrorCode.TIMEOUT, retryable: false };
+    if (error instanceof TransportError)
+        return { code: McpErrorCode.UPSTREAM_UNREACHABLE };
+    // The action may already have been applied, so a blind retry is unsafe.
+    if (error instanceof AmbiguousActionError)
+        return { code: McpErrorCode.OPERATION_FAILED, retryable: false };
+    return { code: McpErrorCode.INTERNAL };
+}
+
+/**
+ * An error result whose text keeps this package's own `Name: message` form,
+ * with the shared classification in `structuredContent`.
+ */
+function classifiedResult(
+    text: string,
+    message: string,
+    { code, ...options }: Classification
+): ToolResult {
+    return {
+        ...toolError(code, message, options),
+        content: [{ type: 'text', text }],
+    };
+}
+
 /**
  * Turn a thrown error into a tool result.
  *
@@ -23,12 +102,11 @@ export function jsonResult(payload: unknown): ToolResult {
 export function errorResult(tool: string, error: unknown): ToolResult {
     if (error instanceof SmartApiError) {
         log('tool.error', { tool, code: error.code });
-        return {
-            content: [
-                { type: 'text', text: `${error.code}: ${error.message}` },
-            ],
-            isError: true,
-        };
+        return classifiedResult(
+            `${error.code}: ${error.message}`,
+            error.message,
+            classifySmartApiError(error)
+        );
     }
     if (error instanceof z.ZodError) {
         const detail = error.issues
@@ -38,17 +116,18 @@ export function errorResult(tool: string, error: unknown): ToolResult {
             )
             .join('; ');
         log('tool.invalid_input', { tool });
-        return {
-            content: [{ type: 'text', text: `ValidationError: ${detail}` }],
-            isError: true,
-        };
+        return classifiedResult(`ValidationError: ${detail}`, detail, {
+            code: McpErrorCode.VALIDATION_ERROR,
+        });
     }
     const message = error instanceof Error ? error.message : String(error);
     log('tool.unexpected_error', { tool });
-    return {
-        content: [{ type: 'text', text: `Error: ${message}` }],
-        isError: true,
-    };
+    const { error_code, upstream_status, retryable } = classifyError(error);
+    return classifiedResult(`Error: ${message}`, message, {
+        code: error_code,
+        upstreamStatus: upstream_status,
+        retryable,
+    });
 }
 
 /** Run a tool body, mapping any failure onto an MCP error result. */
@@ -71,9 +150,10 @@ export async function handle(
  * boundary is therefore crossed through `any` here, in exactly one place, so
  * every tool module keeps full type checking.
  *
- * It must stay `server.tool` rather than `server.registerTool`: only the
- * former is wrapped for telemetry, and only the former is replayed onto
- * per-session server instances under HTTP transport.
+ * Either `server.tool` or `server.registerTool` works: `CPMcpServer` wraps both
+ * for telemetry and error handling, and both are replayed onto per-session
+ * server instances under HTTP transport. This stays on `server.tool` simply
+ * because that is the shape these wrappers were written against.
  */
 export function registerTool<Args>(
     server: unknown,
@@ -102,8 +182,8 @@ export function promptMessage(text: string): {
  * Thin wrappers over `server.prompt` and `server.resource`, crossing the SDK's
  * generic boundary through `any` for the same reason `registerTool` does.
  *
- * As with tools, these must stay on the legacy method names: only those are
- * replayed onto per-session server instances under HTTP transport.
+ * As with tools, either method name works — `CPMcpServer` wraps and replays
+ * both families. These stay on the older names to match the wrappers' shape.
  */
 export function registerPrompt(
     server: unknown,

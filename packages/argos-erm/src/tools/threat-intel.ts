@@ -1,9 +1,11 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { SessionContext } from '@chkp/mcp-utils';
+import { SessionContext, toolErrorFrom } from '@chkp/mcp-utils';
 import { KNOWLEDGEBASE_API_BASE } from '../constants.js';
 import { parseListParam, isValidUuid4 } from '../schemas.js';
 import type { ServerModule } from './types.js';
+import { readJson, readJsonObject } from '../helpers/response.js';
+import { pathSegment } from '../helpers/path.js';
 
 // Default look-back window (in days) used when a caller needs a date range but
 // does not supply one. The news endpoint rejects requests that omit a complete
@@ -51,7 +53,7 @@ WHEN TO USE:
                 const response = await apiManager.post(
                     `${KNOWLEDGEBASE_API_BASE}/news/metadata`
                 );
-                const responseData = await response.json();
+                const responseData = await readJsonObject(response);
                 return {
                     content: [
                         {
@@ -65,16 +67,10 @@ WHEN TO USE:
                     ],
                 };
             } catch (error) {
-                const msg =
-                    error instanceof Error ? error.message : String(error);
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Error retrieving threat landscape metadata: ${msg}`,
-                        },
-                    ],
-                };
+                return toolErrorFrom(
+                    error,
+                    'Error retrieving threat landscape metadata'
+                );
             }
         }
     );
@@ -195,7 +191,7 @@ WHEN TO USE:
                         filters: { fields, mode: filter_mode },
                     }
                 );
-                const data = await response.json();
+                const data = await readJson(response);
 
                 return {
                     content: [
@@ -206,16 +202,10 @@ WHEN TO USE:
                     ],
                 };
             } catch (error) {
-                const msg =
-                    error instanceof Error ? error.message : String(error);
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Error retrieving threat landscape news: ${msg}`,
-                        },
-                    ],
-                };
+                return toolErrorFrom(
+                    error,
+                    'Error retrieving threat landscape news'
+                );
             }
         }
     );
@@ -239,7 +229,7 @@ WHEN TO USE:
                 const response = await apiManager.post(
                     `${KNOWLEDGEBASE_API_BASE}/threat_actors/metadata`
                 );
-                const responseData = await response.json();
+                const responseData = await readJsonObject(response);
                 return {
                     content: [
                         {
@@ -253,16 +243,10 @@ WHEN TO USE:
                     ],
                 };
             } catch (error) {
-                const msg =
-                    error instanceof Error ? error.message : String(error);
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Error retrieving threat actors metadata: ${msg}`,
-                        },
-                    ],
-                };
+                return toolErrorFrom(
+                    error,
+                    'Error retrieving threat actors metadata'
+                );
             }
         }
     );
@@ -314,7 +298,7 @@ WHEN TO USE:
                         },
                     }
                 );
-                const responseData = await response.json();
+                const responseData = await readJsonObject(response);
 
                 return {
                     content: [
@@ -329,16 +313,10 @@ WHEN TO USE:
                     ],
                 };
             } catch (error) {
-                const msg =
-                    error instanceof Error ? error.message : String(error);
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Error retrieving most active threat actors: ${msg}`,
-                        },
-                    ],
-                };
+                return toolErrorFrom(
+                    error,
+                    'Error retrieving most active threat actors'
+                );
             }
         }
     );
@@ -371,9 +349,9 @@ WHEN TO USE:
                     extra
                 );
                 const response = await apiManager.post(
-                    `${KNOWLEDGEBASE_API_BASE}/threat_actors/${threat_actor_id}`
+                    `${KNOWLEDGEBASE_API_BASE}/threat_actors/${pathSegment(threat_actor_id)}`
                 );
-                const responseData = await response.json();
+                const responseData = await readJsonObject(response);
 
                 return {
                     content: [
@@ -388,16 +366,10 @@ WHEN TO USE:
                     ],
                 };
             } catch (error) {
-                const msg =
-                    error instanceof Error ? error.message : String(error);
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Error retrieving threat actor details: ${msg}`,
-                        },
-                    ],
-                };
+                return toolErrorFrom(
+                    error,
+                    'Error retrieving threat actor details'
+                );
             }
         }
     );
@@ -434,9 +406,9 @@ where entity_type == "Malware".`,
                     extra
                 );
                 const response = await apiManager.post(
-                    `${KNOWLEDGEBASE_API_BASE}/malwares/${malware_id}`
+                    `${KNOWLEDGEBASE_API_BASE}/malwares/${pathSegment(malware_id)}`
                 );
-                const responseData = await response.json();
+                const responseData = await readJsonObject(response);
 
                 return {
                     content: [
@@ -451,16 +423,7 @@ where entity_type == "Malware".`,
                     ],
                 };
             } catch (error) {
-                const msg =
-                    error instanceof Error ? error.message : String(error);
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Error retrieving malware details: ${msg}`,
-                        },
-                    ],
-                };
+                return toolErrorFrom(error, 'Error retrieving malware details');
             }
         }
     );

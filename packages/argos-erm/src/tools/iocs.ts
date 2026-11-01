@@ -1,10 +1,17 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { SessionContext } from '@chkp/mcp-utils';
+import {
+    McpErrorCode,
+    McpToolError,
+    SessionContext,
+    toolErrorFrom,
+} from '@chkp/mcp-utils';
 import { IOC_API_BASE } from '../constants.js';
 import { parseListParam } from '../schemas.js';
 import type { ArgosERMAPIManager } from '../client.js';
 import type { ServerModule } from './types.js';
+import { readJsonObject } from '../helpers/response.js';
+import { isRequestWide, itemError } from '../helpers/item-error.js';
 
 /**
  * Detect the IOC type from its format. Hex is case-insensitive, so the
@@ -56,23 +63,35 @@ export function parseIocList(
     return items.map((item) => item.trim()).filter((item) => item.length > 0);
 }
 
+// IOCs are enriched one by one, so a failure for one IOC does not hide the
+// others. A failure that applies to the whole request - the credentials were
+// rejected - ends the call instead, as does every IOC failing: then there is
+// nothing to report but the failure.
 async function enrichSingleIoc(
     apiManager: ArgosERMAPIManager,
-    ioc: string
+    ioc: string,
+    failures: unknown[]
 ): Promise<Record<string, unknown>> {
     const iocType = detectIocType(ioc);
     if (!iocType) {
-        return { ioc, error: 'Unknown IOC type' };
+        const error = new McpToolError(
+            McpErrorCode.VALIDATION_ERROR,
+            'Unknown IOC type'
+        );
+        failures.push(error);
+        return { ioc, ...itemError(error) };
     }
     const value = normalizeIocValue(ioc, iocType);
     try {
         const response = await apiManager.get(
             `${IOC_API_BASE}/${iocType}?value=${encodeURIComponent(value)}`
         );
-        const responseData = await response.json();
+        const responseData = await readJsonObject(response);
         return responseData.data || {};
     } catch (e) {
-        return { ioc, error: e instanceof Error ? e.message : String(e) };
+        if (isRequestWide(e)) throw e;
+        failures.push(e);
+        return { ioc, ...itemError(e) };
     }
 }
 
@@ -121,9 +140,13 @@ SUPPORTED IOC TYPES:
                 }
 
                 const results: Record<string, unknown>[] = [];
+                const failures: unknown[] = [];
                 for (const ioc of iocsList) {
-                    results.push(await enrichSingleIoc(apiManager, ioc));
+                    results.push(
+                        await enrichSingleIoc(apiManager, ioc, failures)
+                    );
                 }
+                if (failures.length === iocsList.length) throw failures[0];
 
                 return {
                     content: [
@@ -134,16 +157,7 @@ SUPPORTED IOC TYPES:
                     ],
                 };
             } catch (error) {
-                const msg =
-                    error instanceof Error ? error.message : String(error);
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Error enriching IOCs: ${msg}`,
-                        },
-                    ],
-                };
+                return toolErrorFrom(error, 'Error enriching IOCs');
             }
         }
     );

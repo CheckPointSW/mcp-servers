@@ -1,11 +1,22 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { SessionContext } from '@chkp/mcp-utils';
+import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
+import type {
+    ElicitRequestFormParams,
+    ElicitResult,
+} from '@modelcontextprotocol/sdk/types.js';
+import {
+    getRequestServer,
+    McpErrorCode,
+    McpToolError,
+    SessionContext,
+} from '@chkp/mcp-utils';
 import {
     ALL_SENTINEL,
     UNSET_SENTINEL,
     CUSTOMERS_API_PATH,
 } from './constants.js';
 import type { ArgosERMAPIManager } from './client.js';
+import { readJsonObject } from './helpers/response.js';
 
 export type CustomerRegion = 'US' | 'EU' | 'AU';
 
@@ -43,13 +54,15 @@ export const SESSION_STATE_KEY = 'argos-erm:session-state';
 
 /**
  * Thrown when a customer ID is not among the customers the session's
- * token is entitled to.
+ * token is entitled to. A VALIDATION_ERROR: the remedy is a different
+ * customer ID, and the message lists the available ones.
  */
-export class UnknownCustomerError extends Error {
+export class UnknownCustomerError extends McpToolError {
     readonly customerId: string;
 
     constructor(customerId: string, customers: CustomerInfo[]) {
         super(
+            McpErrorCode.VALIDATION_ERROR,
             `Customer '${customerId}' is not available with the current credentials. ` +
                 `Available customers: ${describeCustomers(customers)}`
         );
@@ -61,11 +74,12 @@ export class UnknownCustomerError extends Error {
 /**
  * Thrown when a call needs a customer and none could be resolved from the
  * arguments, the session, or an elicitation prompt. The message is meant
- * for the user and lists the available options.
+ * for the user and lists the available options. A VALIDATION_ERROR: the
+ * remedy is to pass a customer.
  */
-export class CustomerSelectionError extends Error {
+export class CustomerSelectionError extends McpToolError {
     constructor(message: string) {
-        super(message);
+        super(McpErrorCode.VALIDATION_ERROR, message);
         this.name = 'CustomerSelectionError';
     }
 }
@@ -158,7 +172,10 @@ export async function populateCustomers(
         customer_id: [],
         only_active: true,
     });
-    const responseData = (await response.json()) as Record<string, unknown>;
+    const responseData = (await readJsonObject(response)) as Record<
+        string,
+        unknown
+    >;
     const data = responseData.data as Record<string, unknown> | undefined;
     const customers = (data?.customers ?? []) as Array<{
         customer_id: string;
@@ -249,6 +266,56 @@ export function resolveCustomerId(explicit?: string, extra?: unknown): string {
 }
 
 /**
+ * Ask the caller a question through the server handling its request.
+ *
+ * Under HTTP transport every session is served by its own server instance, and
+ * `mcpServer` - the instance the tools were registered on - is connected to
+ * none of them. `getRequestServer` returns the instance serving this call, so
+ * the question reaches the caller and is checked against that client's
+ * declared capabilities. It is sent as part of the tool call, on that call's
+ * response stream, and is cancelled with it.
+ *
+ * `extra` must be the request context the handler received, not a copy: the
+ * serving instance is found by its identity. Without it the registered
+ * instance is asked, which under HTTP has no client and so falls back.
+ *
+ * A client without form elicitation makes `elicitInput` throw, which callers
+ * treat as "elicitation not supported" and answer with a text prompt instead.
+ */
+function elicit(
+    mcpServer: McpServer,
+    extra: unknown,
+    params: ElicitRequestFormParams
+): Promise<ElicitResult> {
+    const context = extra as
+        | { requestId?: string | number; signal?: AbortSignal }
+        | undefined;
+    return (getRequestServer(extra) ?? mcpServer).server.elicitInput(params, {
+        relatedRequestId: context?.requestId,
+        signal: context?.signal,
+    });
+}
+
+/**
+ * Rethrow an elicitation failure that is not the client being unable to ask:
+ * the call was cancelled, or the user did not answer in time. Any other
+ * failure leaves the caller to fall back to listing the customers in text.
+ */
+function rethrowUnanswered(error: unknown, extra: unknown): void {
+    const signal = (extra as { signal?: AbortSignal } | undefined)?.signal;
+    if (signal?.aborted) throw error;
+    if (error instanceof McpError && error.code === ErrorCode.RequestTimeout) {
+        // Not retryable: a retry would only ask the same question again.
+        throw new McpToolError(
+            McpErrorCode.TIMEOUT,
+            'No customer was selected before the request timed out. ' +
+                'Pass customer_id explicitly or call select_customer first.',
+            { cause: error, retryable: false }
+        );
+    }
+}
+
+/**
  * Ensure a session customer is set — used by get_alerts.
  *
  * - explicit provided → validate against the customer list and return it,
@@ -288,7 +355,7 @@ export async function ensureSessionCustomer(
     const ids = options.map((o) => o.customer_id);
 
     try {
-        const result = await mcpServer.server.elicitInput({
+        const result = await elicit(mcpServer, extra, {
             message:
                 'Select a customer for this session (you can change later with select_customer):',
             requestedSchema: {
@@ -333,6 +400,7 @@ export async function ensureSessionCustomer(
         ) {
             throw error;
         }
+        rethrowUnanswered(error, extra);
         // Elicitation not supported by client — fall back to text list
         const list = options
             .map((o) => `  - ${o.display_name} (${o.customer_id})`)
@@ -377,7 +445,7 @@ export async function resolveSpecificCustomerId(
     if (mcpServer) {
         const customerIds = state.customers.map((c) => c.customer_id);
         try {
-            const result = await mcpServer.server.elicitInput({
+            const result = await elicit(mcpServer, extra, {
                 message: `${purpose} requires a specific customer. Select one for this call (your session will remain unchanged):`,
                 requestedSchema: {
                     type: 'object',
@@ -408,6 +476,7 @@ export async function resolveSpecificCustomerId(
             ) {
                 throw error;
             }
+            rethrowUnanswered(error, extra);
             // Elicitation not supported — fall through to text fallback
         }
     }

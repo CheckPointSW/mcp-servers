@@ -13,6 +13,8 @@ import 'dotenv/config';
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { jsonSchemaToZod } from 'json-schema-to-zod';
+import { toZod4Code } from '../../../scripts/codegen/zod4.cjs';
+import ts from 'typescript';
 
 const SPEC_PATH = resolve(import.meta.dirname, '..', 'specs', 'openapi-mcp.json');
 const OUTPUT_PATH = resolve(import.meta.dirname, '..', 'src', 'tools', 'tools.g.ts');
@@ -137,14 +139,7 @@ function accessModeOf(spec: any, tool: ToolEntry): string {
 function generateToolsFile(tools: ToolEntry[]): string {
   const mapEntries = tools
     .map((tool) => {
-      let zodCode = jsonSchemaToZod(tool.inputSchema, { target: 'zod3' });
-      // Fix json-schema-to-zod bug: oneOf handler emits Zod v4 syntax even with target 'zod3'
-      zodCode = zodCode
-        .replace(/z\.core\.\$ZodIssue/g, 'z.ZodIssue')
-        // Fix oneOf: replace invalid_union (needs unionErrors in zod3) with custom
-        .replace(/code: "invalid_union",/g, 'code: "custom",')
-        // Remove dangling errors property not valid in zod3
-        .replace(/errors: \[errors\],\n\s*/g, '');
+      const zodCode = toZod4Code(jsonSchemaToZod(tool.inputSchema, { zodVersion: 4 }), ts);
       return `
   [
     '${tool.name}',

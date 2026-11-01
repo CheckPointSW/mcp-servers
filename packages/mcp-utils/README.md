@@ -112,6 +112,27 @@ The server exposes:
 - `POST/GET/DELETE /mcp` — MCP protocol endpoint
 - `GET /health` — server status (active session count, version)
 
+HTTP request bodies are limited to **4 MiB** by default. Set
+`MCP_MAX_HTTP_BODY_BYTES` to a positive integer to change the limit (for example,
+`8388608` for 8 MiB). Requests exceeding it receive HTTP `413`, including requests
+sent with chunked transfer encoding. The limit is enforced while reading, before
+JSON parsing or session creation.
+An empty value uses the default; other invalid values fail HTTP startup. To let
+clients receive the rejection while uploading, the server discards up to four
+times the body limit (at most 32 MiB) or waits at most one second before closing
+the rejected connection.
+
+For both stdio and HTTP, request parameters are checked before tool-schema
+validation: arrays and objects may contain at most **10,000** items/properties,
+with at most **100,000** values and **64** nesting levels across the parameters.
+Oversized calls to registered, enabled tools return `isError: true` with
+`VALIDATION_ERROR` and record a failed telemetry event when telemetry is enabled,
+without executing the tool. Unknown or disabled tools retain the SDK's usual
+rejection without logging or reporting their requested names through this guard.
+Other request methods receive a protocol-level invalid-parameters error.
+These shared limits also cover generated tools and nested collections; individual
+tool schemas may impose smaller limits.
+
 ### Connecting an MCP client
 
 Point your MCP client at `http://<host>:3000/mcp`. Example for Claude Desktop (`claude_desktop_config.json`):
@@ -126,8 +147,98 @@ Point your MCP client at `http://<host>:3000/mcp`. Example for Claude Desktop (`
 }
 ```
 
+## Error Reporting
+
+One rule, and `CPMcpServer` enforces it for you:
+
+> A failure must either be **thrown**, or already be a correctly-shaped `isError`
+> result. Never return a failure as a plain value.
+
+**You do not need to write error handling for your tools to be correct.** Every
+tool is wrapped, whether you register it with `registerTool()` or the older
+`tool()`. Anything you throw — an HTTP failure, a missing file, a SQLite error,
+a failed subprocess, a Zod validation error, a plain `Error` — is converted into
+a spec-compliant result with `isError: true` and a stable `error_code`, and
+reported to telemetry as a failure. Prompts and resources are wrapped the same
+way, through either method name. A handler that simply lets errors propagate is
+doing the right thing:
+
+```ts
+server.tool('my_tool', 'does a thing', { id: z.string() }, async (args, extra) => {
+  const resp = await runApi('POST', 'show-thing', { uid: args.id }, extra);
+  return { content: [{ type: 'text', text: JSON.stringify(resp) }] };
+});
+```
+
+Do **not** write this — it makes a failed call look successful, which is exactly
+what the wrapper exists to prevent:
+
+```ts
+// ANTI-PATTERN: no isError, so callers and telemetry both see a success.
+try {
+  ...
+} catch (error) {
+  return { content: [{ type: 'text', text: `Error: ${error.message}` }] };
+}
+```
+
+### Opting in to a better message or code
+
+Catch only when you can add something the classifier cannot infer — the
+operation's context, or a more specific code:
+
+```ts
+import { McpErrorCode, toolError, toolErrorFrom, McpToolError } from '@chkp/mcp-utils';
+
+// Keep your context, and get a classified code for free.
+catch (error) {
+  return toolErrorFrom(error, 'Failed to parse rulebase');
+}
+
+// Or state the code yourself, with extra context for programmatic callers.
+return toolError(McpErrorCode.OPERATION_FAILED, `Simulation failed: ${detail}`, {
+  retryable: false,
+  details: { task },
+});
+
+// From a client or helper, throw so every caller benefits.
+throw new McpToolError(McpErrorCode.AUTH_FAILED, 'API key rejected', {
+  upstreamStatus: 401,
+});
+```
+
+### Error codes
+
+`AUTH_FAILED`, `PERMISSION_DENIED`, `NOT_FOUND`, `VALIDATION_ERROR`,
+`RATE_LIMITED`, `TIMEOUT`, `UPSTREAM_UNREACHABLE`, `UPSTREAM_ERROR`,
+`RESOURCE_UNAVAILABLE`, `OPERATION_FAILED`, `INTERNAL`.
+
+Codes are cause-agnostic on purpose: they describe what went wrong for the
+caller, not which subsystem produced it. An error result looks like this:
+
+```json
+{
+  "isError": true,
+  "content": [{ "type": "text", "text": "NOT_FOUND: Could not reach your Management" }],
+  "structuredContent": {
+    "error_code": "NOT_FOUND",
+    "error_message": "Could not reach your Management",
+    "upstream_status": 404,
+    "retryable": false
+  }
+}
+```
+
+### Spotting unflagged failures
+
+Run a server with `CP_MCP_STRICT_ERRORS=true` to log a warning whenever a tool
+returns a result that is not flagged as an error but looks like one. It is a
+heuristic and never changes behaviour — it just points at handlers worth a
+second look during development.
+
 ## Benefits
 
+- **Consistent Error Reporting**: Tool failures are flagged and coded centrally, without per-package work
 - **Zero Boilerplate**: Reduces main function from ~15 lines to ~5 lines
 - **Configuration-Driven**: All CLI options in maintainable JSON files  
 - **Environment Variable Support**: Automatic mapping of env vars to options

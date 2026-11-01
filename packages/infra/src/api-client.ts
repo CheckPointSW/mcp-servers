@@ -1,7 +1,7 @@
 // API client implementation for Check Point MCP servers
 import axios from 'axios';
 import https from 'https';
-import { debugLoggableKeys, debugView } from '@chkp/mcp-utils';
+import { classifyError, classifyHttpStatus, debugLoggableKeys, debugView, errorForLog, McpErrorCode, McpToolError } from '@chkp/mcp-utils';
 
 /**
  * Management API request parameters whose values debug output may print.
@@ -32,6 +32,57 @@ function getMainPackageUserAgent(): string {
 }
 
 /**
+ * Render an API error body as a single human-readable line.
+ *
+ * Check Point management APIs put the useful text under varying keys, so the
+ * common ones are preferred before falling back to the raw JSON.
+ */
+export function describeResponseBody(body: unknown): string {
+  if (typeof body === 'string') return body;
+  if (body && typeof body === 'object') {
+    const record = body as Record<string, unknown>;
+    for (const key of ['message', 'error', 'error-message', 'errors', 'warnings']) {
+      const value = record[key];
+      if (typeof value === 'string' && value) return value;
+    }
+    try {
+      return JSON.stringify(body);
+    } catch {
+      /* fall through */
+    }
+  }
+  return String(body ?? 'no details provided');
+}
+
+/**
+ * How long a single API request may wait for an answer. Without a limit, a
+ * request the server never answers hangs the tool call. Long operations run as
+ * tasks and are polled, so no single request should come near this.
+ */
+const REQUEST_TIMEOUT_MS = 120_000;
+
+/**
+ * Statuses with which a login request is rejected over its credentials. On any
+ * other request a 400 means bad input and a 403 a missing permission, but the
+ * only input to a login is the credentials, so here all three mean they were
+ * not accepted.
+ */
+const LOGIN_REJECTED_STATUSES: ReadonlySet<number> = new Set([400, 401, 403]);
+
+/**
+ * The code to report for a failed login. A connectivity failure or a server
+ * error keeps its own code, so the caller is pointed at the network or the
+ * server rather than at the API key. A rejection of the credentials, and a
+ * failure with no other signal, is AUTH_FAILED.
+ */
+function loginErrorCode(code: McpErrorCode, upstreamStatus: number | undefined): McpErrorCode {
+  if (upstreamStatus !== undefined && LOGIN_REJECTED_STATUSES.has(upstreamStatus)) {
+    return McpErrorCode.AUTH_FAILED;
+  }
+  return code === McpErrorCode.INTERNAL ? McpErrorCode.AUTH_FAILED : code;
+}
+
+/**
  * Response from an API client call
  */
 export class ClientResponse {
@@ -56,7 +107,16 @@ export abstract class APIClientBase {
     protected readonly authToken: string = "",
     protected readonly tokenType: TokenType = TokenType.API_KEY, // Default
     protected readonly cloudConnected: boolean = false,
+    protected readonly proxyToken?: string,
   ) {}
+
+  /**
+   * Bearer for a cloud-connected management
+   */
+  protected getProxyBearer(): string | undefined {
+    if (!this.cloudConnected) return undefined;
+    return this.tokenType === TokenType.CI_TOKEN ? this.authToken : this.proxyToken;
+  }
 
   /**
    * Get the host URL for the API client
@@ -86,9 +146,10 @@ export abstract class APIClientBase {
     // When cloud-connected, authenticate every request to the CloudInfra proxy
     // via Authorization Bearer (same as login). CLOUD-INFRA-TOKEN is kept for
     // any downstream services that expect it.
-    if (this.cloudConnected && this.tokenType === TokenType.CI_TOKEN) {
-      headers["Authorization"] = `Bearer ${this.authToken}`;
-      headers["CLOUD-INFRA-TOKEN"] = this.authToken;
+    const proxyBearer = this.getProxyBearer();
+    if (proxyBearer) {
+      headers["Authorization"] = `Bearer ${proxyBearer}`;
+      headers["CLOUD-INFRA-TOKEN"] = proxyBearer;
     }
 
     return headers;
@@ -135,9 +196,18 @@ export abstract class APIClientBase {
    */
   async isMDSEnvironment(): Promise<boolean> {
     if (!this.hasValidSession()) {
-      await this.login();
+      try {
+        await this.login();
+      } catch (error: unknown) {
+        throw this.loginFailure(error, 'Login');
+      }
     }
     return this.isMDS;
+  }
+
+  /** Extra guidance for a login whose credentials were rejected. */
+  protected rejectedLoginHint(): string {
+    return '';
   }
 
   /**
@@ -175,6 +245,47 @@ export abstract class APIClientBase {
   }
 
   /**
+   * Convert any login failure into a coded error to throw.
+   *
+   * A failed login is thrown, never returned as a ClientResponse: returning it
+   * would hand the error body to the caller as ordinary API data, leaving
+   * nothing to distinguish it from a successful response.
+   *
+   * The underlying cause is classified rather than assumed to be bad
+   * credentials. A login that fails because the host is unreachable or timed
+   * out is not an auth problem, and reporting it as one sends the caller to
+   * check their API key instead of their connectivity. Only a failure with no
+   * other signal is treated as AUTH_FAILED.
+   *
+   * The original error is neither attached as `cause` nor logged as an object:
+   * an HTTP client error carries the request config, and for a login request
+   * its body is the credentials.
+   */
+  private loginFailure(error: unknown, attempt: 'Login' | 'Login retry'): McpToolError {
+    if (error instanceof ClientResponse) {
+      // The management server answered and refused. Its reply is safe to log.
+      console.error(`${attempt} failed with status ${error.status}:`, error.response);
+      const classified = classifyHttpStatus(error.status);
+      const code = loginErrorCode(classified.code, error.status);
+      const hint = code === McpErrorCode.AUTH_FAILED ? this.rejectedLoginHint() : '';
+      return new McpToolError(
+        code,
+        `Authentication failed: ${describeResponseBody(error.response)}${hint}`,
+        { upstreamStatus: error.status, retryable: code === McpErrorCode.AUTH_FAILED ? false : classified.retryable }
+      );
+    }
+
+    console.error(`${attempt} failed: ${errorForLog(error)}`);
+    const classified = classifyError(error);
+    const code = loginErrorCode(classified.error_code, classified.upstream_status);
+    const hint = code === McpErrorCode.AUTH_FAILED ? this.rejectedLoginHint() : '';
+    return new McpToolError(code, `Login failed: ${classified.error_message}${hint}`, {
+      upstreamStatus: classified.upstream_status,
+      retryable: code === McpErrorCode.AUTH_FAILED ? false : classified.retryable,
+    });
+  }
+
+  /**
    * Call an API endpoint
    */
   async callApi(
@@ -188,15 +299,8 @@ export abstract class APIClientBase {
       try {
         await this.login();
       }
-      catch (error: any) {
-        // If the error is already a ClientResponse, just return it directly
-        if (error instanceof ClientResponse) {
-          console.error(`Login failed with status ${error.status}:`, error.response);
-          return error;
-        }
-        // For other types of errors, create a generic response
-        console.error("Login failed with unexpected error:", error);
-        return new ClientResponse(500, { error: "Authentication failed", message: error.message });
+      catch (error: unknown) {
+        throw this.loginFailure(error, 'Login');
       }
     }
 
@@ -219,11 +323,16 @@ export abstract class APIClientBase {
     } catch (error: any) {
       // If we get a 401 error with "session" in the message, the session has expired on the server side
       // Reset the session and retry once
-      if ((error.message?.includes('401') || error.response?.status === 401) &&
+      const status = error instanceof McpToolError ? error.upstreamStatus : error.response?.status;
+      if ((status === 401 || error.message?.includes('401')) &&
           error.message?.toLowerCase().includes('session')) {
 
         if (this._externalSid) {
-          throw new Error('Pre-authenticated session (X-chkp-sid) has expired. Provide a new session ID.');
+          throw new McpToolError(
+            McpErrorCode.AUTH_FAILED,
+            'Pre-authenticated session (X-chkp-sid) has expired. Provide a new session ID.',
+            { upstreamStatus: 401, retryable: false }
+          );
         }
 
         console.error("Session expired (401), resetting session and retrying...");
@@ -233,13 +342,8 @@ export abstract class APIClientBase {
         // Re-login and retry the request
         try {
           await this.login();
-        } catch (loginError: any) {
-          if (loginError instanceof ClientResponse) {
-            console.error(`Login retry failed with status ${loginError.status}:`, loginError.response);
-            return loginError;
-          }
-          console.error("Login retry failed with unexpected error:", loginError);
-          throw loginError;
+        } catch (loginError: unknown) {
+          throw this.loginFailure(loginError, 'Login retry');
         }
 
         // Retry the original request with the new session
@@ -331,7 +435,7 @@ export abstract class APIClientBase {
       }
     } catch (error) {
       // If we can't determine MDS status, assume it's not MDS
-      console.warn("Could not determine MDS status:", error);
+      console.warn(`Could not determine MDS status: ${errorForLog(error)}`);
       this.isMDS = false;
     }
   }
@@ -355,7 +459,8 @@ export abstract class APIClientBase {
       method: method.toUpperCase(),
       url,
       headers,
-      params: params || undefined
+      params: params || undefined,
+      timeout: REQUEST_TIMEOUT_MS
     };
     
     // Add httpsAgent if provided (for handling self-signed certificates)
@@ -375,9 +480,10 @@ export abstract class APIClientBase {
       return new ClientResponse(response.status, response.data as Record<string, any>);
     } catch (error: any) {
       if (error.response) {
-        console.error(`❌ API Error (${error.response.status}):`);
-        console.error('Headers:', error.response.headers);
-        console.error('Data:', error.response.data);
+        // Status and URL only. The response headers and body are not logged:
+        // they can carry session cookies and customer data, and the error
+        // thrown below already carries a bounded description of the body.
+        console.error(`❌ API Error (${error.response.status}): ${method} ${url}`);
 
         // Print the request details when debug is enabled. Only allowlisted
         // values are printed: headers and bodies carry the session ID and
@@ -395,7 +501,21 @@ export abstract class APIClientBase {
       }
       
       if (error.response) {
-        throw new Error(`API request failed: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
+        // Typed so the status and a stable code survive, rather than being
+        // flattened into prose that consumers have to parse back.
+        const status = error.response.status;
+        const { code, retryable } = classifyHttpStatus(status);
+        throw new McpToolError(
+          code,
+          `API request failed: ${status} - ${describeResponseBody(error.response.data)}`,
+          { upstreamStatus: status, retryable }
+        );
+      }
+      if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+        throw new McpToolError(
+          McpErrorCode.TIMEOUT,
+          `API request ${uri} got no answer within ${REQUEST_TIMEOUT_MS / 1000}s`
+        );
       }
       throw error;
     }
@@ -410,9 +530,10 @@ export class SmartOneCloudAPIClient extends APIClientBase {
     authToken: string,
     tokenType: TokenType,
     private readonly s1cUrl: string,
-    cloudConnected: boolean = false
+    cloudConnected: boolean = false,
+    proxyToken?: string,
   ) {
-    super(authToken, tokenType, cloudConnected);
+    super(authToken, tokenType, cloudConnected, proxyToken);
   }
 
   getHost(): string {
@@ -421,8 +542,9 @@ export class SmartOneCloudAPIClient extends APIClientBase {
 
   protected getHeadersForLogin(): Record<string, string> {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (this.cloudConnected && this.tokenType === TokenType.CI_TOKEN) {
-      headers["Authorization"] = `Bearer ${this.authToken}`;
+    const proxyBearer = this.getProxyBearer();
+    if (proxyBearer) {
+      headers["Authorization"] = `Bearer ${proxyBearer}`;
     }
     return headers;
   }
@@ -483,6 +605,15 @@ export class OnPremAPIClient extends APIClientBase {
     super(apiKey || ""); // APIClientBase requires apiKey, but we'll handle empty case
     this.username = username;
     this.password = password;
+  }
+
+  protected override rejectedLoginHint(): string {
+    // On a Multi-Domain Server, a login without a domain goes to the System
+    // Domain, which credentials scoped to some domains cannot enter.
+    return this.domain
+      ? ''
+      : ' If these credentials only have access to specific domains of a Multi-Domain Server, ' +
+        'set MANAGEMENT_DOMAIN to one of them.';
   }
 
   getHost(): string {

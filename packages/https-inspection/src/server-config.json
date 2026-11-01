@@ -58,6 +58,13 @@
       "default": "443",
       "type": "string",
       "help": "API port of your on-premises management server. Default is 443. Leave empty for Smart-1 Cloud"
+    },
+    {
+      "flag": "--management-domain <domain>",
+      "description": "MDS domain, or comma-separated domains, to log in to (for on-prem)",
+      "env": "MANAGEMENT_DOMAIN",
+      "type": "string",
+      "help": "Multi-Domain Server domain to log in to, or a comma-separated list of the domains your credentials can access. Set it only when your credentials have no System Domain access: the session logs in to the first domain and uses it by default, and the list tells the assistant which other domains it can use. Leave empty otherwise"
     }
   ]
 }

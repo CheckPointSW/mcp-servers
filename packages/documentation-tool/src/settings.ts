@@ -34,7 +34,7 @@ export class DocumentationToolSettings extends Settings {
             ...args,
             clientId: args.clientId ?? env.CLIENT_ID,
             secretKey: args.secretKey ?? env.SECRET_KEY,
-            region: args.region ?? (env.REGION || undefined),
+            region: Settings.hostedRegion(env, args.region ?? env.REGION) ?? args.region ?? (env.REGION || undefined),
         });
     }
 

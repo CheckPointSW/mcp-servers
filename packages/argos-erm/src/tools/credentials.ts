@@ -1,15 +1,23 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { SessionContext } from '@chkp/mcp-utils';
+import { SessionContext, toolErrorFrom } from '@chkp/mcp-utils';
 import { EXPOSED_CREDENTIALS_API_BASE } from '../constants.js';
 import { parseListParam } from '../schemas.js';
 import type { ArgosERMAPIManager } from '../client.js';
 import type { ServerModule } from './types.js';
+import { readJson } from '../helpers/response.js';
+import { isRequestWide, itemError } from '../helpers/item-error.js';
+
+// Lookups are reported one by one, so a failure for one domain does not hide
+// the others. A failure that applies to the whole request - the credentials
+// were rejected - ends the call instead, as does every lookup failing: then
+// there is nothing to report but the failure.
 
 async function lookupDomains(
     apiManager: ArgosERMAPIManager,
     domains: string[],
-    maskPassword: boolean
+    maskPassword: boolean,
+    failures: unknown[]
 ): Promise<Record<string, unknown>[]> {
     const results: Record<string, unknown>[] = [];
     for (const domain of domains) {
@@ -18,12 +26,11 @@ async function lookupDomains(
                 `${EXPOSED_CREDENTIALS_API_BASE}/by_domain/`,
                 { domain, mask_password: maskPassword }
             );
-            results.push(await response.json());
+            results.push(await readJson(response));
         } catch (e) {
-            results.push({
-                domain,
-                error: e instanceof Error ? e.message : String(e),
-            });
+            if (isRequestWide(e)) throw e;
+            failures.push(e);
+            results.push({ domain, ...itemError(e) });
         }
     }
     return results;
@@ -32,16 +39,19 @@ async function lookupDomains(
 async function lookupEmails(
     apiManager: ArgosERMAPIManager,
     emails: string[],
-    maskPassword: boolean
+    maskPassword: boolean,
+    failures: unknown[]
 ): Promise<unknown> {
     try {
         const response = await apiManager.post(
             `${EXPOSED_CREDENTIALS_API_BASE}/by_email/bulk`,
             { email: emails, mask_password: maskPassword }
         );
-        return await response.json();
+        return await readJson(response);
     } catch (e) {
-        return { error: e instanceof Error ? e.message : String(e) };
+        if (isRequestWide(e)) throw e;
+        failures.push(e);
+        return itemError(e);
     }
 }
 
@@ -101,21 +111,27 @@ INPUT TYPES:
                 const emails = inputsList.filter((item) => item.includes('@'));
 
                 const results: Record<string, unknown> = {};
+                const failures: unknown[] = [];
 
                 if (domains.length > 0) {
                     results.domains = await lookupDomains(
                         apiManager,
                         domains,
-                        mask_password
+                        mask_password,
+                        failures
                     );
                 }
                 if (emails.length > 0) {
                     results.emails = await lookupEmails(
                         apiManager,
                         emails,
-                        mask_password
+                        mask_password,
+                        failures
                     );
                 }
+                // One request per domain, one for all the emails.
+                const lookups = domains.length + (emails.length > 0 ? 1 : 0);
+                if (failures.length === lookups) throw failures[0];
 
                 return {
                     content: [
@@ -126,16 +142,10 @@ INPUT TYPES:
                     ],
                 };
             } catch (error) {
-                const msg =
-                    error instanceof Error ? error.message : String(error);
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Error checking credential exposure: ${msg}`,
-                        },
-                    ],
-                };
+                return toolErrorFrom(
+                    error,
+                    'Error checking credential exposure'
+                );
             }
         }
     );
