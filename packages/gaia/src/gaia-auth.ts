@@ -1,4 +1,4 @@
-import { SessionContext } from '@chkp/mcp-utils';
+import { McpErrorCode, McpToolError, SessionContext } from '@chkp/mcp-utils';
 
 export interface GaiaConnection {
   gatewayIp: string;
@@ -46,7 +46,8 @@ export async function getGaiaConnection(
     }, extra);
     
     if (gatewayResult.cancelled) {
-      throw new Error('Gateway connection details cancelled by user');
+      // No gateway to connect to: required input is missing.
+      throw new McpToolError(McpErrorCode.VALIDATION_ERROR, 'Gateway connection details cancelled by user');
     }
     
     connectionDetails = {
@@ -96,7 +97,7 @@ export async function getGaiaConnection(
   }, extra);
   
   if (credentialsResult.cancelled) {
-    throw new Error('Authentication cancelled by user');
+    throw new McpToolError(McpErrorCode.AUTH_FAILED, 'Authentication cancelled by user');
   }
   
   return {

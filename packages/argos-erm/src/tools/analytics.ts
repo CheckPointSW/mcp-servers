@@ -1,9 +1,11 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { SessionContext } from '@chkp/mcp-utils';
+import { SessionContext, toolErrorFrom } from '@chkp/mcp-utils';
 import { ALERT_API_BASE } from '../constants.js';
 import { resolveSpecificCustomerId } from '../session.js';
 import type { ServerModule } from './types.js';
+import { readJson } from '../helpers/response.js';
+import { pathSegment } from '../helpers/path.js';
 
 export function registerAnalyticsTools(
     server: McpServer,
@@ -46,9 +48,9 @@ MULTI-TENANT:
                 );
 
                 const response = await apiManager.get(
-                    `${ALERT_API_BASE}/analytics/${resolved}/risks/current`
+                    `${ALERT_API_BASE}/analytics/${pathSegment(resolved)}/risks/current`
                 );
-                const data = await response.json();
+                const data = await readJson(response);
 
                 return {
                     content: [
@@ -59,16 +61,10 @@ MULTI-TENANT:
                     ],
                 };
             } catch (error) {
-                const msg =
-                    error instanceof Error ? error.message : String(error);
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Error retrieving security analytics: ${msg}`,
-                        },
-                    ],
-                };
+                return toolErrorFrom(
+                    error,
+                    'Error retrieving security analytics'
+                );
             }
         }
     );

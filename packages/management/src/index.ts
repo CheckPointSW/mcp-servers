@@ -7,7 +7,10 @@ import {
   createServerModule,
   SessionContext,
   createApiRunner,
-  createMcpServer
+  createMcpServer,
+  McpErrorCode,
+  toolError,
+  toolErrorFrom
 } from '@chkp/mcp-utils';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -153,38 +156,15 @@ server.tool(
       // Get API manager for this session
       const apiManager = SessionContext.getAPIManager(serverModule, extra);
       
-      // Check if environment is MDS
-      const isMds = await apiManager.isMds();
-      
-      if (!isMds) {
-        return { 
-          content: [{ 
-            type: 'text', 
-            text: 'Management server is up and running. The environment is NOT part of Multi Domain system, there is no need to use domain parameters in tool calls.' 
-          }] 
-        };
-      } else {
-        // Get domains for MDS environment
-        const domains = await apiManager.getDomains();
-        
-        // Format domain information
-        const domainList = domains.map((domain: { name: string; type: string }) => `${domain.name} (${domain.type})`).join(', ');
-        
-        return { 
-          content: [{ 
-            type: 'text', 
-            text: `Management server is up and running. The environment is part of Multi Domain system. You need to use the domain parameter for calling APIs, if you are not sure which to use, ask the user. The domains in the system are: ${domainList}` 
-          }] 
-        };
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const environment = await apiManager.describeDomainEnvironment();
       return { 
         content: [{ 
           type: 'text', 
-          text: `Error initializing management connection: ${errorMessage}` 
+          text: `Management server is up and running. ${environment}` 
         }] 
       };
+    } catch (error) {
+      return toolErrorFrom(error, 'Failed to initialize management connection');
     }
   }
 );
@@ -388,12 +368,7 @@ server.tool(
       const uid = typeof args.uid === 'string' && args.uid.trim() !== '' ? args.uid : undefined;
       
       if (!name && !uid) {
-        return { 
-          content: [{ 
-            type: 'text', 
-            text: 'Error: Either name or uid parameter is required to identify the rulebase.' 
-          }] 
-        };
+        return toolError(McpErrorCode.VALIDATION_ERROR, 'Either name or uid parameter is required to identify the rulebase.');
       }
 
       const format = args.format as 'table' | 'model-friendly';
@@ -442,13 +417,7 @@ ${formattedOutput}`;
       };
       
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      return { 
-        content: [{ 
-          type: 'text', 
-          text: `Error parsing rulebase: ${errorMessage}` 
-        }] 
-      };
+      return toolErrorFrom(error, 'Failed to parse rulebase');
     }
   }
 );
@@ -2165,7 +2134,7 @@ server.tool(
   },
   async (args: Record<string, unknown>, extra: any) => {
     const ip = String(args.ip ?? '').trim();
-    if (!ip) return { content: [{ type: 'text', text: 'Error: ip is required' }] };
+    if (!ip) return toolError(McpErrorCode.VALIDATION_ERROR, 'ip is required');
     const deep = args.deep === true;
     const maxScan = typeof args.max_scan === 'number' && args.max_scan > 0 ? args.max_scan : 2000;
     const domain = typeof args.domain === 'string' && args.domain.trim() !== '' ? args.domain : undefined;
@@ -2724,13 +2693,7 @@ server.tool(
       }
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      return { 
-        content: [{ 
-          type: 'text', 
-          text: `Error finding zero hits rules: ${errorMessage}` 
-        }] 
-      };
+      return toolErrorFrom(error, 'Failed to find zero hits rules');
     }
   }
 );
@@ -2747,7 +2710,7 @@ server.tool(
       z.string().describe('Protocol name: UDP, TCP, or ICMP'),
       z.number().int().min(0).max(255).describe('IANA protocol number')
     ]).describe('IP protocol either as string (UDP/TCP/ICMP) or IANA protocol number'),
-    protocol_options: z.record(z.any()).describe('Protocol-specific options (e.g., for TCP/UDP: source-port, destination-port; for ICMP: type, code)'),
+    protocol_options: z.record(z.string(), z.any()).describe('Protocol-specific options (e.g., for TCP/UDP: source-port, destination-port; for ICMP: type, code)'),
     incoming_interface: z.string().describe('Incoming interface name for the packet. Use "localhost" to simulate local outgoing connection'),
     ip_version: z.enum(['4', '6']).optional().default('4').describe('IP version: 4 for IPv4, 6 for IPv6'),
     application: z.union([
@@ -2835,17 +2798,13 @@ server.tool(
           const task = taskResult.response.tasks[0];
 
           if (task.status === 'failed') {
-            return {
-              content: [{
-                type: 'text',
-                text: JSON.stringify({
-                  success: false,
-                  status: 'failed',
-                  message: 'Packet simulation failed',
-                  task: task
-                }, null, 2)
-              }]
-            };
+            // A terminal 'failed' task is a real failure, not data. The task
+            // detail is kept in structuredContent so callers keep full context.
+            return toolError(
+              McpErrorCode.OPERATION_FAILED,
+              `Packet simulation failed: ${JSON.stringify(task)}`,
+              { retryable: false, details: { task } }
+            );
           }
 
           // Return the task details which contain the simulation results
@@ -2885,13 +2844,7 @@ server.tool(
       };
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      return {
-        content: [{
-          type: 'text',
-          text: `Error simulating packet: ${errorMessage}`
-        }]
-      };
+      return toolErrorFrom(error, 'Failed to simulate packet');
     }
   }
 );

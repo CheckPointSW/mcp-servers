@@ -4,7 +4,10 @@ import { z } from 'zod';
 import { 
   launchMCPServer, 
   createServerModule, 
-  createMcpServer
+  createMcpServer,
+  McpErrorCode,
+  McpToolError,
+  toolError
 } from '@chkp/mcp-utils';
 import { sanitizeData } from '@chkp/quantum-infra';
 import { join, dirname } from 'path';
@@ -105,27 +108,21 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {};
-      
-      if (typeof args.virtual_system_id === 'number') {
-        params['virtual-system-id'] = args.virtual_system_id;
-      }
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-dns', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {};
+    
+    if (typeof args.virtual_system_id === 'number') {
+      params['virtual-system-id'] = args.virtual_system_id;
     }
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
+    }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-dns', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show_proxy
@@ -138,23 +135,17 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {};
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-proxy', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {};
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-proxy', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show_dhcp
@@ -168,27 +159,21 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {};
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      if (typeof args.virtual_system_id === 'number') {
-        params['virtual-system-id'] = args.virtual_system_id;
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-     
-      const resp = await apiManager.callApi('POST', 'show-dhcp-server', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {};
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    if (typeof args.virtual_system_id === 'number') {
+      params['virtual-system-id'] = args.virtual_system_id;
+    }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+   
+    const resp = await apiManager.callApi('POST', 'show-dhcp-server', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show_dhcp6
@@ -201,42 +186,33 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {};
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
- 
-      // Call both DHCPv6 APIs in parallel for efficiency
-      const [serverResponse, configResponse] = await Promise.all([
-        apiManager.callApi('POST', 'show-dhcp6-server', params),
-        apiManager.callApi('POST', 'show-dhcp6-config', params)
-      ]);
-      
-      // Combine both responses into a single structured result
-      const combinedResult = {
-        dhcp6_server: serverResponse,
-        dhcp6_config: configResponse
-      };
-      
-      return { 
-        content: [{ 
-          type: 'text', 
-          text: JSON.stringify(combinedResult, null, 2) 
-        }] 
-      };
-    } catch (error) {
-      return {
-        content: [{ 
-          type: 'text', 
-          text: `Error: ${(error as Error).message}` 
-        }]
-      };
+    const params: Record<string, any> = {};
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+
+    // Call both DHCPv6 APIs in parallel for efficiency
+    const [serverResponse, configResponse] = await Promise.all([
+      apiManager.callApi('POST', 'show-dhcp6-server', params),
+      apiManager.callApi('POST', 'show-dhcp6-config', params)
+    ]);
+    
+    // Combine both responses into a single structured result
+    const combinedResult = {
+      dhcp6_server: serverResponse,
+      dhcp6_config: configResponse
+    };
+    
+    return { 
+      content: [{ 
+        type: 'text', 
+        text: JSON.stringify(combinedResult, null, 2) 
+      }] 
+    };
   }
 );
 // show_arp
@@ -249,23 +225,17 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {};
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-arp', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {};
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-arp', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // Show date and time information
@@ -278,44 +248,35 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {};
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      // Call all date/time related APIs in parallel for efficiency
-      const [ntpResponse, timeResponse, timezonesResponse] = await Promise.all([
-        apiManager.callApi('POST', 'show-ntp', params),
-        apiManager.callApi('POST', 'show-time-and-date', params),
-        apiManager.callApi('POST', 'show-timezones', params)
-      ]);
-      
-      // Combine all responses into a comprehensive result
-      const combinedResult = {
-        ntp_configuration: ntpResponse,
-        current_time_date: timeResponse,
-        available_timezones: timezonesResponse
-      };
-      
-      return { 
-        content: [{ 
-          type: 'text', 
-          text: JSON.stringify(combinedResult, null, 2) 
-        }] 
-      };
-    } catch (error) {
-      return {
-        content: [{ 
-          type: 'text', 
-          text: `Error: ${(error as Error).message}` 
-        }]
-      };
+    const params: Record<string, any> = {};
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    // Call all date/time related APIs in parallel for efficiency
+    const [ntpResponse, timeResponse, timezonesResponse] = await Promise.all([
+      apiManager.callApi('POST', 'show-ntp', params),
+      apiManager.callApi('POST', 'show-time-and-date', params),
+      apiManager.callApi('POST', 'show-timezones', params)
+    ]);
+    
+    // Combine all responses into a comprehensive result
+    const combinedResult = {
+      ntp_configuration: ntpResponse,
+      current_time_date: timeResponse,
+      available_timezones: timezonesResponse
+    };
+    
+    return { 
+      content: [{ 
+        type: 'text', 
+        text: JSON.stringify(combinedResult, null, 2) 
+      }] 
+    };
   }
 );
 // show static mroutes
@@ -332,31 +293,25 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      if (typeof args.virtual_system_id === 'number') {
-        params['virtual-system-id'] = args.virtual_system_id;
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-static-mroutes', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    if (typeof args.virtual_system_id === 'number') {
+      params['virtual-system-id'] = args.virtual_system_id;
+    }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-static-mroutes', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show ipv4 pim summary
@@ -369,23 +324,17 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {};
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-pim-summary', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {};
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-pim-summary', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show ipv6 pim summary
@@ -398,23 +347,17 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {};
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-ipv6-pim-summary', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {};
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-ipv6-pim-summary', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show igmp interfaces
@@ -430,27 +373,21 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-igmp-interfaces', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-igmp-interfaces', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show igmp groups
@@ -468,32 +405,26 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order,
-        type: args.type
-      };
-      
-      if (typeof args.interface === 'string' && args.interface.trim() !== '') {
-        params.interface = args.interface.trim();
-      }
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-igmp-groups', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order,
+      type: args.type
+    };
+    
+    if (typeof args.interface === 'string' && args.interface.trim() !== '') {
+      params.interface = args.interface.trim();
     }
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
+    }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-igmp-groups', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show static routes
@@ -510,31 +441,25 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order
-      };
-      
-      if (typeof args.virtual_system_id === 'number') {
-        params['virtual-system-id'] = args.virtual_system_id;
-      }
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-static-routes', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order
+    };
+    
+    if (typeof args.virtual_system_id === 'number') {
+      params['virtual-system-id'] = args.virtual_system_id;
     }
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
+    }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-static-routes', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show routes
@@ -552,32 +477,26 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order,
-        'address-family': args.address_family
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      if (typeof args.virtual_system_id === 'number') {
-        params['virtual-system-id'] = args.virtual_system_id;
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-routes', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order,
+      'address-family': args.address_family
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    if (typeof args.virtual_system_id === 'number') {
+      params['virtual-system-id'] = args.virtual_system_id;
+    }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-routes', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show routes aggregate
@@ -594,28 +513,22 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order,
-        'address-family': args.address_family
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-routes-aggregate', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order,
+      'address-family': args.address_family
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-routes-aggregate', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show routes BGP
@@ -632,28 +545,22 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order,
-        'address-family': args.address_family
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-routes-bgp', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order,
+      'address-family': args.address_family
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-routes-bgp', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show routes ospf
@@ -671,32 +578,26 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order,
-        'address-family': args.address_family
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      if (typeof args.virtual_system_id === 'number') {
-        params['virtual-system-id'] = args.virtual_system_id;
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-routes-ospf', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order,
+      'address-family': args.address_family
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    if (typeof args.virtual_system_id === 'number') {
+      params['virtual-system-id'] = args.virtual_system_id;
+    }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-routes-ospf', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show routes static
@@ -714,32 +615,26 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order,
-        'address-family': args.address_family
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      if (typeof args.virtual_system_id === 'number') {
-        params['virtual-system-id'] = args.virtual_system_id;
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-routes-static', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order,
+      'address-family': args.address_family
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    if (typeof args.virtual_system_id === 'number') {
+      params['virtual-system-id'] = args.virtual_system_id;
+    }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-routes-static', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show routes rip
@@ -757,32 +652,26 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order,
-        'address-family': args.address_family
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      if (typeof args.virtual_system_id === 'number') {
-        params['virtual-system-id'] = args.virtual_system_id;
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-routes-rip', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order,
+      'address-family': args.address_family
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    if (typeof args.virtual_system_id === 'number') {
+      params['virtual-system-id'] = args.virtual_system_id;
+    }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-routes-rip', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show-routes-kernel
@@ -800,32 +689,26 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order,
-        'address-family': args.address_family
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      if (typeof args.virtual_system_id === 'number') {
-        params['virtual-system-id'] = args.virtual_system_id;
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-routes-kernel', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order,
+      'address-family': args.address_family
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    if (typeof args.virtual_system_id === 'number') {
+      params['virtual-system-id'] = args.virtual_system_id;
+    }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-routes-kernel', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show-routes-direct
@@ -843,32 +726,26 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order,
-        'address-family': args.address_family
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      if (typeof args.virtual_system_id === 'number') {
-        params['virtual-system-id'] = args.virtual_system_id;
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-routes-direct', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order,
+      'address-family': args.address_family
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    if (typeof args.virtual_system_id === 'number') {
+      params['virtual-system-id'] = args.virtual_system_id;
+    }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-routes-direct', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show-bgp-groups
@@ -884,27 +761,21 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-bgp-groups', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-bgp-groups', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 
@@ -921,27 +792,21 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-bgp-paths', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-bgp-paths', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show bgp peers
@@ -958,28 +823,22 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        filter: args.filter,
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-bgp-peers', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      filter: args.filter,
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-bgp-peers', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show bgp routes in
@@ -996,28 +855,22 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order,
-        peer: args.peer || 'all'
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-bgp-routes-in', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order,
+      peer: args.peer || 'all'
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-bgp-routes-in', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show bgp routes out
@@ -1034,28 +887,22 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order,
-        peer: args.peer || 'all'
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-bgp-routes-out', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order,
+      peer: args.peer || 'all'
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-bgp-routes-out', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show bgp routemaps
@@ -1071,27 +918,21 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-bgp-routemaps', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-bgp-routemaps', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show-bgp-summary
@@ -1104,23 +945,17 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {};
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-bgp-summary', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {};
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-bgp-summary', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show-configuration-bgp
@@ -1133,23 +968,17 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {};
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-configuration-bgp', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {};
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-configuration-bgp', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show-ospf-summary
@@ -1163,30 +992,24 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {};
-      
-      // Handle protocol-instance parameter
-      if (typeof args.protocol_instance === 'number') {
-        params['protocol-instance'] = args.protocol_instance;
-      } else {
-        params['protocol-instance'] = 'default';
-      }
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-ospf-summary', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {};
+    
+    // Handle protocol-instance parameter
+    if (typeof args.protocol_instance === 'number') {
+      params['protocol-instance'] = args.protocol_instance;
+    } else {
+      params['protocol-instance'] = 'default';
     }
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
+    }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-ospf-summary', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show-pbr-rules
@@ -1203,31 +1026,25 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      if (typeof args.virtual_system_id === 'number') {
-        params['virtual-system-id'] = args.virtual_system_id;
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-pbr-rules', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    if (typeof args.virtual_system_id === 'number') {
+      params['virtual-system-id'] = args.virtual_system_id;
+    }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-pbr-rules', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show-pbr-tables
@@ -1244,31 +1061,25 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      if (typeof args.virtual_system_id === 'number') {
-        params['virtual-system-id'] = args.virtual_system_id;
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-pbr-tables', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    if (typeof args.virtual_system_id === 'number') {
+      params['virtual-system-id'] = args.virtual_system_id;
+    }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-pbr-tables', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // Combined IS-IS tool for hostnames, interfacesr neighbors
@@ -1288,50 +1099,44 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order
-      };
-      
-      // Handle protocol-instance parameter
-      if (typeof args.protocol_instance === 'number') {
-        params['protocol-instance'] = args.protocol_instance;
-      } else {
-        params['protocol-instance'] = 'default';
-      }
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Determine API endpoint based on info_type
-      let apiEndpoint: string;
-      switch (args.info_type) {
-        case 'hostnames':
-          apiEndpoint = 'show-isis-hostnames';
-          break;
-        case 'interfaces':
-          apiEndpoint = 'show-isis-interfaces';
-          break;
-        case 'neighbors':
-          apiEndpoint = 'show-isis-neighbors';
-          break;
-        default:
-          throw new Error('Invalid info_type specified');
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', apiEndpoint, params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order
+    };
+    
+    // Handle protocol-instance parameter
+    if (typeof args.protocol_instance === 'number') {
+      params['protocol-instance'] = args.protocol_instance;
+    } else {
+      params['protocol-instance'] = 'default';
     }
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
+    }
+    
+    // Determine API endpoint based on info_type
+    let apiEndpoint: string;
+    switch (args.info_type) {
+      case 'hostnames':
+        apiEndpoint = 'show-isis-hostnames';
+        break;
+      case 'interfaces':
+        apiEndpoint = 'show-isis-interfaces';
+        break;
+      case 'neighbors':
+        apiEndpoint = 'show-isis-neighbors';
+        break;
+      default:
+        throw new McpToolError(McpErrorCode.VALIDATION_ERROR, 'Invalid info_type specified');
+    }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', apiEndpoint, params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show-inbound-route-filter-bgp-policy
@@ -1348,25 +1153,19 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        'policy-id': args.policy_id || 'all'
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-inbound-route-filter-bgp-policy', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      'policy-id': args.policy_id || 'all'
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-inbound-route-filter-bgp-policy', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show-inbound-route-filter-rip
@@ -1379,23 +1178,17 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {};
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-inbound-route-filter-rip', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {};
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-inbound-route-filter-rip', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // Combined OSPF Inbound Route Filter (OSPF2 and OSPF3)
@@ -1416,38 +1209,32 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        instance: args.instance || 'all'
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Determine API endpoint based on OSPF version
-      let apiEndpoint: string;
-      switch (args.ospf_version) {
-        case 'ospf2':
-          apiEndpoint = 'show-inbound-route-filter-ospf2';
-          break;
-        case 'ospf3':
-          apiEndpoint = 'show-inbound-route-filter-ospf3';
-          break;
-        default:
-          throw new Error('Invalid ospf_version specified');
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', apiEndpoint, params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      instance: args.instance || 'all'
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Determine API endpoint based on OSPF version
+    let apiEndpoint: string;
+    switch (args.ospf_version) {
+      case 'ospf2':
+        apiEndpoint = 'show-inbound-route-filter-ospf2';
+        break;
+      case 'ospf3':
+        apiEndpoint = 'show-inbound-route-filter-ospf3';
+        break;
+      default:
+        throw new McpToolError(McpErrorCode.VALIDATION_ERROR, 'Invalid ospf_version specified');
+    }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', apiEndpoint, params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show-ipv6
@@ -1460,23 +1247,17 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {};
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-ipv6', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {};
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-ipv6', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show-router-id
@@ -1489,23 +1270,17 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {};
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-router-id', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {};
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-router-id', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show-bootp-interfaces
@@ -1521,27 +1296,21 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-bootp-interfaces', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-bootp-interfaces', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show-routemaps
@@ -1557,27 +1326,21 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-routemaps', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-routemaps', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 // show-nat-pools
@@ -1593,27 +1356,21 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {
-        limit: args.limit,
-        offset: args.offset,
-        order: args.order
-      };
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-nat-pools', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {
+      limit: args.limit,
+      offset: args.offset,
+      order: args.order
+    };
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
     }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-nat-pools', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 
@@ -1628,27 +1385,21 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      const params: Record<string, any> = {};
-      
-      if (typeof args.virtual_system_id === 'number') {
-        params['virtual-system-id'] = args.virtual_system_id;
-      }
-      
-      if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
-        params['member-id'] = args.member_id.trim();
-      }
-      
-      // Use dialog authentication
-      const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
-      
-      const resp = await apiManager.callApi('POST', 'show-interfaces-by-type', params);
-      return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: `Error: ${(error as Error).message}` }]
-      };
+    const params: Record<string, any> = {};
+    
+    if (typeof args.virtual_system_id === 'number') {
+      params['virtual-system-id'] = args.virtual_system_id;
     }
+    
+    if (typeof args.member_id === 'string' && args.member_id.trim() !== '') {
+      params['member-id'] = args.member_id.trim();
+    }
+    
+    // Use dialog authentication
+    const apiManager = await getApiManagerWithDialog(args.gateway_ip as string, args.port as number, extra);
+    
+    const resp = await apiManager.callApi('POST', 'show-interfaces-by-type', params);
+    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
   }
 );
 //  MANAGEMENT TOOLS
@@ -1661,53 +1412,38 @@ server.tool(
     port: z.number().optional()
   },
   async (args: Record<string, unknown>, extra: any) => {
-    try {
-      console.error('Manage credentials called with args:', args);
-      
-      const action = args.action as string;
-      
-      if (!action) {
-        throw new Error('Action is required. Must be one of: clear_gateway, clear_default');
+    console.error('Manage credentials called with args:', args);
+    
+    const action = args.action as string;
+    
+    if (!action) {
+      return toolError(McpErrorCode.VALIDATION_ERROR, 'Action is required. Must be one of: clear_gateway, clear_default');
+    }
+    
+    if (action === 'clear_gateway') {
+      if (!args.gateway_ip) {
+        return toolError(McpErrorCode.VALIDATION_ERROR, 'Gateway IP is required for clear_gateway action');
       }
-      
-      if (action === 'clear_gateway') {
-        if (!args.gateway_ip) {
-          throw new Error('Gateway IP is required for clear_gateway action');
-        }
-        const gatewayPort = (args.port as number) || 443;
-        clearGaiaCredentials(args.gateway_ip as string, gatewayPort, extra);
-        return {
-          content: [{
-            type: "text",
-            text: `Cleared cached credentials for gateway: ${args.gateway_ip}:${gatewayPort}`
-          }]
-        };
-        
-      } else if (action === 'clear_default') {
-        clearDefaultGateway(extra);
-        return {
-          content: [{
-            type: "text",
-            text: "Cleared default gateway connection cache"
-          }]
-        };
-        
-      } else {
-        return {
-          content: [{
-            type: "text",
-            text: `Invalid action: ${action}. Must be one of: clear_gateway, clear_default`
-          }]
-        };
-      }
-    } catch (error) {
-      console.error('Manage credentials error:', error);
+      const gatewayPort = (args.port as number) || 443;
+      clearGaiaCredentials(args.gateway_ip as string, gatewayPort, extra);
       return {
         content: [{
           type: "text",
-          text: `Error: ${(error as Error).message}`
+          text: `Cleared cached credentials for gateway: ${args.gateway_ip}:${gatewayPort}`
         }]
       };
+      
+    } else if (action === 'clear_default') {
+      clearDefaultGateway(extra);
+      return {
+        content: [{
+          type: "text",
+          text: "Cleared default gateway connection cache"
+        }]
+      };
+      
+    } else {
+      return toolError(McpErrorCode.VALIDATION_ERROR, `Invalid action: ${action}. Must be one of: clear_gateway, clear_default`);
     }
   }
 );

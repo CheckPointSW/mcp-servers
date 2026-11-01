@@ -830,7 +830,7 @@ export function registerCpinfoTools(server: CPMcpServer, service: CpInfoService)
         section_name: z.string().optional().describe("Section name for suggest or reclassify"),
         new_category: z.string().optional().describe("New category for reclassify"),
         pattern_mappings: z
-          .record(z.string())
+          .record(z.string(), z.string())
           .optional()
           .describe("Pattern to category mappings for bulk reclassify"),
         page: z.number().int().positive().optional(),

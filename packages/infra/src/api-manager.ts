@@ -1,8 +1,33 @@
 // API manager implementation for Check Point MCP servers
-import {APIClientBase, SmartOneCloudAPIClient, OnPremAPIClient, BearerTokenAPIClient, TokenType} from './api-client.js';
+import {APIClientBase, SmartOneCloudAPIClient, OnPremAPIClient, BearerTokenAPIClient, TokenType, describeResponseBody} from './api-client.js';
 
 import {sanitizeData} from "./string-utils.js";
-import { SettingsManager } from '@chkp/mcp-utils';
+import { classifyHttpStatus, McpErrorCode, McpToolError, SettingsManager } from '@chkp/mcp-utils';
+
+/** Split a comma-separated MANAGEMENT_DOMAIN value into domain names. */
+function parseDomainList(value?: string): string[] {
+  return (value ?? '').split(',').map(domain => domain.trim()).filter(domain => domain !== '');
+}
+
+function formatDomainList(domains: Array<{ name: string; type: string }>): string {
+  return domains.map(domain => `${domain.name} (${domain.type})`).join(', ');
+}
+
+/** Explain a failed login to a domain other than the configured login domain. */
+function domainLoginError(domainName: string, error: unknown): Error {
+  const message = `Could not log in to domain '${domainName}' with the configured credentials. ` +
+    'Make sure the domain exists and these credentials can access it.';
+  if (error instanceof McpToolError) {
+    return new McpToolError(error.code, `${message} ${error.message}`, {
+      upstreamStatus: error.upstreamStatus,
+      retryable: error.retryable,
+      cause: error,
+    });
+  }
+  // Not attached as cause: an HTTP client error carries the login request,
+  // whose body is the credentials.
+  return new McpToolError(McpErrorCode.AUTH_FAILED, message);
+}
 
 /**
  * Base class for API managers
@@ -32,7 +57,19 @@ export abstract class APIManagerBase {
     'ipv6-address'?: string;
   }> | null = null;
 
-  constructor(protected readonly client: APIClientBase) {}
+  /**
+   * @param configuredDomains MDS domains set for credentials without System
+   *   Domain access. The client logs in to the first, which is the default for
+   *   calls that name no domain. The list tells the model which domains exist,
+   *   since such credentials cannot list them; any other domain the
+   *   credentials can access is still reached by logging in to it.
+   */
+  constructor(protected readonly client: APIClientBase, protected readonly configuredDomains: readonly string[] = []) {}
+
+  /** The domain the client logs in to, when credentials have no System Domain access. */
+  protected get loginDomain(): string | undefined {
+    return this.configuredDomains[0];
+  }
 
   /**
    * Set debug mode for the API client
@@ -56,15 +93,32 @@ export abstract class APIManagerBase {
   }
 
   /**
-   * Call an API endpoint
+   * Call an API endpoint.
+   *
+   * Throws on any non-2xx response, as an `McpToolError` carrying the upstream
+   * status. The API client already throws for one, since axios rejects any
+   * non-2xx response; the status is also checked here so that an error body is
+   * never handed back as though it were data, whatever client is in use.
    */
   async callApi(method: string, uri: string, data: Record<string, any>, domain?: string): Promise<Record<string, any>> {
-    return (await this.callApiWithStatus(method, uri, data, domain)).response;
+    const { status, response } = await this.callApiWithStatus(method, uri, data, domain);
+
+    if (status < 200 || status >= 300) {
+      const { code, retryable } = classifyHttpStatus(status);
+      throw new McpToolError(
+        code,
+        `${uri} failed: ${status} - ${describeResponseBody(response)}`,
+        { upstreamStatus: status, retryable }
+      );
+    }
+
+    return response;
   }
 
   /**
    * Call an API endpoint and return both the HTTP status code and the response body.
    * Used by callers that need to track the underlying HTTP status (e.g. management-write).
+   * A non-2xx response is thrown by the API client, so the status returned is a 2xx one.
    */
   async callApiWithStatus(
     method: string,
@@ -107,28 +161,75 @@ export abstract class APIManagerBase {
       if (tasks.length > 0) {
         const taskStatus = tasks[0].status;
 
-        if (taskStatus === 'succeeded' || taskStatus === 'failed') {
+        // Only "in progress" means the task is still running. Every other status
+        // is final - "succeeded" and "failed", but also "partially succeeded" and
+        // "succeeded with warnings" - so the task is returned as soon as it has
+        // one, rather than being polled until it looks timed out.
+        if (taskStatus && String(taskStatus).toLowerCase() !== 'in progress') {
           return { response: taskResp };
         }
       }
 
-      // Task still in progress, wait and retry
+      // Task still in progress (or not yet listed), wait and retry
       const timeout = timeouts[Math.min(retries, timeouts.length - 1)];
       await new Promise(resolve => setTimeout(resolve, timeout));
       retries++;
     }
 
-    // Task did not complete in time, return last response
-    const taskParams = { 'task-id': taskId };
-    const taskResp = await this.callApi('POST', 'show-task', taskParams, domain);
-    return { response: taskResp };
+    // Retries exhausted without the task reaching a terminal state. Reported as
+    // a timeout rather than returning the last in-progress response, which would
+    // be indistinguishable from a completed task.
+    //
+    // Note a task that reaches 'failed' is NOT an error at this layer: it is a
+    // terminal, informative result, and callers surface the task detail
+    // themselves. Only the absence of any terminal status is a failure here.
+    throw new McpToolError(
+      McpErrorCode.TIMEOUT,
+      `Task ${taskId} did not complete after ${maxRetries} polling attempts.`,
+      { retryable: true }
+    );
   }
 
   /**
    * Check if the current environment is MDS
    */
   async isMds(): Promise<boolean> {
-    return await this.client.isMDSEnvironment();
+    const isMDS = await this.client.isMDSEnvironment();
+    // A session in one domain does not report itself as MDS, but a login
+    // domain only exists on an MDS.
+    return isMDS || !!this.loginDomain;
+  }
+
+  /**
+   * Describe the domain setup for an init tool, so the model knows whether and
+   * how to use the domain parameter.
+   */
+  async describeDomainEnvironment(): Promise<string> {
+    if (!(await this.isMds())) {
+      return 'The environment is NOT part of Multi Domain system, there is no need to use domain parameters in tool calls.';
+    }
+
+    if (!this.loginDomain) {
+      const domains = await this.getDomains();
+      return 'The environment is part of Multi Domain system. You need to use the domain parameter for calling APIs, ' +
+        `if you are not sure which to use, ask the user. The domains in the system are: ${formatDomainList(domains)}`;
+    }
+
+    // Listing domains needs System Domain access, which a login domain usually
+    // means the credentials lack; the configured domains stand in for the list.
+    let domainList = '';
+    try {
+      const domains = await this.getDomains();
+      if (domains.length > 0) domainList = ` The domains in the system are: ${formatDomainList(domains)}`;
+    } catch {
+      // Fall back to the configured domains below.
+    }
+    if (!domainList && this.configuredDomains.length > 1) {
+      domainList = ` The domains configured for these credentials are: ${this.configuredDomains.join(', ')}`;
+    }
+    return `The environment is part of Multi Domain system. The session is logged in to domain '${this.loginDomain}', ` +
+      'which is used when the domain parameter is omitted. To work in another domain these credentials can access, ' +
+      `pass its name in the domain parameter; if you are not sure which to use, ask the user.${domainList}`;
   }
 
   /**
@@ -210,7 +311,7 @@ export abstract class APIManagerBase {
    */
   async getDomainApiClient(gatewayName: string): Promise<APIClientBase> {
     // 1. Check if the main API client is MDS, if not return it directly
-    const isMDS = await this.client.isMDSEnvironment();
+    const isMDS = await this.isMds();
     if (!isMDS) {
       return this.client;
     }
@@ -237,6 +338,9 @@ export abstract class APIManagerBase {
     }
 
     const gatewayDomainName = gatewayDomain.name;
+    if (gatewayDomainName === this.loginDomain) {
+      return this.client;
+    }
 
     // 4. Check if we already have a valid client for this domain
     const existingDomainClient = this.domainClients.get(gatewayDomainName);
@@ -274,8 +378,8 @@ export abstract class APIManagerBase {
    * (use getMDSServerForDomain which selects the active server from show-domains).
    */
   async getDomainApiClientByDomain(domainName: string): Promise<APIClientBase> {
-    const isMDS = await this.client.isMDSEnvironment();
-    if (!isMDS) {
+    const isMDS = await this.isMds();
+    if (!isMDS || domainName === this.loginDomain) {
       return this.client;
     }
 
@@ -299,8 +403,14 @@ export abstract class APIManagerBase {
       await domainClient.login();
       this.domainClients.set(domainName, domainClient);
       return domainClient;
-    } catch {
+    } catch (error) {
       // Domain may be on a different MDS or credentials don't cover this domain.
+      // With a login domain there is nothing to fall back to: the steps below
+      // look the domain up with show-domains and show-mdss, which need System
+      // Domain access.
+      if (this.loginDomain) {
+        throw domainLoginError(domainName, error);
+      }
     }
 
     // Step 2: Cross-MDS — find the target MDS root IP via show-mdss and login -d there
@@ -583,6 +693,7 @@ export class APIManagerForAPIKey extends APIManagerBase {
     password?: string;
     managementHost?: string;
     managementPort?: string;
+    managementDomain?: string;
     s1cUrl?: string;
     cloudInfraToken?: string;
     cloudConnected?: boolean;
@@ -598,6 +709,7 @@ export class APIManagerForAPIKey extends APIManagerBase {
         password: args.password ? '***' : undefined,
         managementHost: args.managementHost,
         managementPort: args.managementPort,
+        managementDomain: args.managementDomain,
         s1cUrl: args.s1cUrl,
         cloudInfraToken: args.cloudInfraToken ? '***' : undefined,
         sid: args.sid ? '***' : undefined
@@ -620,13 +732,16 @@ export class APIManagerForAPIKey extends APIManagerBase {
       if (verbose) {
         console.error('[APIManagerForAPIKey.create] Verbose: Using on-prem management with host:', args.managementHost);
       }
+      // MANAGEMENT_DOMAIN may list several domains; the first is the login domain
+      const domains = parseDomainList(args.managementDomain);
       // Create an OnPremAPIClient with username/password support
       const onPremClient = new OnPremAPIClient(
         args.apiKey,
         args.managementHost,
         args.managementPort || '443',
         args.username,
-        args.password
+        args.password,
+        domains[0]
       );
       // If a pre-authenticated SID was provided, set it on the client to skip login
       if (args.sid) {
@@ -635,7 +750,7 @@ export class APIManagerForAPIKey extends APIManagerBase {
         }
         onPremClient.setExternalSid(args.sid);
       }
-      return new this(onPremClient);
+      return new this(onPremClient, domains);
     }
 
     if (verbose) {
@@ -655,19 +770,20 @@ export class APIManagerForAPIKey extends APIManagerBase {
     let keyType: TokenType;
     let key: string;
 
-    if (args.cloudInfraToken) {
-      if (verbose) {
-        console.error('[APIManagerForAPIKey.create] Verbose: Using cloud infra token');
-      }
-      keyType = TokenType.CI_TOKEN;
-      key = args.cloudInfraToken;
-    }
-    else if (args.apiKey) {
+    // An API key takes precedence over a CloudInfra token
+    if (args.apiKey) {
       if (verbose) {
         console.error('[APIManagerForAPIKey.create] Verbose: Using API key');
       }
       keyType = TokenType.API_KEY;
       key = args.apiKey;
+    }
+    else if (args.cloudInfraToken) {
+      if (verbose) {
+        console.error('[APIManagerForAPIKey.create] Verbose: Using cloud infra token');
+      }
+      keyType = TokenType.CI_TOKEN;
+      key = args.cloudInfraToken;
     }
     else if (args.sid) {
       // SID provided without auth credentials for S1C - use a placeholder token
@@ -690,6 +806,7 @@ export class APIManagerForAPIKey extends APIManagerBase {
       keyType,
       args.s1cUrl!,
       !!args.cloudConnected,
+      keyType === TokenType.API_KEY ? args.cloudInfraToken : undefined,
     );
 
     // If a pre-authenticated SID was provided, set it on the client to skip login

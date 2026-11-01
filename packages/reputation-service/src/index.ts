@@ -9,7 +9,10 @@ import {
   launchMCPServer, 
   createServerModule,
   SessionContext,
-  createMcpServer
+  createMcpServer,
+  toolErrorFrom,
+  McpErrorCode,
+  toolError
 } from '@chkp/mcp-utils';
 
 const { server, pkg } = createMcpServer(import.meta.url, {
@@ -34,7 +37,7 @@ server.tool(
     },
     async (args: Record<string, unknown>, extra: any) => {
         if (typeof args.resource !== 'string' || args.resource.trim() === '') {
-            return { content: [{ type: 'text', text: JSON.stringify({ error: 'Resource must be provided and cannot be empty' }, null, 2) }] };
+            return toolError(McpErrorCode.VALIDATION_ERROR, 'Resource must be provided and cannot be empty');
         }
 
         try {
@@ -54,7 +57,7 @@ server.tool(
             };
 
         } catch (error: any) {
-            return { content: [{ type: 'text', text: JSON.stringify({ error: `Error getting URL reputation: ${error.message}` }, null, 2) }] };
+            return toolErrorFrom(error, 'Error getting URL reputation');
         }
     }
 );
@@ -67,12 +70,12 @@ server.tool(
     },
     async (args: Record<string, unknown>, extra: any) => {
         if (typeof args.ip !== 'string' || args.ip.trim() === '') {
-            return { content: [{ type: 'text', text: JSON.stringify({ error: 'IP address must be provided and cannot be empty' }, null, 2) }] };
+            return toolError(McpErrorCode.VALIDATION_ERROR, 'IP address must be provided and cannot be empty');
         }
 
         // Validate IP format
         if (!isValidIp(args.ip as string)) {
-            return { content: [{ type: 'text', text: JSON.stringify({ error: 'Invalid IP address format. Please provide a valid IPv4 or IPv6 address.' }, null, 2) }] };
+            return toolError(McpErrorCode.VALIDATION_ERROR, 'Invalid IP address format. Please provide a valid IPv4 or IPv6 address.');
         }
 
         try {
@@ -91,7 +94,7 @@ server.tool(
                 }]
             };
         } catch (error: any) {
-            return { content: [{ type: 'text', text: JSON.stringify({ error: `Error getting IP reputation: ${error.message}` }, null, 2) }] };
+            return toolErrorFrom(error, 'Error getting IP reputation');
         }
     }
 );
@@ -104,12 +107,12 @@ server.tool(
     },
     async (args: Record<string, unknown>, extra: any) => {
         if (typeof args.hash !== 'string' || args.hash.trim() === '') {
-            return { content: [{ type: 'text', text: JSON.stringify({ error: 'File hash must be provided and cannot be empty' }, null, 2) }] };
+            return toolError(McpErrorCode.VALIDATION_ERROR, 'File hash must be provided and cannot be empty');
         }
 
         // Validate hash format
         if (!isValidFileHash(args.hash as string)) {
-            return { content: [{ type: 'text', text: JSON.stringify({ error: 'Invalid file hash format. Please provide a valid MD5, SHA-1, SHA-256.' }, null, 2) }] };
+            return toolError(McpErrorCode.VALIDATION_ERROR, 'Invalid file hash format. Please provide a valid MD5, SHA-1, SHA-256.');
         }
 
         try {
@@ -129,7 +132,7 @@ server.tool(
                 }]
             };
         } catch (error: any) {
-            return { content: [{ type: 'text', text: JSON.stringify({ error: `Error getting file hash reputation: ${error.message}` }, null, 2) }] };
+            return toolErrorFrom(error, 'Error getting file hash reputation');
         }
     }
 );

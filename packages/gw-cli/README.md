@@ -150,6 +150,20 @@ It is expected to work with any MCP client that supports the Model Context Proto
 
 > Set only the environment variables required for your authentication method.
 
+### Multi-Domain Server (MDS)
+
+On a Multi-Domain Server, the server logs in to the System Domain and finds each gateway's domain for you.
+
+If your credentials have no System Domain access, set `MANAGEMENT_DOMAIN` to a domain they can access (or pass `--management-domain`). The server logs in to that domain and works with that domain's gateways.
+
+```json
+"env": {
+  "MANAGEMENT_HOST": "YOUR_MDS_IP_OR_HOST_NAME",
+  "MANAGEMENT_DOMAIN": "YOUR_DOMAIN", // only when you have no System Domain access
+  "API_KEY": "YOUR_API_KEY"
+}
+```
+
 ### Configuring the Claude Desktop App
 
 #### Using a Bundled MCPB (formerly DXT)

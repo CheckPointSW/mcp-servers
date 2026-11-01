@@ -10,7 +10,10 @@ import {
   launchMCPServer, 
   createServerModule,
   SessionContext,
-  createMcpServer
+  createMcpServer,
+  toolErrorFrom,
+  McpErrorCode,
+  toolError
 } from '@chkp/mcp-utils';
 
 const { server, pkg } = createMcpServer(import.meta.url, {
@@ -48,14 +51,14 @@ server.tool(
 
             // Validate that exactly one input method is provided
             if (!filePath) {
-                return { content: [{ type: 'text', text: JSON.stringify({ error: 'file_path is required' }, null, 2) }] };
+                return toolError(McpErrorCode.VALIDATION_ERROR, 'file_path is required');
             }
 
             // Validate file exists
             try {
                 statSync(filePath);
-            } catch {
-                return { content: [{ type: 'text', text: JSON.stringify({ error: 'File not found' }, null, 2) }] };
+            } catch (error) {
+                return toolErrorFrom(error, 'Cannot access file');
             }
 
             const actualFilePath = filePath;
@@ -88,7 +91,7 @@ server.tool(
             };
 
         } catch (error: any) {
-            return { content: [{ type: 'text', text: JSON.stringify({ error: `Upload failed: ${error.message}` }, null, 2) }] };
+            return toolErrorFrom(error, 'Upload failed');
         }
     }
 );
@@ -152,7 +155,7 @@ server.tool(
 
             // Validate at least one hash is provided
             if (!hashes.md5 && !hashes.sha1 && !hashes.sha256) {
-                return { content: [{ type: 'text', text: JSON.stringify({ error: 'At least one hash (md5, sha1, or sha256) must be provided' }, null, 2) }] };
+                return toolError(McpErrorCode.VALIDATION_ERROR, 'At least one hash (md5, sha1, or sha256) must be provided');
             }
 
             // If MD5 missing but file path provided, calculate it
@@ -188,7 +191,7 @@ server.tool(
             };
 
         } catch (error: any) {
-            return { content: [{ type: 'text', text: JSON.stringify({ error: `Query failed: ${error.message}` }, null, 2) }] };
+            return toolErrorFrom(error, 'Query failed');
         }
     }
 );
@@ -211,14 +214,14 @@ server.tool(
             const reports = (args.reports as string[]) || ['xml'];
             
             if (!filePath) {
-                return { content: [{ type: 'text', text: JSON.stringify({ error: 'file_path is required' }, null, 2) }] };
+                return toolError(McpErrorCode.VALIDATION_ERROR, 'file_path is required');
             }
 
             // Validate file exists
             try {
                 statSync(filePath);
-            } catch {
-                return { content: [{ type: 'text', text: JSON.stringify({ error: 'File not found' }, null, 2) }] };
+            } catch (error) {
+                return toolErrorFrom(error, 'Cannot access file');
             }
 
             const actualFilePath = filePath;
@@ -299,7 +302,7 @@ server.tool(
             };
             
         } catch (error: any) {
-            return { content: [{ type: 'text', text: JSON.stringify({ error: `Scan failed: ${error.message}` }, null, 2) }] };
+            return toolErrorFrom(error, 'Scan failed');
         }
     }
 );
@@ -329,7 +332,7 @@ server.tool(
             const reportId = args.report_id as string;
 
             if (!reportId) {
-                return { content: [{ type: 'text', text: JSON.stringify({ error: 'report_id is required' }, null, 2) }] };
+                return toolError(McpErrorCode.VALIDATION_ERROR, 'report_id is required');
             }
 
             const settings = SessionContext.getSettings(serverModule, extra);
@@ -350,7 +353,7 @@ server.tool(
             };
 
         } catch (error: any) {
-            return { content: [{ type: 'text', text: JSON.stringify({ error: `Download failed: ${error.message}` }, null, 2) }] };
+            return toolErrorFrom(error, 'Download failed');
         }
     }
 );
@@ -377,7 +380,7 @@ server.tool(
             };
 
         } catch (error: any) {
-            return { content: [{ type: 'text', text: JSON.stringify({ error: `Quota request failed: ${error.message}` }, null, 2) }] };
+            return toolErrorFrom(error, 'Quota request failed');
         }
     }
 );

@@ -10,6 +10,8 @@ import { SettingsManager } from './settings-manager.js';
 import { setTransportType } from './telemetry.js';
 import { booleanOptionDefault, operatorValues, optionKey, resolveTransportType } from './cli-options.js';
 import { sessionLogLabel } from './debug-view.js';
+import { classifyError, errorForLog } from './errors.js';
+import { maxHttpBodyBytes, readHttpBody } from './http-body.js';
 
 export interface CliOption {
   flag: string;
@@ -46,6 +48,42 @@ export interface ServerModule {
 
 export type TransportType = 'stdio' | 'http';
 
+let processErrorHandlersInstalled = false;
+
+/**
+ * Install process-level handlers for failures that never reach a tool handler.
+ *
+ * `CPMcpServer` covers anything thrown inside a tool, prompt or resource, but a
+ * rejection from a detached async task (a fire-and-forget call, a timer, a
+ * transport callback) has no handler above it. Without this, Node terminates on
+ * an unhandled rejection with no indication of which MCP was involved.
+ *
+ * An unhandled rejection is logged and execution continues: a stray background
+ * rejection should not take down an otherwise healthy session. An uncaught
+ * exception leaves the process in an undefined state, so it is logged and the
+ * process exits non-zero for the supervisor to restart.
+ *
+ * Everything goes to stderr — stdout carries the MCP protocol under stdio. The
+ * error is rendered with `errorForLog` rather than logged as an object, so its
+ * properties — for an HTTP client error, the request body — are never printed.
+ */
+function installProcessErrorHandlers(): void {
+  if (processErrorHandlersInstalled) return;
+  processErrorHandlersInstalled = true;
+
+  const pkg = process.env.CP_MCP_MAIN_PKG || 'unknown MCP';
+
+  process.on('unhandledRejection', (reason: unknown) => {
+    const { error_code } = classifyError(reason);
+    console.error(`[${pkg}] Unhandled promise rejection (${error_code}): ${errorForLog(reason, { stack: true })}`);
+  });
+
+  process.on('uncaughtException', (error: Error) => {
+    const { error_code } = classifyError(error);
+    console.error(`[${pkg}] Uncaught exception (${error_code}): ${errorForLog(error, { stack: true })}`);
+    process.exit(1);
+  });
+}
 
 /**
  * Mirror boolean CLI flags onto the environment variable they declare.
@@ -104,6 +142,8 @@ export async function launchMCPServer(
   configPath: string,
   serverModule: ServerModule
 ): Promise<void> {
+  installProcessErrorHandlers();
+
   // Load configuration
   const config: ServerConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
   
@@ -240,6 +280,7 @@ async function launchHTTPServer(
   serverModule: ServerModule,
   port: number
 ): Promise<void> {
+  const bodyLimit = maxHttpBodyBytes();
   // Map to store transports by session ID
   const transports: Record<string, StreamableHTTPServerTransport> = {};
 
@@ -255,15 +296,9 @@ async function launchHTTPServer(
       
       // Handle different request methods
       if (req.method === 'POST') {
-        // For POST requests, need to parse the body
-        const chunks: Buffer[] = [];
-        
         try {
-          // Read the request body
-          for await (const chunk of req) {
-            chunks.push(Buffer.from(chunk));
-          }
-          const bodyBuffer = Buffer.concat(chunks);
+          const bodyBuffer = await readHttpBody(req, res, bodyLimit);
+          if (bodyBuffer === null) return;
           let body;
           
           // Try to parse JSON body
@@ -484,8 +519,10 @@ async function launchHTTPServer(
   
   // Start HTTP server
   server.listen(port, () => {
-    console.error(`${config.name} running on HTTP transport at http://localhost:${port}. Version: ${serverModule.pkg.version}`);
-    console.error(`Transport type: HTTP, Transport-port: ${port}`);
+    const address = server.address();
+    const listeningPort = address && typeof address === 'object' ? address.port : port;
+    console.error(`${config.name} running on HTTP transport at http://localhost:${listeningPort}. Version: ${serverModule.pkg.version}`);
+    console.error(`Transport type: HTTP, Transport-port: ${listeningPort}`);
   });
   
   // Handle server errors

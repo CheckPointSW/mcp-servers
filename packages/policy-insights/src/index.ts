@@ -9,6 +9,7 @@ import {
   SessionContext,
   createApiRunner,
   createMcpServer,
+  toolErrorFrom,
 } from '@chkp/mcp-utils';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -43,46 +44,17 @@ server.tool(
       // Get API manager for this session
       const apiManager = SessionContext.getAPIManager(serverModule, extra);
 
-      // Check if environment is MDS
-      const isMds = await apiManager.isMds();
-
-      if (!isMds) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `${SERVER_PACKAGE_NAME} server is up and running. The environment is NOT part of Multi Domain system, there is no need to use domain parameters in tool calls.`,
-            },
-          ],
-        };
-      } else {
-        // Get domains for MDS environment
-        const domains = await apiManager.getDomains();
-
-        // Format domain information
-        const domainList = domains
-          .map((domain: { name: string; type: string }) => `${domain.name} (${domain.type})`)
-          .join(', ');
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `${SERVER_PACKAGE_NAME} server is up and running. The environment is part of Multi Domain system. You need to use the domain parameter for calling APIs, if you are not sure which to use, ask the user. The domains in the system are: ${domainList}`,
-            },
-          ],
-        };
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const environment = await apiManager.describeDomainEnvironment();
       return {
         content: [
           {
             type: 'text',
-            text: `Error initializing ${SERVER_PACKAGE_NAME} connection: ${errorMessage}`,
+            text: `${SERVER_PACKAGE_NAME} server is up and running. ${environment}`,
           },
         ],
       };
+    } catch (error) {
+      return toolErrorFrom(error, `Error initializing ${SERVER_PACKAGE_NAME} connection`);
     }
   }
 );
@@ -100,7 +72,7 @@ for (const toolDef of toolDefinitionMap) {
     zodSchemas[toolName as keyof typeof zodSchemas],
     async (args: Record<string, unknown>, extra: any) => {
       // args are already validated by the MCP framework using the Zod schema
-      return await executeApiTool(toolName, toolDef, args, extra);
+      return await executeApiTool(toolDef, args, extra);
     }
   );
 }
@@ -108,65 +80,38 @@ for (const toolDef of toolDefinitionMap) {
 /**
  * Executes an API tool with the provided arguments
  *
- * @param toolName Name of the tool to execute
  * @param definition Tool definition
  * @param toolArgs Arguments provided by the user
  * @param extra The session context from MCP server
  * @returns Call tool result
  */
 async function executeApiTool(
-  toolName: string,
   definition: McpToolDefinition,
   validatedArgs: Record<string, any>,
   extra?: any
 ): Promise<{ content: Array<{ type: 'text'; text: string }> }> {
-  try {
-    // Prepare URL, query parameters, headers, and request body
-    const urlPath = definition.pathTemplate as string;
+  // Prepare URL, query parameters, headers, and request body
+  const urlPath = definition.pathTemplate as string;
 
-    // Debug logging
-    console.error(`=== Executing tool "${toolName}" ===`);
-    console.error(`URL Path: ${urlPath}`);
-    console.error(`Method: ${definition.method}`);
-    console.error(`Raw args:`, JSON.stringify(validatedArgs, null, 2));
-    console.error(`RequestBody:`, JSON.stringify(validatedArgs?.['requestBody'], null, 2));
-    console.error(`Extra context:`, JSON.stringify(extra, null, 2));
-    console.error(`Definition:`, JSON.stringify(definition, null, 2));
-
-    let domain = undefined;
-    if (validatedArgs.domain) {
-      domain =
-        typeof validatedArgs.domain === 'string' && validatedArgs.domain.trim() !== ''
-          ? validatedArgs.domain
-          : undefined;
-      console.error(`Sending request to domain:`, JSON.stringify(domain, null, 2));
-    }
-    // Execute the request
-    // Ensure requestBody is never undefined to avoid sanitizeData issues
-    const requestBody = validatedArgs?.['requestBody'] || {};
-
-    if (validatedArgs.domains_to_process) {
-      requestBody['domains-to-process'] = [validatedArgs.domains_to_process];
-      requestBody['ignore-warnings'] = true;
-    }
-
-    const resp = await runApi('POST', urlPath, requestBody, extra, domain);
-
-    console.error(`=== DEBUG: Response received ===`);
-    console.error(`Response:`, JSON.stringify(resp, null, 2));
-
-    return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
-  } catch (error) {
-    console.error(`=== DEBUG: Error in executeApiTool ===`);
-    console.error(`Error type:`, typeof error);
-    console.error(`Error:`, error);
-    console.error(`Error stack:`, error instanceof Error ? error.stack : 'No stack trace');
-
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return {
-      content: [{ type: 'text', text: `Error executing tool '${toolName}': ${errorMessage}` }],
-    };
+  let domain = undefined;
+  if (validatedArgs.domain) {
+    domain =
+      typeof validatedArgs.domain === 'string' && validatedArgs.domain.trim() !== ''
+        ? validatedArgs.domain
+        : undefined;
   }
+  // Execute the request
+  // Ensure requestBody is never undefined to avoid sanitizeData issues
+  const requestBody = validatedArgs?.['requestBody'] || {};
+
+  if (validatedArgs.domains_to_process) {
+    requestBody['domains-to-process'] = [validatedArgs.domains_to_process];
+    requestBody['ignore-warnings'] = true;
+  }
+
+  const resp = await runApi('POST', urlPath, requestBody, extra, domain);
+
+  return { content: [{ type: 'text', text: JSON.stringify(resp, null, 2) }] };
 }
 
 export { server };

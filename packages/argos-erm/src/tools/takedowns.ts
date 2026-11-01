@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { SessionContext } from '@chkp/mcp-utils';
+import { SessionContext, toolErrorFrom } from '@chkp/mcp-utils';
 import { TAKEDOWN_API_BASE } from '../constants.js';
 import { parseListParam } from '../schemas.js';
 import { resolveSpecificCustomerId } from '../session.js';
 import type { ServerModule } from './types.js';
+import { readJson } from '../helpers/response.js';
 
 export function registerTakedownTools(
     server: McpServer,
@@ -118,7 +119,7 @@ RETURNS:
                     `${TAKEDOWN_API_BASE}/request`,
                     payload
                 );
-                const data = await response.json();
+                const data = await readJson(response);
 
                 return {
                     content: [
@@ -129,16 +130,10 @@ RETURNS:
                     ],
                 };
             } catch (error) {
-                const msg =
-                    error instanceof Error ? error.message : String(error);
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Error retrieving takedown requests: ${msg}`,
-                        },
-                    ],
-                };
+                return toolErrorFrom(
+                    error,
+                    'Error retrieving takedown requests'
+                );
             }
         }
     );

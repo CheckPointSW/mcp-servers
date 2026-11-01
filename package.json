@@ -93,7 +93,7 @@
         "express": "^5.2.1",
         "jsonc-parser": "^3.3.1",
         "node-fetch": "^2.7.0",
-        "zod": "^3.24.4"
+        "zod": "^4.6.7"
     },
     "devDependencies": {
         "@anthropic-ai/mcpb": "^1.1.0",
@@ -115,6 +115,7 @@
         "eslint-plugin-prettier": "^5.5.3",
         "jest": "30.3.0",
         "js-yaml": "^4.2.0",
+        "json-schema-to-zod": "^2.8.1",
         "npm-merge-driver": "^2.3.6",
         "nx": "23.0.1",
         "prettier": "^3.8.4",
@@ -122,6 +123,7 @@
         "shx": "^0.3.4",
         "ts-jest": "^29.3.4",
         "ts-node": "^10.9.1",
+        "tsx": "^4.19.2",
         "typescript": "^5.0.4"
     },
     "engines": {
@@ -160,6 +162,9 @@
         },
         "@nx/jest": {
             "minimatch": "^9.0.7"
+        },
+        "@anthropic-ai/mcpb": {
+            "zod": "$zod"
         }
     }
 }

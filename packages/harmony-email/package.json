@@ -1,6 +1,6 @@
 {
     "name": "@chkp/harmony-email-mcp",
-    "version": "0.1.4",
+    "version": "0.1.7",
     "description": "Email Security MCP Server - investigate email security events, entities and restore requests via the HEC SmartAPI",
     "type": "module",
     "main": "dist/index.js",
@@ -36,7 +36,7 @@
         "commander": "^14.0.3",
         "node-machine-id": "^1.1.12",
         "postal-mime": "^2.7.5",
-        "zod": "^3.24.4"
+        "zod": "^4.6.7"
     },
     "devDependencies": {
         "@types/jest": "^30.0.0",

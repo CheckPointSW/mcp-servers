@@ -54,29 +54,33 @@ function wrapServerWithTracking(server: any, createServerFn: () => any): {
 } {
     const registrations: ServerRegistration[] = [];
 
-    // Wrap the server methods to track registrations
-    const originalTool = server.tool?.bind(server);
-    const originalPrompt = server.prompt?.bind(server);
-    const originalResource = server.resource?.bind(server);
+    // Every registration entry point has to be tracked, because only recorded
+    // registrations are replayed onto the per-session server instances used for
+    // HTTP transport — anything registered through an untracked method is absent
+    // from those instances entirely.
+    //
+    // That means both the current `register*` API and the older
+    // `tool`/`prompt`/`resource` methods the SDK now marks deprecated. The newer
+    // methods do not delegate to the older ones, and packages in this repo use
+    // both, so tracking one family is not enough.
+    const TRACKED_REGISTRATIONS: Array<[method: string, type: ServerRegistration['type']]> = [
+        ['tool', 'tool'],
+        ['registerTool', 'tool'],
+        ['prompt', 'prompt'],
+        ['registerPrompt', 'prompt'],
+        ['resource', 'resource'],
+        ['registerResource', 'resource'],
+    ];
 
-    if (originalTool) {
-        server.tool = function(...args: any[]) {
-            registrations.push({ type: 'tool', method: 'tool', args: [...args] });
-            return originalTool(...args);
-        };
-    }
+    for (const [method, type] of TRACKED_REGISTRATIONS) {
+        const original = server[method]?.bind(server);
+        if (!original) continue;
 
-    if (originalPrompt) {
-        server.prompt = function(...args: any[]) {
-            registrations.push({ type: 'prompt', method: 'prompt', args: [...args] });
-            return originalPrompt(...args);
-        };
-    }
-
-    if (originalResource) {
-        server.resource = function(...args: any[]) {
-            registrations.push({ type: 'resource', method: 'resource', args: [...args] });
-            return originalResource(...args);
+        server[method] = function(...args: any[]) {
+            // `method` is recorded so the replay calls the same entry point the
+            // package originally used, preserving its argument shape.
+            registrations.push({ type, method, args: [...args] });
+            return original(...args);
         };
     }
 

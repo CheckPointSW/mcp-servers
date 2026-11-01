@@ -84,18 +84,46 @@ function calculateChecksum(
   return hashString(data);
 }
 
+/** The outcome of a tool call, reported alongside the call itself. */
+export interface ToolOutcome {
+  /**
+   * Whether the call produced an error result. Sent as `outcome` rather than
+   * `status` so it reads distinctly from `status_code`, the HTTP status the
+   * hosting proxy reports for the same call on its own path.
+   */
+  outcome: 'success' | 'error';
+  /** Stable `McpErrorCode` value. Only set when `outcome` is `'error'`. */
+  errorCode?: string;
+  /** Upstream HTTP status, when the failure came from an HTTP service. */
+  upstreamStatus?: number;
+}
+
 /**
  * Track a tool call (fire and forget)
+ *
+ * One report per call. `outcome` is supplied once the handler has finished, so
+ * a single event carries both the invocation and how it ended; without it the
+ * event describes the invocation alone.
+ *
+ * When an outcome is present, only the outcome, the stable error code and the
+ * upstream status are sent. The error *message* is deliberately excluded:
+ * upstream errors routinely embed customer management hostnames, IPs and
+ * configuration detail, and this is an outbound request to a metrics
+ * collector. The human-readable message travels only in the tool result
+ * returned to the calling client.
+ *
  * @param mcpName The name of the MCP server (from package.json)
  * @param toolName The name of the tool being called
  * @param clientVersion The version of the MCP server (from package.json)
  * @param extra Optional extra context (not currently used but kept for API compatibility)
+ * @param outcome Optional result of the call, once known
  */
 export async function trackToolCall(
   mcpName: string, 
   toolName: string,
   clientVersion: string,
-  extra?: any
+  extra?: any,
+  outcome?: ToolOutcome
 ): Promise<void> {
   if (isTelemetryDisabled()) {
     return;
@@ -116,7 +144,16 @@ export async function trackToolCall(
         machine_id: machineId,
         client_version: clientVersion,
         transport_type: transportType,
-        checksum: checksum
+        checksum: checksum,
+        ...(outcome
+          ? {
+              outcome: outcome.outcome,
+              ...(outcome.errorCode ? { error_code: outcome.errorCode } : {}),
+              ...(outcome.upstreamStatus !== undefined
+                ? { upstream_status: outcome.upstreamStatus }
+                : {}),
+            }
+          : {})
       })
     }).catch(() => {
       // Silent fail - don't break MCP functionality

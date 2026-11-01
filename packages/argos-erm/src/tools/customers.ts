@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { SessionContext } from '@chkp/mcp-utils';
+import { SessionContext, toolErrorFrom } from '@chkp/mcp-utils';
 import { ALL_SENTINEL, UNSET_SENTINEL } from '../constants.js';
 import {
     populateCustomers,
@@ -77,16 +77,7 @@ Returns the full list with an "ALL" option prepended.`,
                     ],
                 };
             } catch (error) {
-                const msg =
-                    error instanceof Error ? error.message : String(error);
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Error listing customers: ${msg}`,
-                        },
-                    ],
-                };
+                return toolErrorFrom(error, 'Error listing customers');
             }
         }
     );
@@ -168,16 +159,7 @@ Pass a customer_id from list_customers. Pass "ALL" to query all customers.`,
                     ],
                 };
             } catch (error) {
-                const msg =
-                    error instanceof Error ? error.message : String(error);
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Error selecting customer: ${msg}`,
-                        },
-                    ],
-                };
+                return toolErrorFrom(error, 'Error selecting customer');
             }
         }
     );

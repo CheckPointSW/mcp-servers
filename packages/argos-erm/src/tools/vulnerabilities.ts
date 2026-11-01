@@ -1,9 +1,11 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { SessionContext } from '@chkp/mcp-utils';
+import { SessionContext, toolErrorFrom } from '@chkp/mcp-utils';
 import { CVE_INTEL_API_BASE } from '../constants.js';
 import { parseListParam } from '../schemas.js';
 import type { ServerModule } from './types.js';
+import { readJson } from '../helpers/response.js';
+import { pathSegment } from '../helpers/path.js';
 
 // Return the numeric dotted core of a version string, if different.
 //
@@ -70,9 +72,9 @@ WHEN TO USE:
                 );
 
                 const response = await apiManager.get(
-                    `${CVE_INTEL_API_BASE}/vulnerability/${cve_id}`
+                    `${CVE_INTEL_API_BASE}/vulnerability/${pathSegment(cve_id)}`
                 );
-                const data = await response.json();
+                const data = await readJson(response);
 
                 return {
                     content: [
@@ -83,16 +85,10 @@ WHEN TO USE:
                     ],
                 };
             } catch (error) {
-                const msg =
-                    error instanceof Error ? error.message : String(error);
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Error retrieving vulnerability details: ${msg}`,
-                        },
-                    ],
-                };
+                return toolErrorFrom(
+                    error,
+                    'Error retrieving vulnerability details'
+                );
             }
         }
     );
@@ -197,7 +193,7 @@ TECHNOLOGY MATCHING:
                     `${CVE_INTEL_API_BASE}/vulnerabilities`,
                     requestPayload
                 );
-                const data = await response.json();
+                const data = await readJson(response);
 
                 return {
                     content: [
@@ -208,16 +204,7 @@ TECHNOLOGY MATCHING:
                     ],
                 };
             } catch (error) {
-                const msg =
-                    error instanceof Error ? error.message : String(error);
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Error searching vulnerabilities: ${msg}`,
-                        },
-                    ],
-                };
+                return toolErrorFrom(error, 'Error searching vulnerabilities');
             }
         }
     );

@@ -151,9 +151,14 @@ export class SettingsManager {
    * options, keyed by environment-variable name). HTTP sessions take basic
    * keys from them when the caller doesn't send its own, and their whole
    * connection set when the caller sends none of it.
+   *
+   * A settings class can resolve these values first with a static
+   * `adjustOperatorValues(values)`, for a value whose meaning depends on
+   * other environment variables (quantum-infra derives REGION this way).
    */
   setOperatorValues(values: Record<string, unknown>): void {
-    this.operatorValues = canonicalizeAliases(operatorHeaders(values), this.headerAliases);
+    const adjusted = this.settingsClass?.adjustOperatorValues?.(values) ?? values;
+    this.operatorValues = canonicalizeAliases(operatorHeaders(adjusted), this.headerAliases);
   }
 
   /**
