@@ -11,7 +11,7 @@
 //   prepack:  node ../../scripts/strip-bundled-deps.js
 //   postpack: node ../../scripts/strip-bundled-deps.js restore
 
-import { readFileSync, writeFileSync, copyFileSync, unlinkSync, existsSync, readdirSync, statSync } from 'fs';
+import { readFileSync, writeFileSync, copyFileSync, unlinkSync, existsSync, readdirSync, statSync, mkdtempSync, renameSync, rmSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -23,16 +23,15 @@ const [,, command] = process.argv;
 
 if (command === 'restore') {
   if (existsSync(backupPath)) {
-    copyFileSync(backupPath, pkgPath);
+    replacePackageJson(readFileSync(backupPath, 'utf8'));
     unlinkSync(backupPath);
   }
 } else {
   const workspacePackageNames = getWorkspacePackageNames();
 
   const content = readFileSync(pkgPath, 'utf8');
-  copyFileSync(pkgPath, backupPath);
-
   const pkg = JSON.parse(content);
+  copyFileSync(pkgPath, backupPath);
   if (pkg.dependencies) {
     pkg.dependencies = Object.fromEntries(
       Object.entries(pkg.dependencies).filter(([name]) => !workspacePackageNames.has(name))
@@ -42,7 +41,22 @@ if (command === 'restore') {
     }
   }
 
-  writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+  replacePackageJson(JSON.stringify(pkg, null, 2) + '\n');
+}
+
+// Other packages' prepack hooks scan this manifest while publishing in parallel.
+// Stage both stripping and restoration on the same filesystem, then rename so
+// readers always see a complete manifest. Copy first to preserve file permissions.
+function replacePackageJson(content) {
+  const tempDir = mkdtempSync(resolve(dirname(pkgPath), '.package-json-'));
+  const tempPath = resolve(tempDir, 'package.json');
+  try {
+    copyFileSync(pkgPath, tempPath);
+    writeFileSync(tempPath, content);
+    renameSync(tempPath, pkgPath);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
 }
 
 function getWorkspacePackageNames() {
