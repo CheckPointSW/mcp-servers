@@ -9,6 +9,10 @@ on:
         type: boolean
         default: false
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -48,7 +52,7 @@ jobs:
           publish: npm run release
           createGithubReleases: false  # handled in tag-and-release job
           # No 'version:' — versioning is managed by the internal repo.
-          # This action only publishes packages whose version has no git tag yet.
+          # This action only publishes versions missing from npm.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # No NPM token: publishing authenticates via npm trusted publishing (OIDC, id-token: write)
@@ -57,7 +61,8 @@ jobs:
   tag-and-release:
     runs-on: checkpointsw-scaleset
     needs: publish
-    if: needs.publish.outputs.published == 'true' || inputs.force_mcpb_release
+    # Reconcile successful npm publishes even when another package failed.
+    if: ${{ !cancelled() && needs.publish.result != 'skipped' }}
     permissions:
       contents: write
     steps:
@@ -65,38 +70,33 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Push git tags
-        if: needs.publish.outputs.published == 'true'
-        run: |
-          echo '${{ needs.publish.outputs.publishedPackages }}' | \
-            jq -r '.[] | .name + "@" + .version' | \
-            while read tag; do
-              git tag "$tag" || echo "Tag $tag already exists"
-              git push origin "$tag" || echo "Failed to push tag $tag"
-            done
-
-      - name: Create GitHub releases for npm packages
-        if: needs.publish.outputs.published == 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo '${{ needs.publish.outputs.publishedPackages }}' | \
-            jq -r '.[] | .name + "@" + .version' | \
-            while read tag; do
-              gh release create "$tag" --title "$tag" --notes "" || echo "Release $tag already exists"
-            done
-
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
 
+      - name: Reconcile npm package tags and GitHub releases
+        id: reconcile
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXPECTED_PUBLISHED_PACKAGES: ${{ needs.publish.outputs.publishedPackages }}
+        run: node scripts/reconcile-npm-releases.js --apply
+
+      - name: Determine whether to build MCPB
+        id: gate
+        env:
+          BUILD_MCPB: ${{ needs.publish.result == 'success' && (needs.publish.outputs.published == 'true' || steps.reconcile.outputs.changed == 'true' || inputs.force_mcpb_release == true) }}
+        run: echo "build=$BUILD_MCPB" >> "$GITHUB_OUTPUT"
+
       - run: npm ci
+        if: steps.gate.outputs.build == 'true'
 
       - name: Build all packages
+        if: steps.gate.outputs.build == 'true'
         run: npm run build:all
 
       # Build MCPB packages after NPM packages are built
       - name: Build MCPB packages
+        if: steps.gate.outputs.build == 'true'
         run: |
           echo "🏗️ Building MCPB packages..."
           npm run build:mcpb || echo "⚠️ MCPB build failed"
@@ -110,6 +110,7 @@ jobs:
           fi
 
       - name: Create MCPB Release
+        if: steps.gate.outputs.build == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -204,7 +205,7 @@ jobs:
                 filename=$(basename "$mcpb_file")
                 latest_url="https://github.com/${{ github.repository }}/releases/latest/download/$filename"
                 echo "🔗 Testing URL: $latest_url"
-                if curl -I "$latest_url" 2>/dev/null | grep -q "200 OK"; then
+                if curl --fail --silent --show-error --location --head "$latest_url" >/dev/null; then
                   echo "✅ Latest URL works: $filename"
                 else
                   echo "⚠️ Latest URL not ready yet: $filename (this may be normal immediately after release creation)"
@@ -254,6 +255,7 @@ jobs:
         if: always()
         env:
           PUBLISHED_PACKAGES: ${{ needs.publish.outputs.publishedPackages }}
+          RECONCILED_PACKAGES: ${{ steps.reconcile.outputs.packages }}
         run: |
           echo "## 📊 Public Release Workflow Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -261,7 +263,16 @@ jobs:
           echo "Workflow Complete: **$(date '+%Y-%m-%d %H:%M:%S')**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          if [ "${{ needs.publish.outputs.published }}" == "true" ] && [ -n "$PUBLISHED_PACKAGES" ] && [ "$PUBLISHED_PACKAGES" != "[]" ]; then
+          if [ -n "$RECONCILED_PACKAGES" ] && [ "$RECONCILED_PACKAGES" != "[]" ]; then
+            echo "### GitHub package metadata repaired: $(echo "$RECONCILED_PACKAGES" | jq 'length')" >> $GITHUB_STEP_SUMMARY
+            echo "$RECONCILED_PACKAGES" | jq -r '.[] | "- `" + .name + "@" + .version + "`"' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.publish.result }}" != "success" ]; then
+            echo "### npm publishing did not complete successfully" >> $GITHUB_STEP_SUMMARY
+            echo "Some versions may have published before the failure. See the publish logs and metadata repairs above." >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.publish.outputs.published }}" == "true" ] && [ -n "$PUBLISHED_PACKAGES" ] && [ "$PUBLISHED_PACKAGES" != "[]" ]; then
             NPM_COUNT=$(echo "$PUBLISHED_PACKAGES" | jq 'length')
             echo "### 📦 NPM Packages Published: $NPM_COUNT" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
