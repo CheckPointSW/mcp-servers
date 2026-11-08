@@ -1,0 +1,3 @@
+/** Client-side discovery hints; the server does not connect to management MCPs. */
+export const managementDiscoveryGuidance =
+    'Management type. Reuse confirmed values. For missing self-hosted addresses, use the selected management MCP; initialize its configured connection if required, then read relevant management/log-server objects with full details. Confirm management/domain and address mapping with the user; API URLs, gateway IPs and object IPs alone do not prove reachability. Use authenticated cloud operations metadata for network/NAT mapping if available; otherwise ask for unresolved inputs. For Smart-1 Cloud, omit self-hosted addresses. Never retrieve credentials or SIC keys, modify objects or initialize SIC for discovery.';

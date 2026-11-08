@@ -1,6 +1,6 @@
 {
   "name": "@chkp/spark-management-mcp",
-  "version": "1.4.15",
+  "version": "1.4.16",
   "description": "MCP server for Spark Management",
   "type": "module",
   "main": "dist/index.js",

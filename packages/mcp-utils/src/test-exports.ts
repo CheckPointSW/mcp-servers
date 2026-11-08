@@ -5,6 +5,7 @@ export { SessionManager } from './session-manager.js';
 export type { SessionInfo } from './session-manager.js';
 export { createApiRunner, createServerModule, getHeaderValue } from './server-utils.js';
 export { debugLoggableKeys, debugView, normalizeDebugKey, sessionLogLabel } from './debug-view.js';
+export { resolveTransportType } from './cli-options.js';
 export {
   McpErrorCode,
   McpToolError,
