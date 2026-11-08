@@ -1,0 +1,72 @@
+{
+    "name": "cloud-firewall",
+    "description": "MCP server for Check Point Cloud Firewall management",
+    "options": [
+        {
+            "flag": "--client-id <id>",
+            "description": "Infinity Portal API client ID",
+            "env": "CFW_CLIENT_ID",
+            "required": false,
+            "type": "string",
+            "help": "Create an API key for the Cloud Firewall service in the Infinity Portal and enter its Client ID."
+        },
+        {
+            "flag": "--access-key <key>",
+            "description": "Infinity Portal API access key",
+            "env": "CFW_ACCESS_KEY",
+            "required": false,
+            "type": "string",
+            "help": "Enter the Secret Key from the same Infinity Portal API key as the Client ID."
+        },
+        {
+            "flag": "--region <region>",
+            "description": "Infinity Portal account region",
+            "env": "CFW_REGION",
+            "required": false,
+            "type": "string",
+            "help": "Your Infinity Portal account region: EU, US, AU, IN, AE, CA or JP. This is not your cloud deployment region. Defaults to EU."
+        },
+        {
+            "flag": "--mode <mode>",
+            "description": "Server mode (advisor or write)",
+            "env": "CFW_MODE",
+            "required": false,
+            "type": "string",
+            "help": "Choose advisor (read-only) to inspect deployments, or write to also create deployments and request Azure VNet peerings. Defaults to advisor."
+        },
+        {
+            "flag": "--cpcf-env <env>",
+            "description": "Advanced Cloud Firewall gateway environment (default prod)",
+            "env": "CFW_CPCF_ENV",
+            "hidden": true,
+            "required": false,
+            "type": "string",
+            "help": "Path segment in /app/cloud-firewall/<env>/api/v1. Leave unset unless instructed by Check Point support. Lowercase alphanumeric/dash, max 32 chars."
+        },
+        {
+            "flag": "--gateway-url <url>",
+            "description": "Advanced cloudinfra gateway host override",
+            "env": "CFW_GATEWAY_URL",
+            "hidden": true,
+            "required": false,
+            "type": "string",
+            "help": "Full gateway origin. Leave unset unless instructed by Check Point support. Must be https and under checkpoint.com - the Infinity Portal token is sent to this host. Defaults to the region's production gateway."
+        },
+        {
+            "flag": "--auth-kind <kind>",
+            "description": "Infinity Portal key type",
+            "env": "CFW_AUTH_KIND",
+            "required": false,
+            "type": "string",
+            "help": "Choose auto to detect the key type, service for an API key, or user for a user key. Defaults to auto."
+        },
+        {
+            "flag": "--cloud-infra-token <token>",
+            "description": "Infinity Portal token forwarded by the MCP hosting platform",
+            "env": "CLOUD_INFRA_TOKEN",
+            "required": false,
+            "type": "string",
+            "hidden": true
+        }
+    ]
+}

@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src"
+  },
+  "references": [{ "path": "../infra" }, { "path": "../mcp-utils" }],
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "__tests__", "**/*.test.ts", "**/*.spec.ts"]
+}

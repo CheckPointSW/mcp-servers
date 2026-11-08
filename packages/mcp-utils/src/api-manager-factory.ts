@@ -8,6 +8,8 @@ import { sessionLogLabel } from './debug-view.js';
  */
 export class APIManagerFactory {
   private apiManagerMap: Map<string, any> = new Map();
+  // The connection source each cached manager was built from
+  private apiManagerSources: Map<string, string | undefined> = new Map();
   private defaultSessionId: string = 'default';
   private apiManagerClass: any;
   private settingsManager: any;
@@ -35,6 +37,13 @@ export class APIManagerFactory {
       console.error('[APIManagerFactory.getAPIManager] Verbose: Getting API manager for session:', sessionLogLabel(sid));
     }
 
+    // A manager built from one connection source (for example the operator's
+    // credentials) must never serve the session after it moved to another.
+    const source = this.settingsManager.getConnectionSource?.(sid);
+    if (this.apiManagerMap.has(sid) && this.apiManagerSources.get(sid) !== source) {
+      this.apiManagerMap.delete(sid);
+    }
+
     if (!this.apiManagerMap.has(sid)) {
       if (verbose) {
         console.error('[APIManagerFactory.getAPIManager] Verbose: API manager not in cache, creating new one');
@@ -54,6 +63,7 @@ export class APIManagerFactory {
 
       // Store in map
       this.apiManagerMap.set(sid, apiManager);
+      this.apiManagerSources.set(sid, source);
     } else if (verbose) {
       console.error('[APIManagerFactory.getAPIManager] Verbose: Using cached API manager');
     }
@@ -102,6 +112,7 @@ export class APIManagerFactory {
   clearSession(sessionId: string): void {
     if (sessionId !== this.defaultSessionId) {
       this.apiManagerMap.delete(sessionId);
+      this.apiManagerSources.delete(sessionId);
     }
   }
 }

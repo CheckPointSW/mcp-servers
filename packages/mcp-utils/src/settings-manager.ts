@@ -261,13 +261,21 @@ export class SettingsManager {
     }
   }
 
+  /** The connection source recorded for a session, if any. */
+  getConnectionSource(sessionId: string): ConnectionSource | undefined {
+    return this.sessionSources.get(sessionId);
+  }
+
   /**
-   * The session's connection source: decided by the request that creates the
-   * session and kept for its lifetime, so a later request cannot switch it.
+   * The session's connection source. Once a request sends connection headers
+   * the session is 'caller' for its lifetime, so it can never fall back to
+   * the operator's values. A session that started as 'operator' moves to
+   * 'caller' when a later request sends connection headers: gateways (such as
+   * Check Point's MCP hosting) may send credentials only after `initialize`.
    */
   private connectionSource(headers: HeaderRecord, sessionId?: string): ConnectionSource {
     const known = sessionId ? this.sessionSources.get(sessionId) : undefined;
-    if (known) return known;
+    if (known === 'caller') return known;
     const source = chooseConnectionSource(
       headersRead((h) => this.settingsClass.fromHeaders(h), headers),
       this.basicKeys
