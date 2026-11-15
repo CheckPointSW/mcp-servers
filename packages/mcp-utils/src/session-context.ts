@@ -1,4 +1,8 @@
+import { AsyncLocalStorage } from 'async_hooks';
 import { sessionLogLabel } from './debug-view.js';
+
+// The request ID of the stateless HTTP request being handled, if any.
+const requestIdStorage = new AsyncLocalStorage<string>();
 
 /**
  * Helper class to extract and manage session information for MCP tool callbacks.
@@ -76,13 +80,28 @@ export class SessionContext {
   }
   
   /**
-   * Get the current session ID from the MCP extra context
+   * Run fn with a request ID that getSessionId returns for everything fn does,
+   * including its async continuations. Stateless HTTP runs each request in
+   * one, since such a request has no MCP session ID.
+   */
+  static runWithRequestId<T>(requestId: string, fn: () => T): T {
+    return requestIdStorage.run(requestId, fn);
+  }
+
+  /** The request ID set by runWithRequestId, when running inside one. */
+  static getRequestId(): string | undefined {
+    return requestIdStorage.getStore();
+  }
+
+  /**
+   * Get the current session ID: the stateless request ID when running inside
+   * runWithRequestId, otherwise the MCP session ID from the extra context
    * @param extra Extra context passed to MCP tool callbacks
    * @returns The session ID, or DEFAULT_SESSION_ID under stdio
-   * @throws Under HTTP transport when the context carries no session ID
+   * @throws Under HTTP transport when there is neither a request ID nor a session ID
    */
   static getSessionId(extra?: any): string {
-    const sessionId = extra?.transport?.sessionId || extra?.sessionId;
+    const sessionId = requestIdStorage.getStore() || extra?.transport?.sessionId || extra?.sessionId;
     if (sessionId) return sessionId;
 
     // Under HTTP every request belongs to its own session. The default

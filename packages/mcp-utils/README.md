@@ -109,7 +109,7 @@ my-mcp-server --transport http --transport-port 3000
 ```
 
 The server exposes:
-- `POST/GET/DELETE /mcp` — MCP protocol endpoint
+- `POST/GET/DELETE /mcp` — MCP protocol endpoint (stateless requests use POST only)
 - `GET /health` — server status (active session count, version)
 
 HTTP request bodies are limited to **4 MiB** by default. Set
@@ -132,6 +132,33 @@ rejection without logging or reporting their requested names through this guard.
 Other request methods receive a protocol-level invalid-parameters error.
 These shared limits also cover generated tools and nested collections; individual
 tool schemas may impose smaller limits.
+
+### Stateless mode
+
+Set `MCP_STATELESS_HTTP=true` to enable independent requests selected by the
+`X-MCP-Stateless: true` request header; both are required. Clients without this
+header retain their normal MCP sessions, including initialization, elicitation
+and session data.
+Each stateless request then:
+
+- needs no prior `initialize` (an `initialize` is still answered, so
+  stateless clients may initialize too) and gets no `Mcp-Session-Id`; an
+  incoming one is ignored;
+- resolves settings afresh using the normal HTTP header/operator configuration
+  precedence, including operator fallback when no caller connection settings are
+  supplied; callers send request-specific connection headers on every POST;
+- receives one JSON response. `GET` and `DELETE` return `405`;
+- leaves nothing behind: once the response is sent, its settings, API manager
+  and session data are dropped, and an API manager with a `logout()` method is
+  logged out.
+
+Stateless mode needs a server factory (`createMcpServer` with
+`createServerModule`); startup fails without one. It is off by default.
+
+Stateless Quantum management API calls require a caller-owned `X-chkp-sid`.
+Self-login fails with non-retryable `AUTH_FAILED` for these requests without
+requiring the global `MCP_REQUIRE_SID` setting; legacy clients keep their existing
+authentication behavior. The caller's management session is never logged out.
 
 ### Connecting an MCP client
 

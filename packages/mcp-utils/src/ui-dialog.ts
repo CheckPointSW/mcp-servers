@@ -1,5 +1,6 @@
 import { createServer, Server } from 'http';
 import { URL } from 'url';
+import { randomBytes } from 'crypto';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs';
@@ -30,6 +31,46 @@ export interface DialogResult {
   data: Record<string, string>;
 }
 
+const HTML_ESCAPES: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+};
+
+/** Escape a value for use in HTML text or a quoted attribute. */
+export function escapeHtml(value: unknown): string {
+  return String(value ?? '').replace(/[&<>"']/g, ch => HTML_ESCAPES[ch]);
+}
+
+/**
+ * Inline styles are allowed; scripts run only with the per-response nonce, so
+ * any markup that slips into the page cannot execute.
+ */
+function contentSecurityPolicy(nonce: string): string {
+  return [
+    "default-src 'none'",
+    `script-src 'nonce-${nonce}'`,
+    "style-src 'unsafe-inline'",
+    "connect-src 'self'",
+    "form-action 'self'",
+    "base-uri 'none'",
+    "frame-ancestors 'none'",
+  ].join('; ');
+}
+
+function sendHtml(res: any, render: (nonce: string) => string): void {
+  const nonce = randomBytes(16).toString('base64');
+  res.writeHead(200, {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Content-Security-Policy': contentSecurityPolicy(nonce),
+    'X-Content-Type-Options': 'nosniff',
+    'Cache-Control': 'no-store',
+  });
+  res.end(render(nonce));
+}
+
 class UIDialog {
   private server: Server | null = null;
   private port: number = 0;
@@ -38,7 +79,7 @@ class UIDialog {
   async showDialog(config: DialogConfig): Promise<DialogResult> {
     return new Promise((resolve, reject) => {
       this.resolve = resolve;
-      
+
       // Find available port
       this.server = createServer((req, res) => {
         this.handleRequest(req, res, config);
@@ -64,11 +105,9 @@ class UIDialog {
 
   private handleRequest(req: any, res: any, config: DialogConfig) {
     const url = new URL(req.url!, `http://localhost:${this.port}`);
-    
+
     if (req.method === 'GET' && url.pathname === '/') {
-      // Serve the dialog HTML
-      res.writeHead(200, { 'Content-Type': 'text/html' });
-      res.end(this.generateHTML(config));
+      sendHtml(res, nonce => generateDialogHTML(config, nonce));
     } else if (req.method === 'POST' && url.pathname === '/submit') {
       // Handle form submission
       let body = '';
@@ -78,19 +117,18 @@ class UIDialog {
       req.on('end', () => {
         const formData = new URLSearchParams(body);
         const result: Record<string, string> = {};
-        
+
         for (const field of config.fields) {
           result[field.name] = formData.get(field.name) || '';
         }
 
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(`
+        sendHtml(res, nonce => `
           <html>
             <head><title>Success</title></head>
             <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
               <h2>Form submitted successfully!</h2>
               <p>You can close this window now.</p>
-              <script>setTimeout(() => window.close(), 2000);</script>
+              <script nonce="${nonce}">setTimeout(() => window.close(), 2000);</script>
             </body>
           </html>
         `);
@@ -101,14 +139,13 @@ class UIDialog {
         }
       });
     } else if (req.method === 'POST' && url.pathname === '/cancel') {
-      res.writeHead(200, { 'Content-Type': 'text/html' });
-      res.end(`
+      sendHtml(res, nonce => `
         <html>
           <head><title>Cancelled</title></head>
           <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
             <h2>Form cancelled</h2>
             <p>You can close this window now.</p>
-            <script>setTimeout(() => window.close(), 2000);</script>
+            <script nonce="${nonce}">setTimeout(() => window.close(), 2000);</script>
           </body>
         </html>
       `);
@@ -121,180 +158,6 @@ class UIDialog {
       res.writeHead(404);
       res.end('Not found');
     }
-  }
-
-  private generateHTML(config: DialogConfig): string {
-    const fieldsHTML = config.fields.map(field => {
-      let fieldHTML = '';
-      const fieldType = field.type || 'text'; // Default to 'text' if not specified
-      
-      switch (fieldType) {
-        case 'textarea':
-          fieldHTML = `
-            <textarea 
-              name="${field.name}" 
-              placeholder="${field.placeholder || ''}"
-              ${field.required ? 'required' : ''}
-              style="width: 100%; box-sizing: border-box; min-height: 80px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: Arial, sans-serif; font-size: 14px; resize: vertical;"
-            >${field.defaultValue || ''}</textarea>
-          `;
-          break;
-        
-        case 'select':
-          fieldHTML = `
-            <select 
-              name="${field.name}" 
-              ${field.required ? 'required' : ''}
-              style="width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: Arial, sans-serif; font-size: 14px;"
-            >
-              <option value="">Select an option...</option>
-              ${(field.options || []).map(option => 
-                `<option value="${option}" ${option === field.defaultValue ? 'selected' : ''}>${option}</option>`
-              ).join('')}
-            </select>
-          `;
-          break;
-        
-        default:
-          fieldHTML = `
-            <input 
-              type="${fieldType}" 
-              name="${field.name}" 
-              placeholder="${field.placeholder || ''}"
-              value="${field.defaultValue || ''}"
-              ${field.required ? 'required' : ''}
-              style="width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: Arial, sans-serif; font-size: 14px;"
-            />
-          `;
-      }
-
-      return `
-        <div style="margin-bottom: 15px;">
-          <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">
-            ${field.label}${field.required ? ' *' : ''}
-          </label>
-          ${fieldHTML}
-        </div>
-      `;
-    }).join('');
-
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${config.title}</title>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-          <style>
-            * {
-              box-sizing: border-box;
-            }
-            body {
-              font-family: Arial, sans-serif;
-              max-width: 500px;
-              margin: 50px auto;
-              padding: 20px;
-              background-color: #f5f5f5;
-              line-height: 1.4;
-            }
-            .dialog {
-              background: white;
-              padding: 30px;
-              border-radius: 8px;
-              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            }
-            .buttons {
-              margin-top: 20px;
-              text-align: right;
-            }
-            button {
-              padding: 10px 20px;
-              margin-left: 10px;
-              border: none;
-              border-radius: 4px;
-              cursor: pointer;
-              font-size: 14px;
-              font-family: Arial, sans-serif;
-            }
-            .submit-btn {
-              background-color: #007cba;
-              color: white;
-            }
-            .submit-btn:hover {
-              background-color: #005a87;
-            }
-            .cancel-btn {
-              background-color: #6c757d;
-              color: white;
-            }
-            .cancel-btn:hover {
-              background-color: #545b62;
-            }
-            input:focus, textarea:focus, select:focus {
-              outline: none;
-              border-color: #007cba;
-              box-shadow: 0 0 0 2px rgba(0, 124, 186, 0.2);
-            }
-          </style>
-        </head>
-        <body>
-          <div class="dialog">
-            <h2 style="margin-top: 0; color: #333;">${config.title}</h2>
-            ${config.message ? `<p style="color: #666; margin-bottom: 20px;">${config.message}</p>` : ''}
-            
-            <form id="dialogForm" method="POST" action="/submit">
-              ${fieldsHTML}
-              
-              <div class="buttons">
-                <button type="button" class="cancel-btn" onclick="cancel()">
-                  ${config.cancelButtonText || 'Cancel'}
-                </button>
-                <button type="submit" class="submit-btn">
-                  ${config.submitButtonText || 'Submit'}
-                </button>
-              </div>
-            </form>
-          </div>
-
-          <script>
-            function cancel() {
-              fetch('/cancel', { method: 'POST' })
-                .then(() => {
-                  document.body.innerHTML = '<div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;"><h2>Cancelled</h2><p>You can close this window now.</p></div>';
-                  setTimeout(() => window.close(), 2000);
-                });
-            }
-
-            // Auto-focus first input
-            document.addEventListener('DOMContentLoaded', () => {
-              const firstInput = document.querySelector('input, textarea, select');
-              if (firstInput) {
-                firstInput.focus();
-                // If it's a text input, place cursor at end
-                if (firstInput.type === 'text' || firstInput.tagName === 'TEXTAREA') {
-                  const val = firstInput.value;
-                  firstInput.value = '';
-                  firstInput.value = val;
-                }
-              }
-            });
-
-            // Prevent form submission if required fields are empty
-            document.getElementById('dialogForm').addEventListener('submit', function(e) {
-              const requiredFields = document.querySelectorAll('[required]');
-              for (let field of requiredFields) {
-                if (!field.value.trim()) {
-                  e.preventDefault();
-                  field.focus();
-                  alert('Please fill in all required fields.');
-                  return false;
-                }
-              }
-            });
-          </script>
-        </body>
-      </html>
-    `;
   }
 
   private async openBrowser(urlString: string) {
@@ -365,6 +228,182 @@ class UIDialog {
       this.server = null;
     }
   }
+}
+
+/** Render the dialog page. Every config value is HTML-escaped. */
+export function generateDialogHTML(config: DialogConfig, nonce: string): string {
+  const fieldsHTML = config.fields.map(field => {
+    let fieldHTML = '';
+    const fieldType = field.type || 'text'; // Default to 'text' if not specified
+
+    switch (fieldType) {
+      case 'textarea':
+        fieldHTML = `
+          <textarea
+            name="${escapeHtml(field.name)}"
+            placeholder="${escapeHtml(field.placeholder)}"
+            ${field.required ? 'required' : ''}
+            style="width: 100%; box-sizing: border-box; min-height: 80px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: Arial, sans-serif; font-size: 14px; resize: vertical;"
+          >${escapeHtml(field.defaultValue)}</textarea>
+        `;
+        break;
+
+      case 'select':
+        fieldHTML = `
+          <select
+            name="${escapeHtml(field.name)}"
+            ${field.required ? 'required' : ''}
+            style="width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: Arial, sans-serif; font-size: 14px;"
+          >
+            <option value="">Select an option...</option>
+            ${(field.options || []).map(option =>
+              `<option value="${escapeHtml(option)}" ${option === field.defaultValue ? 'selected' : ''}>${escapeHtml(option)}</option>`
+            ).join('')}
+          </select>
+        `;
+        break;
+
+      default:
+        fieldHTML = `
+          <input
+            type="${escapeHtml(fieldType)}"
+            name="${escapeHtml(field.name)}"
+            placeholder="${escapeHtml(field.placeholder)}"
+            value="${escapeHtml(field.defaultValue)}"
+            ${field.required ? 'required' : ''}
+            style="width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: Arial, sans-serif; font-size: 14px;"
+          />
+        `;
+    }
+
+    return `
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">
+          ${escapeHtml(field.label)}${field.required ? ' *' : ''}
+        </label>
+        ${fieldHTML}
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>${escapeHtml(config.title)}</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          * {
+            box-sizing: border-box;
+          }
+          body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+            line-height: 1.4;
+          }
+          .dialog {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          }
+          .buttons {
+            margin-top: 20px;
+            text-align: right;
+          }
+          button {
+            padding: 10px 20px;
+            margin-left: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: Arial, sans-serif;
+          }
+          .submit-btn {
+            background-color: #007cba;
+            color: white;
+          }
+          .submit-btn:hover {
+            background-color: #005a87;
+          }
+          .cancel-btn {
+            background-color: #6c757d;
+            color: white;
+          }
+          .cancel-btn:hover {
+            background-color: #545b62;
+          }
+          input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #007cba;
+            box-shadow: 0 0 0 2px rgba(0, 124, 186, 0.2);
+          }
+        </style>
+      </head>
+      <body>
+        <div class="dialog">
+          <h2 style="margin-top: 0; color: #333;">${escapeHtml(config.title)}</h2>
+          ${config.message ? `<p style="color: #666; margin-bottom: 20px;">${escapeHtml(config.message)}</p>` : ''}
+
+          <form id="dialogForm" method="POST" action="/submit">
+            ${fieldsHTML}
+
+            <div class="buttons">
+              <button type="button" class="cancel-btn" id="cancelBtn">
+                ${escapeHtml(config.cancelButtonText || 'Cancel')}
+              </button>
+              <button type="submit" class="submit-btn">
+                ${escapeHtml(config.submitButtonText || 'Submit')}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <script nonce="${nonce}">
+          function cancel() {
+            fetch('/cancel', { method: 'POST' })
+              .then(() => {
+                document.body.innerHTML = '<div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;"><h2>Cancelled</h2><p>You can close this window now.</p></div>';
+                setTimeout(() => window.close(), 2000);
+              });
+          }
+          document.getElementById('cancelBtn').addEventListener('click', cancel);
+
+          // Auto-focus first input
+          document.addEventListener('DOMContentLoaded', () => {
+            const firstInput = document.querySelector('input, textarea, select');
+            if (firstInput) {
+              firstInput.focus();
+              // If it's a text input, place cursor at end
+              if (firstInput.type === 'text' || firstInput.tagName === 'TEXTAREA') {
+                const val = firstInput.value;
+                firstInput.value = '';
+                firstInput.value = val;
+              }
+            }
+          });
+
+          // Prevent form submission if required fields are empty
+          document.getElementById('dialogForm').addEventListener('submit', function(e) {
+            const requiredFields = document.querySelectorAll('[required]');
+            for (let field of requiredFields) {
+              if (!field.value.trim()) {
+                e.preventDefault();
+                field.focus();
+                alert('Please fill in all required fields.');
+                return false;
+              }
+            }
+          });
+        </script>
+      </body>
+    </html>
+  `;
 }
 
 /**

@@ -1,7 +1,7 @@
 // API client implementation for Check Point MCP servers
 import axios from 'axios';
 import https from 'https';
-import { classifyError, classifyHttpStatus, debugLoggableKeys, debugView, errorForLog, McpErrorCode, McpToolError } from '@chkp/mcp-utils';
+import { classifyError, classifyHttpStatus, debugLoggableKeys, debugView, errorForLog, McpErrorCode, McpToolError, SessionContext } from '@chkp/mcp-utils';
 
 /**
  * Management API request parameters whose values debug output may print.
@@ -93,6 +93,22 @@ export class ClientResponse {
 }
 
 /**
+ * Thrown when a stateless request or MCP_REQUIRE_SID forbids self-login.
+ */
+export class SidRequiredError extends McpToolError {
+  constructor() {
+    super(
+      McpErrorCode.AUTH_FAILED,
+      (SessionContext.getRequestId() !== undefined
+        ? 'Stateless management requests cannot log in by themselves. '
+        : 'MCP_REQUIRE_SID is set, so this server does not log in by itself. ') +
+      'Send a pre-authenticated management session ID in the X-chkp-sid header.',
+      { retryable: false }
+    );
+  }
+}
+
+/**
  * Base class for API clients
  */
 export abstract class APIClientBase {
@@ -101,6 +117,7 @@ export abstract class APIClientBase {
   protected sessionStart: number | null = null;   // timestamp when session was created
   protected isMDS: boolean = false; // Whether this is an MDS environment
   protected _externalSid: boolean = false; // Whether the SID was provided externally (X-chkp-sid)
+  protected _ownsSession: boolean = false; // Whether this client opened its session, and so must log it out
   private _debug?: boolean;
 
   constructor(
@@ -176,6 +193,7 @@ export abstract class APIClientBase {
   setExternalSid(sid: string): void {
     this.sid = sid;
     this._externalSid = true;
+    this._ownsSession = false;
     this.sessionStart = Date.now();
     this.sessionTimeout = Number.MAX_SAFE_INTEGER / 1000;
   }
@@ -224,6 +242,37 @@ export abstract class APIClientBase {
     return this.sid;
   }
 
+  /** Stateless requests must keep using a caller-owned management session. */
+  protected assertSelfLoginAllowed(): void {
+    if (SessionContext.getRequestId() !== undefined || process.env.MCP_REQUIRE_SID?.toLowerCase() === 'true') {
+      throw new SidRequiredError();
+    }
+  }
+
+  /**
+   * Log out the session this client opened itself. A session it was handed
+   * (X-chkp-sid) belongs to the caller and is never logged out. Never throws:
+   * if the logout fails, the session expires on the management server.
+   */
+  async logout(): Promise<void> {
+    if (!this._ownsSession || !this.sid) return;
+    const headers = this.getHeaders();
+    this._ownsSession = false;
+    this.sid = null;
+    this.sessionStart = null;
+
+    let httpsAgent;
+    if (this instanceof OnPremAPIClient) {
+      // Allow self-signed certs for on-prem management servers
+      httpsAgent = new https.Agent({ rejectUnauthorized: false });
+    }
+    try {
+      await this.makeRequest(this.getHost(), 'POST', 'logout', {}, headers, null, httpsAgent);
+    } catch (error) {
+      console.error(`Logout failed: ${errorForLog(error)}`);
+    }
+  }
+
   /**
    * Create a new API client instance with a specific session ID
    * Used for domain-specific clients in MDS environments
@@ -237,9 +286,10 @@ export abstract class APIClientBase {
     const newClient = Object.create(Object.getPrototypeOf(originalClient));
     Object.assign(newClient, originalClient);
     
-    // Set the new session ID
+    // Set the new session ID. It was opened for this client (login-to-domain), so it is ours to log out.
     newClient.sid = sid;
     newClient.sessionStart = Date.now();
+    newClient._ownsSession = true;
     
     return newClient;
   }
@@ -262,6 +312,9 @@ export abstract class APIClientBase {
    * its body is the credentials.
    */
   private loginFailure(error: unknown, attempt: 'Login' | 'Login retry'): McpToolError {
+    if (error instanceof SidRequiredError) {
+      return error;
+    }
     if (error instanceof ClientResponse) {
       // The management server answered and refused. Its reply is safe to log.
       console.error(`${attempt} failed with status ${error.status}:`, error.response);
@@ -385,6 +438,7 @@ export abstract class APIClientBase {
       if (!this.sid) throw new Error('External SID has expired');
       return this.sid;
     }
+    this.assertSelfLoginAllowed();
     const apiTokenHeader = this.tokenType === TokenType.API_KEY ? "api-key" : "ci-token";
     const loginResp = await this.makeRequest(
       this.getHost(),
@@ -397,6 +451,7 @@ export abstract class APIClientBase {
       throw loginResp;
     }
     this.sid = loginResp.response.sid;
+    this._ownsSession = true;
 
     this.sessionTimeout = loginResp.response["session-timeout"] || null;
     this.sessionStart = Date.now();
@@ -631,6 +686,7 @@ export class OnPremAPIClient extends APIClientBase {
       if (!this.sid) throw new Error('External SID has expired');
       return this.sid;
     }
+    this.assertSelfLoginAllowed();
     // Determine if we're using API key or username/password
     const isUsingApiKey = !!this.authToken;
     const isUsingCredentials = !!(this.username && this.password);
@@ -670,6 +726,7 @@ export class OnPremAPIClient extends APIClientBase {
     }
 
     this.sid = loginResp.response.sid;
+    this._ownsSession = true;
     this.sessionTimeout = loginResp.response["session-timeout"] || null;
     this.sessionStart = Date.now();
 
