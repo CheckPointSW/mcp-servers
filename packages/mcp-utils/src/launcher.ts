@@ -12,6 +12,7 @@ import { booleanOptionDefault, operatorValues, optionKey, resolveTransportType }
 import { sessionLogLabel } from './debug-view.js';
 import { classifyError, errorForLog } from './errors.js';
 import { maxHttpBodyBytes, readHttpBody } from './http-body.js';
+import { SessionContext } from './session-context.js';
 
 export interface CliOption {
   flag: string;
@@ -281,6 +282,19 @@ async function launchHTTPServer(
   port: number
 ): Promise<void> {
   const bodyLimit = maxHttpBodyBytes();
+
+  // Stateless requests opt in explicitly; initialized clients keep their sessions.
+  const stateless = process.env.MCP_STATELESS_HTTP?.toLowerCase() === 'true';
+  if (stateless) {
+    if (!serverModule.createServerInstance) {
+      throw new Error(
+        'MCP_STATELESS_HTTP needs a server module with createServerInstance: ' +
+        'create the server with createMcpServer, or pass a server factory to createServerModule.'
+      );
+    }
+    console.error('[launchHTTPServer] Stateless HTTP enabled for requests carrying X-MCP-Stateless: true');
+  }
+
   // Map to store transports by session ID
   const transports: Record<string, StreamableHTTPServerTransport> = {};
 
@@ -291,6 +305,17 @@ async function launchHTTPServer(
   const server = http.createServer(async (req, res) => {
     // Handle requests to the root URL
     if (req.url === '/' || req.url === '/mcp') {
+      const statelessHeader = req.headers['x-mcp-stateless'];
+      if (typeof statelessHeader === 'string' && statelessHeader.toLowerCase() === 'true') {
+        if (!stateless) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32000, message: 'Stateless HTTP is disabled' }, id: null }));
+          return;
+        }
+        await handleStatelessRequest(req, res, config, serverModule, bodyLimit);
+        return;
+      }
+
       // Get the session ID from headers
       const sessionId = req.headers['mcp-session-id'] as string | undefined;
       
@@ -529,6 +554,127 @@ async function launchHTTPServer(
   server.on('error', (err) => {
     console.error(`Server error: ${err.message}`);
   });
+}
+
+/**
+ * Handle one MCP request in stateless mode (MCP_STATELESS_HTTP=true).
+ *
+ * Every POST is self-contained: its settings come from its own headers, it
+ * gets a fresh server and transport, and it needs no prior initialize. No
+ * Mcp-Session-Id is issued and any incoming one is ignored. Once the response
+ * has been sent and the request handling has finished, everything the request
+ * created is dropped, and any management session it logged in to itself is
+ * logged out.
+ */
+async function handleStatelessRequest(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  config: ServerConfig,
+  serverModule: ServerModule,
+  bodyLimit: number
+): Promise<void> {
+  if (req.method !== 'POST') {
+    // There is no session to stream to or terminate.
+    res.writeHead(405, { 'Content-Type': 'application/json', 'Allow': 'POST' });
+    res.end(JSON.stringify({
+      jsonrpc: '2.0',
+      error: {
+        code: -32000,
+        message: 'Method not allowed: this server is stateless and only accepts POST',
+      },
+      id: null,
+    }));
+    return;
+  }
+
+  // Registered before anything can end the response, so its close is never missed.
+  const responseClosed = new Promise<void>((resolve) => res.once('close', () => resolve()));
+
+  let body: unknown;
+  try {
+    const bodyBuffer = await readHttpBody(req, res, bodyLimit);
+    if (bodyBuffer === null) return;
+    const bodyText = bodyBuffer.toString('utf8');
+    if (bodyText) {
+      body = JSON.parse(bodyText);
+    }
+  } catch (err) {
+    // Left to the transport, which answers an unreadable body with a JSON-RPC parse error.
+    console.error(`Error reading request body: ${errorForLog(err)}`);
+  }
+
+  const requestId = randomUUID();
+  const mcpServer = serverModule.createServerInstance!();
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+    enableJsonResponse: true,
+  });
+
+  try {
+    serverModule.sessionManager.createSession(requestId, {
+      type: 'stateless-http',
+      userAgent: req.headers['user-agent'],
+      remoteAddress: req.socket.remoteAddress,
+    });
+    serverModule.settingsManager.createFromHeaders(headersToEnvVars(req.headers, config), requestId);
+    await mcpServer.connect(transport);
+    // Tools find this request's settings and API manager through the request ID.
+    await SessionContext.runWithRequestId(requestId, () => transport.handleRequest(req, res, body));
+  } catch (error) {
+    console.error(`Error handling stateless POST request: ${errorForLog(error)}`);
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        jsonrpc: '2.0',
+        error: {
+          code: -32000,
+          message: 'Internal server error: ' + (error as Error).message,
+        },
+        id: null,
+      }));
+    } else if (!res.writableEnded) {
+      res.end();
+    }
+  } finally {
+    // Wait for the response to close, so a client that is still reading is not
+    // cut short and a tool still running is not logged out from under.
+    await responseClosed;
+    await releaseStatelessRequest(serverModule, requestId, mcpServer, transport);
+  }
+}
+
+/**
+ * Drop everything a stateless request created and log out any management
+ * session it opened itself. Settings are cleared first, so nothing can build a
+ * new API manager (and log in again) for the request once its own is gone.
+ */
+async function releaseStatelessRequest(
+  serverModule: ServerModule,
+  requestId: string,
+  mcpServer: any,
+  transport: StreamableHTTPServerTransport
+): Promise<void> {
+  for (const closable of [mcpServer, transport]) {
+    try {
+      await closable.close();
+    } catch (error) {
+      console.error(`Error closing stateless request: ${errorForLog(error)}`);
+    }
+  }
+  try {
+    serverModule.settingsManager.clearSession(requestId);
+    const factory = serverModule.apiManagerFactory;
+    if (typeof factory.releaseSession === 'function') {
+      await factory.releaseSession(requestId);
+    } else {
+      factory.clearSession(requestId);
+    }
+  } catch (error) {
+    console.error(`Error releasing stateless request: ${errorForLog(error)}`);
+  } finally {
+    // Also clears the request's SessionContext data.
+    serverModule.sessionManager.removeSession(requestId);
+  }
 }
 
 /**

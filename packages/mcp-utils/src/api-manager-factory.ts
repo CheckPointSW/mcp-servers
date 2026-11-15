@@ -1,5 +1,6 @@
 import { SettingsManager } from './settings-manager.js';
 import { sessionLogLabel } from './debug-view.js';
+import { errorForLog } from './errors.js';
 
 /**
  * Factory class for creating and managing API managers for different sessions.
@@ -113,6 +114,26 @@ export class APIManagerFactory {
     if (sessionId !== this.defaultSessionId) {
       this.apiManagerMap.delete(sessionId);
       this.apiManagerSources.delete(sessionId);
+    }
+  }
+
+  /**
+   * Remove a session's API manager and log out any management session it
+   * opened itself (an API manager with no logout() is just removed). Stateless
+   * HTTP calls this at the end of every request, so no management session
+   * outlives the request that opened it. Never throws.
+   * @param sessionId The session ID to release
+   */
+  async releaseSession(sessionId: string): Promise<void> {
+    if (sessionId === this.defaultSessionId) return;
+    const apiManager = this.apiManagerMap.get(sessionId);
+    this.apiManagerMap.delete(sessionId);
+    this.apiManagerSources.delete(sessionId);
+    if (typeof apiManager?.logout !== 'function') return;
+    try {
+      await apiManager.logout();
+    } catch (error) {
+      console.error(`Logout of ${sessionLogLabel(sessionId)} failed: ${errorForLog(error)}`);
     }
   }
 }

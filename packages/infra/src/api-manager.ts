@@ -307,6 +307,19 @@ export abstract class APIManagerBase {
   }
 
   /**
+   * Log out every session this manager's clients opened themselves: the MDS
+   * domain sessions, then the main one. A pre-authenticated session
+   * (X-chkp-sid) belongs to the caller and is left open.
+   */
+  async logout(): Promise<void> {
+    const domainClients = Array.from(new Set(this.domainClients.values())).filter((c) => c !== this.client);
+    this.domainClients.clear();
+    this.gatewayDomainMap.clear();
+    await Promise.all(domainClients.map((c) => c.logout()));
+    await this.client.logout();
+  }
+
+  /**
    * Get the appropriate API client for a specific gateway, handling MDS domain routing
    */
   async getDomainApiClient(gatewayName: string): Promise<APIClientBase> {

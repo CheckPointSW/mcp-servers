@@ -1,4 +1,28 @@
+import { isIP } from 'net';
 import { McpErrorCode, McpToolError, SessionContext } from '@chkp/mcp-utils';
+
+// An optional trailing root dot is allowed (absolute hostname); it does not count toward the 253-character limit.
+const HOSTNAME_PATTERN = /^(?=.{1,253}\.?$)[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.?$/;
+
+/** Blank means the default port; anything other than plain digits is left invalid for validation to reject. */
+function parseDialogPort(value: string | undefined): number {
+  const trimmed = (value ?? '').trim();
+  if (trimmed === '') return 443;
+  return /^\d+$/.test(trimmed) ? Number(trimmed) : NaN;
+}
+
+/**
+ * The gateway address reaches the credentials dialog and the API URL, and may
+ * come from a model-supplied tool argument, so only a bare IP or hostname is accepted.
+ */
+function validateConnectionDetails(gatewayIp: string, port: number): void {
+  if (isIP(gatewayIp) === 0 && !HOSTNAME_PATTERN.test(gatewayIp)) {
+    throw new McpToolError(McpErrorCode.VALIDATION_ERROR, 'gateway_ip must be an IP address or hostname');
+  }
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new McpToolError(McpErrorCode.VALIDATION_ERROR, 'port must be an integer between 1 and 65535');
+  }
+}
 
 export interface GaiaConnection {
   gatewayIp: string;
@@ -51,15 +75,17 @@ export async function getGaiaConnection(
     }
     
     connectionDetails = {
-      gatewayIp: gatewayResult.data.gateway_ip,
-      port: parseInt(gatewayResult.data.port) || 443
+      gatewayIp: (gatewayResult.data.gateway_ip || '').trim(),
+      port: parseDialogPort(gatewayResult.data.port)
     };
   } else {
     connectionDetails = {
       gatewayIp,
-      port: port || 443
+      port: port ?? 443
     };
   }
+
+  validateConnectionDetails(connectionDetails.gatewayIp, connectionDetails.port);
 
   // Step 2: Get credentials for this specific gateway+port combination
   const connectionKey = `${connectionDetails.gatewayIp}:${connectionDetails.port}`;
@@ -71,14 +97,6 @@ export async function getGaiaConnection(
     dialogMessage: `Please provide credentials for gateway: ${connectionKey}`,
     expirationMinutes: 15, // 15 minutes as suggested
     customFields: [
-      {
-        name: "address",
-        label: "Address", 
-        type: "text",
-        defaultValue: connectionKey, // Pre-fill with gateway:port
-        required: true,
-        placeholder: connectionKey
-      },
       {
         name: "user",
         label: "Username",

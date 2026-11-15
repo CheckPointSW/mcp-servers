@@ -264,8 +264,34 @@ npx @chkp/quantum-management-mcp --transport http --transport-port 3000
 ```
 
 The server exposes:
-- `POST/GET/DELETE /mcp` — MCP protocol endpoint
+- `POST/GET/DELETE /mcp` — MCP protocol endpoint (stateless requests use POST only)
 - `GET /health` — server status (active session count, version)
+
+### Stateless mode
+
+Enable `MCP_STATELESS_HTTP=true` on the server and send `X-MCP-Stateless: true`
+on every stateless request. Both are required:
+
+```bash
+MCP_STATELESS_HTTP=true npx @chkp/quantum-management-mcp --transport http --transport-port 3000
+```
+
+Requests carrying `X-MCP-Stateless: true` are handled independently: they need no
+`initialize`, get no
+`Mcp-Session-Id`, and `GET`/`DELETE` return `405`. Requests without that header keep
+normal initialized MCP sessions on the same endpoint. Settings use the normal
+HTTP header/operator configuration precedence. Send `X-chkp-sid` and the
+connection headers for its management (for example `S1C-URL` or
+`MANAGEMENT-HOST`) on every stateless request.
+
+Stateless management API calls require a caller-owned `X-chkp-sid`. The server
+uses that session as is and never logs it out. It refuses to log in without one,
+returning a non-retryable `AUTH_FAILED` error.
+
+This requirement applies per stateless request and does not require setting
+`MCP_REQUIRE_SID` globally. Legacy session-based clients keep their existing
+authentication behavior. Set `MCP_REQUIRE_SID=true` only to forbid self-login
+in all modes as well.
 
 ### Connecting an MCP client
 
